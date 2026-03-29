@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>YU-BOOK | 로그인</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        /* 로그인 페이지 전용 스타일 (중앙 정렬) */
+        body { 
+            background-color: #f5f5f5; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh; 
+        }
+        
+        .login-wrapper { width: 100%; max-width: 400px; background-color: #fff; padding: 50px 40px; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .login-logo { font-size: 32px; font-weight: 900; text-align: center; margin-bottom: 40px; color: #333; letter-spacing: -1px; }
+        
+        .input-group { margin-bottom: 15px; }
+        .input-group input { width: 100%; padding: 15px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; outline: none; }
+        .input-group input:focus { border-color: #00796b; }
+        
+        .btn-login { width: 100%; padding: 15px; background-color: #00796b; color: #fff; font-size: 16px; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        .btn-login:hover { background-color: #005a4f; }
+        
+        .login-utils { display: flex; justify-content: space-between; margin-top: 20px; font-size: 13px; color: #777; }
+        .login-utils a { color: #777; text-decoration: none; }
+        .login-utils a:hover { text-decoration: underline; color: #333; }
+        
+        .join-text { text-align: center; margin-top: 40px; font-size: 14px; color: #555; border-top: 1px solid #eee; padding-top: 20px; }
+        .join-text a { color: #00796b; font-weight: 700; text-decoration: none; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="login-wrapper">
+        <a href="prototype_1.html" style="display:block; text-align:center; text-decoration:none;"><div class="login-logo">YU-BOOK</div></a>
+        
+        <form>
+            <div class="input-group">
+                <input type="text" placeholder="아이디 (학번)">
+            </div>
+            <div class="input-group">
+                <input type="password" placeholder="비밀번호">
+            </div>
+            
+            <button type="button" class="btn-login">로그인</button>
+        </form>
+        
+        <div class="login-utils">
+            <label><input type="checkbox"> 로그인 유지</label>
+            <div>
+                <a href="#">아이디 찾기</a> | <a href="#">비밀번호 찾기</a>
+            </div>
+        </div>
+        
+        <div class="join-text">
+            아직 YU-BOOK 회원이 아니신가요? 
+            <a href="#">회원가입</a>
+        </div>
+    </div>
+</body>
+</html>

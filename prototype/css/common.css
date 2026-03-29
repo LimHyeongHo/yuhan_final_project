@@ -1,0 +1,132 @@
+/* 기본 스타일 초기화 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Noto Sans KR', sans-serif;
+}
+
+body {
+    background-color: #fff;
+    color: #333;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+ul {
+    list-style: none;
+}
+
+/* 공통 플레이스홀더 스타일 */
+.img-placeholder {
+    background-color: #d9d9d9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #555;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    border: 1px solid #ccc;
+}
+
+/* --- 헤더 (Header) --- */
+header {
+    width: 100%;
+    border-bottom: 1px solid #eee;
+    background-color: #fff;
+}
+
+.top-bar {
+    width: 100%;
+    background-color: #fafafa;
+    border-bottom: 1px solid #eee;
+    padding: 10px 0;
+}
+
+.top-bar-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: flex-end;
+    gap: 20px;
+    font-size: 12px;
+    color: #777;
+    padding: 0 20px;
+}
+
+.main-nav {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.logo {
+    font-size: 28px;
+    font-weight: 900;
+    color: #333;
+}
+
+.nav-menu {
+    display: flex;
+    gap: 40px;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.nav-menu li:hover {
+    color: #00796b;
+}
+
+.search-bar {
+    width: 250px;
+    height: 35px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 0 15px;
+    font-size: 14px;
+}
+
+/* --- 푸터 (Footer) --- */
+footer {
+    width: 100%;
+    border-top: 1px solid #eee;
+    padding: 40px 0;
+    background-color: #fff;
+}
+
+.footer-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    color: #777;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.footer-links {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+    font-weight: 500;
+    color: #555;
+}
+
+.cs-center {
+    text-align: right;
+}
+
+.cs-phone {
+    font-size: 24px;
+    font-weight: 700;
+    color: #333;
+    margin-top: 5px;
+}

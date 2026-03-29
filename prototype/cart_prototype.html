@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>YU-BOOK | 장바구니</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        /* 장바구니 페이지 전용 스타일 */
+        body { background-color: #fafafa; } /* 공통배경 오버라이드 */
+        
+        .cart-wrapper { max-width: 1000px; margin: 60px auto; background-color: #fff; padding: 40px; border: 1px solid #ddd; }
+        .cart-title { font-size: 24px; font-weight: 700; margin-bottom: 30px; text-align: center; border-bottom: 2px solid #333; padding-bottom: 15px; }
+        
+        .cart-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+        .cart-table th { border-bottom: 1px solid #ddd; padding: 15px 10px; font-size: 14px; color: #777; background-color: #f9f9f9; }
+        .cart-table td { border-bottom: 1px solid #eee; padding: 20px 10px; text-align: center; vertical-align: middle; }
+        
+        .item-info { display: flex; align-items: center; gap: 15px; text-align: left; }
+        .item-img { width: 60px; height: 80px; background-color: #d9d9d9; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; }
+        .item-name { font-weight: 500; font-size: 15px; }
+        .item-round { font-size: 12px; color: #00796b; font-weight: 700; margin-top: 5px; }
+        
+        .price { font-weight: 700; font-size: 16px; }
+        
+        .cart-total { background-color: #f9f9f9; padding: 30px; text-align: right; border-top: 1px solid #333; }
+        .cart-total span { font-size: 16px; margin-right: 20px; }
+        .cart-total strong { font-size: 28px; color: #d32f2f; }
+        
+        .btn-checkout { display: block; width: 100%; padding: 20px; background-color: #333; color: #fff; text-align: center; font-size: 18px; font-weight: 700; border: none; cursor: pointer; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="top-bar">
+            <div class="top-bar-content">
+                <a href="login_prototype.html">로그인</a>
+                <a href="cart_prototype.html">장바구니</a>
+                <a href="#">마이페이지</a>
+                <a href="#">고객센터</a>
+            </div>
+        </div>
+        
+        <nav class="main-nav">
+            <a href="prototype_1.html" class="logo">YU-BOOK</a>
+            <ul class="nav-menu">
+                <li><a href="#">전공도서</a></li>
+                <li><a href="#">학부별 추천</a></li>
+                <li><a href="#">베스트 공구</a></li>
+                <li><a href="#">게시판</a></li>
+            </ul>
+            <input type="text" class="search-bar" placeholder="ISBN 또는 도서명 검색...">
+        </nav>
+    </header>
+
+    <main>
+        <div class="cart-wrapper">
+            <h2 class="cart-title">장바구니 (공구 탑승 대기)</h2>
+            
+            <table class="cart-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50%;">상품정보</th>
+                        <th>수량</th>
+                        <th>공구 결제예정금액</th>
+                        <th>선택</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <div class="item-info">
+                                <div class="item-img">[책표지]</div>
+                                <div>
+                                    <p class="item-name">파이썬 프로그래밍 입문 (3판)</p>
+                                    <p class="item-round">3차 공구 참여</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td>1</td>
+                        <td class="price">24,000원</td>
+                        <td><button style="padding: 5px 10px; background: #fff; border: 1px solid #ccc; cursor: pointer;">삭제</button></td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="cart-total">
+                <span>총 결제 예상 금액</span>
+                <strong>24,000원</strong>
+            </div>
+            
+            <button class="btn-checkout">선택 상품 공구 결제하기</button>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div>
+                <ul class="footer-links">
+                    <li><a href="#">이용약관</a></li>
+                    <li><a href="#">개인정보처리방침</a></li>
+                    <li><a href="#">회사소개</a></li>
+                </ul>
+                <p>(주)유북 | 대표: 홍길동 | 주소: 유한대학교 전공책 거래소</p>
+                <p>사업자등록번호: 123-45-67890 | 통신판매업신고: 제2024-부천-0000호</p>
+                <p>Copyright © YU-BOOK All rights reserved.</p>
+            </div>
+            <div class="cs-center">
+                <p>고객센터 (YU-BOOK 전용)</p>
+                <p class="cs-phone">02-0000-0000</p>
+                <p>평일 09:00 ~ 18:00 (점심 12:00 ~ 13:00)</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

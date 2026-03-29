@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YU-BOOK | 유한대 전공책 공동구매</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        /* 메인 페이지 전용 스타일 */
+        main { width: 100%; padding-bottom: 60px; }
+
+        .main-banner { width: 100%; max-width: 1400px; height: 400px; margin: 0 auto 50px auto; }
+
+        .section-best { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .section-title { font-size: 24px; font-weight: 700; margin-bottom: 30px; text-align: center; }
+
+        .product-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 30px; }
+        .product-item { width: 100%; transition: transform 0.2s; }
+        .product-item:hover { transform: translateY(-5px); }
+        .product-img { width: 100%; aspect-ratio: 3/4; margin-bottom: 15px; }
+        .product-info { padding: 0 10px; }
+        .product-title { font-size: 15px; font-weight: 500; margin-bottom: 8px; line-height: 1.4; height: 2.8em; overflow: hidden; }
+        .price-retail { font-size: 13px; color: #999; text-decoration: line-through; margin-bottom: 4px; }
+        .price-group { font-size: 18px; font-weight: 700; color: #d32f2f; }
+        .discount-rate { font-size: 14px; font-weight: 500; color: #d32f2f; margin-left: 5px; }
+
+        .section-categories { background-color: #fafafa; padding: 60px 0; margin: 60px 0; }
+        .category-grid { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px; }
+        .category-item { display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .category-img { width: 100%; aspect-ratio: 1/1; border-radius: 50%; margin-bottom: 15px; }
+        .category-name { font-size: 14px; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="top-bar">
+            <div class="top-bar-content">
+                <a href="login_prototype.html">로그인</a>
+                <a href="cart_prototype.html">장바구니</a>
+                <a href="#">마이페이지</a>
+                <a href="#">고객센터</a>
+            </div>
+        </div>
+        
+        <nav class="main-nav">
+            <a href="prototype_1.html" class="logo">YU-BOOK</a>
+            <ul class="nav-menu">
+                <li><a href="#">전공도서</a></li>
+                <li><a href="#">학부별 추천</a></li>
+                <li><a href="#">베스트 공구</a></li>
+                <li><a href="#">게시판</a></li>
+            </ul>
+            <input type="text" class="search-bar" placeholder="ISBN 또는 도서명 검색...">
+        </nav>
+    </header>
+
+    <main>
+        <div class="main-banner img-placeholder">
+            [이미지1 - 메인 프로모션 배너]
+        </div>
+
+        <section class="section-best">
+            <h2 class="section-title">지금 가장 핫한 베스트 공구</h2>
+            <div class="product-grid">
+                <div class="product-item">
+                    <div class="product-img img-placeholder">[이미지2 - 데이터베이스 입문]</div>
+                    <div class="product-info">
+                        <p class="product-title"><a href="detail_prototype.html">데이터베이스 입문: 기본 원리부터 SQL까지 (4판)</a></p>
+                        <p class="price-retail">정가: 28,000원</p>
+                        <p><span class="price-group">22,000원</span><span class="discount-rate">(21% 할인)</span></p>
+                    </div>
+                </div>
+                <div class="product-item">
+                    <div class="product-img img-placeholder">[이미지3 - 자바의 정석]</div>
+                    <div class="product-info">
+                        <p class="product-title">자바의 정석 (3판) - 기초부터 탄탄하게</p>
+                        <p class="price-retail">정가: 32,000원</p>
+                        <p><span class="price-group">25,000원</span><span class="discount-rate">(22% 할인)</span></p>
+                    </div>
+                </div>
+                <div class="product-item">
+                    <div class="product-img img-placeholder">[이미지4 - 알고리즘 문제 해결 전략]</div>
+                    <div class="product-info">
+                        <p class="product-title">알고리즘 문제 해결 전략 (세트, 전2권)</p>
+                        <p class="price-retail">정가: 35,000원</p>
+                        <p><span class="price-group">28,000원</span><span class="discount-rate">(20% 할인)</span></p>
+                    </div>
+                </div>
+                <div class="product-item">
+                    <div class="product-img img-placeholder">[이미지5 - 운영체제 개론]</div>
+                    <div class="product-info">
+                        <p class="product-title">운영체제 개론 (7판, 에이브러햄)</p>
+                        <p class="price-retail">정가: 30,000원</p>
+                        <p><span class="price-group">24,000원</span><span class="discount-rate">(20% 할인)</span></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section-categories">
+            <h2 class="section-title">학부별 전공책 찾기</h2>
+            <div class="category-grid">
+                <div class="category-item"><div class="category-img img-placeholder">[이미지6 - IT학부]</div><p class="category-name">IT학부</p></div>
+                <div class="category-item"><div class="category-img img-placeholder">[이미지7 - 전기전자]</div><p class="category-name">전기전자학부</p></div>
+                <div class="category-item"><div class="category-img img-placeholder">[이미지8 - 경영학부]</div><p class="category-name">경영학부</p></div>
+                <div class="category-item"><div class="category-img img-placeholder">[이미지9 - 기계공학]</div><p class="category-name">기계공학과</p></div>
+                <div class="category-item"><div class="category-img img-placeholder">[이미지10 - 디자인]</div><p class="category-name">디자인학부</p></div>
+                <div class="category-item"><div class="category-img img-placeholder">[이미지11 - 건축공학]</div><p class="category-name">건축공학과</p></div>
+            </div>
+        </section>
+        
+        <div class="section-best">
+            <div class="main-banner img-placeholder" style="height: 150px; margin-top: 60px; margin-bottom: 0;">
+                [이미지12 - 신규 가입 혜택 배너]
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div>
+                <ul class="footer-links">
+                    <li><a href="#">이용약관</a></li>
+                    <li><a href="#">개인정보처리방침</a></li>
+                    <li><a href="#">회사소개</a></li>
+                </ul>
+                <p>(주)유북 | 대표: 홍길동 | 주소: 유한대학교 전공책 거래소</p>
+                <p>사업자등록번호: 123-45-67890 | 통신판매업신고: 제2024-부천-0000호</p>
+                <p>Copyright © YU-BOOK All rights reserved.</p>
+            </div>
+            <div class="cs-center">
+                <p>고객센터 (YU-BOOK 전용)</p>
+                <p class="cs-phone">02-0000-0000</p>
+                <p>평일 09:00 ~ 18:00 (점심 12:00 ~ 13:00)</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

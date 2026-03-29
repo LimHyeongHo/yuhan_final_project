@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>YU-BOOK | 상품 상세</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        /* 상세 페이지 전용 스타일 */
+        .detail-wrapper { max-width: 1200px; margin: 60px auto; padding: 0 20px; display: flex; gap: 50px; }
+        .detail-img-box { flex: 1; aspect-ratio: 3/4; }
+        .detail-info-box { flex: 1; display: flex; flex-direction: column; }
+        
+        .badge-safe { display: inline-block; background-color: #e3f2fd; color: #1976d2; font-size: 13px; font-weight: 700; padding: 5px 10px; border-radius: 4px; margin-bottom: 15px; width: fit-content; }
+        .detail-title { font-size: 28px; font-weight: 700; margin-bottom: 20px; line-height: 1.4; }
+        
+        .price-section { border-top: 2px solid #333; border-bottom: 1px solid #eee; padding: 20px 0; margin-bottom: 30px; }
+        .retail-price { font-size: 15px; color: #999; text-decoration: line-through; margin-bottom: 10px; }
+        .group-price { font-size: 32px; font-weight: 700; color: #d32f2f; }
+        .group-price span { font-size: 20px; color: #333; font-weight: 500; }
+        
+        .info-row { display: flex; margin-bottom: 15px; font-size: 15px; }
+        .info-label { width: 120px; color: #777; font-weight: 500; }
+        .info-value { flex: 1; color: #333; }
+        
+        .btn-group { display: flex; gap: 10px; margin-top: auto; }
+        .btn-chart { flex: 1; padding: 20px; border: 1px solid #ccc; background-color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; text-align: center; }
+        .btn-buy { flex: 2; padding: 20px; border: none; background-color: #00796b; color: #fff; font-size: 18px; font-weight: 700; cursor: pointer; text-align: center; transition: 0.2s; }
+        .btn-buy:hover { background-color: #005a4f; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="top-bar">
+            <div class="top-bar-content">
+                <a href="login_prototype.html">로그인</a>
+                <a href="cart_prototype.html">장바구니</a>
+                <a href="#">마이페이지</a>
+                <a href="#">고객센터</a>
+            </div>
+        </div>
+        
+        <nav class="main-nav">
+            <a href="prototype_1.html" class="logo">YU-BOOK</a>
+            <ul class="nav-menu">
+                <li><a href="#">전공도서</a></li>
+                <li><a href="#">학부별 추천</a></li>
+                <li><a href="#">베스트 공구</a></li>
+                <li><a href="#">게시판</a></li>
+            </ul>
+            <input type="text" class="search-bar" placeholder="ISBN 또는 도서명 검색...">
+        </nav>
+    </header>
+
+    <main>
+        <div class="detail-wrapper">
+            <div class="detail-img-box img-placeholder">
+                [이미지 - 파이썬 입문 전공책 표지]
+            </div>
+            
+            <div class="detail-info-box">
+                <div class="badge-safe">✅ 체인 검증 완료: 위변조 없는 클린 시세</div>
+                <h1 class="detail-title">파이썬 프로그래밍 입문 (3판)<br>IT학부 1학년 전공필수</h1>
+                
+                <div class="price-section">
+                    <p class="retail-price">교보문고 정가: 30,000원</p>
+                    <p class="group-price">24,000<span>원 (3차 공구 진행중)</span></p>
+                </div>
+                
+                <div class="info-row">
+                    <div class="info-label">모집 인원</div>
+                    <div class="info-value">현재 15명 / 목표 30명</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">마감 일자</div>
+                    <div class="info-value">2026년 3월 31일 23:59 까지</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">수령 방법</div>
+                    <div class="info-value">유한대학교 학생회관 3층 직접 수령</div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn-chart">📈 이전 족보/시세 보기</button>
+                    <button class="btn-buy">3차 공구 탑승하기</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div>
+                <ul class="footer-links">
+                    <li><a href="#">이용약관</a></li>
+                    <li><a href="#">개인정보처리방침</a></li>
+                    <li><a href="#">회사소개</a></li>
+                </ul>
+                <p>(주)유북 | 대표: 홍길동 | 주소: 유한대학교 전공책 거래소</p>
+                <p>사업자등록번호: 123-45-67890 | 통신판매업신고: 제2024-부천-0000호</p>
+                <p>Copyright © YU-BOOK All rights reserved.</p>
+            </div>
+            <div class="cs-center">
+                <p>고객센터 (YU-BOOK 전용)</p>
+                <p class="cs-phone">02-0000-0000</p>
+                <p>평일 09:00 ~ 18:00 (점심 12:00 ~ 13:00)</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
