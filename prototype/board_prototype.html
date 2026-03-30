@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YU-BOOK | 고객센터</title>
+    <link rel="stylesheet" href="css/common.css">
+    
+    <style>
+        /* 고객센터 게시판 전용 스타일 (Page Specific CSS) */
+        .board-wrapper {
+            max-width: 1200px;
+            margin: 60px auto 80px auto;
+            padding: 0 20px;
+        }
+
+        .board-title {
+            font-size: 28px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 40px;
+            color: #333;
+        }
+
+        .board-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .total-count strong {
+            color: #00796b;
+        }
+
+        .btn-write {
+            padding: 10px 20px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-write:hover {
+            background-color: #555;
+        }
+
+        /* 게시판 테이블 스타일 */
+        .board-table {
+            width: 100%;
+            border-collapse: collapse;
+            border-top: 2px solid #333;
+            margin-bottom: 40px;
+        }
+
+        .board-table th {
+            background-color: #f9f9f9;
+            color: #333;
+            font-weight: 500;
+            padding: 15px 10px;
+            border-bottom: 1px solid #ddd;
+            font-size: 15px;
+        }
+
+        .board-table td {
+            padding: 15px 10px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .board-table .col-title {
+            text-align: left;
+            padding-left: 20px;
+        }
+
+        .board-table .col-title a {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .board-table .col-title a:hover {
+            text-decoration: underline;
+            color: #00796b;
+        }
+
+        /* 상태 뱃지 (답변대기 / 답변완료) */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .status-wait { background-color: #fff; border: 1px solid #ccc; color: #777; }
+        .status-complete { background-color: #e0f2f1; color: #00796b; border: 1px solid #b2dfdb; }
+
+        /* 페이지네이션 (하단 페이지 번호) */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 40px;
+        }
+
+        .pagination a, .pagination span {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 35px;
+            height: 35px;
+            border: 1px solid #ddd;
+            color: #555;
+            font-size: 14px;
+            background-color: #fff;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+
+        .pagination a:hover {
+            background-color: #f5f5f5;
+            border-color: #ccc;
+        }
+
+        .pagination .active {
+            background-color: #00796b;
+            color: #fff;
+            border-color: #00796b;
+            font-weight: 700;
+        }
+
+        /* 하단 검색 영역 */
+        .board-search-box {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .board-search-box select, .board-search-box input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .board-search-box input {
+            width: 250px;
+        }
+
+        .btn-search {
+            padding: 10px 20px;
+            background-color: #555;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+  
+  <header>
+        <div class="top-bar">
+            <div class="top-bar-content">
+               <a href="login_prototype.html">로그인</a>
+                <a href="cart_prototype.html">장바구니</a>
+                <a href="mypage_prototype.html">마이페이지</a>
+                <a href="board_prototype.html">고객센터</a>
+            </div>
+        </div>
+        
+        <nav class="main-nav">
+            <a href="prototype_1.html" class="logo">YU-BOOK</a>
+            <ul class="nav-menu">
+                <li><a href="#">전공도서</a></li>
+                <li><a href="#">학부별 추천</a></li>
+                <li><a href="#">베스트 공구</a></li>
+                <li><a href="#">게시판</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main class="board-wrapper">
+        <h2 class="board-title">고객센터 (Q&A)</h2>
+
+        <div class="board-top">
+            <div class="total-count">전체 <strong>125</strong> 건</div>
+            <button class="btn-write" onclick="location.href='#'">문의하기</button>
+        </div>
+
+        <table class="board-table">
+            <colgroup>
+                <col style="width: 8%;">
+                <col style="width: 12%;">
+                <col style="width: 12%;">
+                <col style="width: auto;">
+                <col style="width: 10%;">
+                <col style="width: 12%;">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>번호</th>
+                    <th>답변상태</th>
+                    <th>분류</th>
+                    <th>제목</th>
+                    <th>작성자</th>
+                    <th>작성일</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>125</td>
+                    <td><span class="status-badge status-complete">답변완료</span></td>
+                    <td>배송문의</td>
+                    <td class="col-title">
+                        <a href="#">공동구매 수령은 어디서 하나요? 🔒</a>
+                    </td>
+                    <td>김*수</td>
+                    <td>2026-03-30</td>
+                </tr>
+
+                <tr>
+                    <td>124</td>
+                    <td><span class="status-badge status-wait">답변대기</span></td>
+                    <td>환불/취소</td>
+                    <td class="col-title">
+                        <a href="#">결제 취소하고 싶습니다.</a>
+                    </td>
+                    <td>이*민</td>
+                    <td>2026-03-29</td>
+                </tr>
+
+                <tr>
+                    <td>123</td>
+                    <td><span class="status-badge status-complete">답변완료</span></td>
+                    <td>상품문의</td>
+                    <td class="col-title">
+                        <a href="#">파이썬 입문 책 3차 공구 언제 열리나요?</a>
+                    </td>
+                    <td>박*진</td>
+                    <td>2026-03-28</td>
+                </tr>
+
+                </tbody>
+        </table>
+
+        <div class="pagination">
+            <a href="#">&laquo;</a>
+            <a href="#">&lt;</a>
+            <span class="active">1</span>
+            <a href="#">2</a>
+            <a href="#">3</a>
+            <a href="#">4</a>
+            <a href="#">5</a>
+            <a href="#">&gt;</a>
+            <a href="#">&raquo;</a>
+        </div>
+
+        <form action="#" method="GET" class="board-search-box">
+            <select name="searchType">
+                <option value="title">제목</option>
+                <option value="content">내용</option>
+                <option value="writer">작성자</option>
+            </select>
+            <input type="text" name="keyword" placeholder="검색어를 입력하세요">
+            <button type="submit" class="btn-search">검색</button>
+        </form>
+
+    </main>
+
+<footer>
+   <iframe src="footer_prototype.html" width="100%" height="200px" frameborder="0"></iframe>
+</footer>
+</body>
+</html>

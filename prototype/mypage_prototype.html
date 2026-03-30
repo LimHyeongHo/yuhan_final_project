@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YU-BOOK | 마이페이지</title>
+    <link rel="stylesheet" href="css/common.css">
+    
+    <style>
+        /* 마이페이지 전용 스타일 (Page Specific CSS) */
+        .mypage-wrapper {
+            max-width: 1200px;
+            margin: 40px auto 80px auto;
+            padding: 0 20px;
+            display: flex;
+            gap: 40px;
+        }
+
+        /* 좌측 사이드바 */
+        .mypage-sidebar {
+            width: 250px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #333;
+        }
+
+        .sidebar-menu li {
+            margin-bottom: 5px;
+        }
+
+        .sidebar-menu a {
+            display: block;
+            padding: 12px 15px;
+            font-size: 15px;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+
+        .sidebar-menu a:hover {
+            background-color: #f5f5f5;
+            color: #00796b;
+        }
+
+        .sidebar-menu a.active {
+            background-color: #e0f2f1;
+            color: #00796b;
+            font-weight: 700;
+        }
+
+        /* 우측 콘텐츠 영역 */
+        .mypage-content {
+            flex-grow: 1;
+        }
+
+        .content-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 30px;
+        }
+
+        /* 회원 정보 카드 (ERD 데이터 매핑 영역) */
+        .info-card {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 30px;
+            background-color: #fafafa;
+            margin-bottom: 40px;
+        }
+
+        .info-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .user-profile-group {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .avatar {
+            width: 70px;
+            height: 70px;
+            background-color: #d9d9d9;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #555;
+            font-weight: bold;
+        }
+
+        .nickname {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        /* ERD: role/cue 배지 스타일 */
+        .role-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background-color: #333;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 4px;
+        }
+        .role-buyer { background-color: #1976d2; } /* 구매자 파란색 */
+        .role-seller { background-color: #00796b; } /* 판매자 초록색 */
+
+        .btn-edit {
+            padding: 10px 20px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .btn-edit:hover { background-color: #f5f5f5; }
+
+        /* ERD 세부 정보 리스트 */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px 20px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .info-label {
+            font-size: 13px;
+            color: #777;
+            font-weight: 500;
+        }
+
+        .info-value {
+            font-size: 15px;
+            font-weight: 500;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+  <header>
+        <div class="top-bar">
+            <div class="top-bar-content">
+               <a href="login_prototype.html">로그인</a>
+                <a href="cart_prototype.html">장바구니</a>
+                <a href="mypage_prototype.html">마이페이지</a>
+                <a href="board_prototype.html">고객센터</a>
+            </div>
+        </div>
+        
+        <nav class="main-nav">
+            <a href="prototype_1.html" class="logo">YU-BOOK</a>
+            <ul class="nav-menu">
+                <li><a href="#">전공도서</a></li>
+                <li><a href="#">학부별 추천</a></li>
+                <li><a href="#">베스트 공구</a></li>
+                <li><a href="#">게시판</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="mypage-wrapper">
+        
+        <aside class="mypage-sidebar">
+            <h2 class="sidebar-title">마이페이지</h2>
+            <ul class="sidebar-menu">
+                <li><a href="#" class="active">회원 정보 개요</a></li>
+                <li><a href="#">참여 중인 공동구매</a></li>
+                <li><a href="#">관심 도서 (스크랩)</a></li>
+                <li><a href="#">프로필/비밀번호 수정</a></li>
+            </ul>
+        </aside>
+
+        <section class="mypage-content">
+            <h1 class="content-title">회원 정보 개요</h1>
+
+            <div class="info-card">
+                <div class="info-card-header">
+                    <div class="user-profile-group">
+                        <div class="avatar">사진</div>
+                        <div>
+                            <p class="nickname">유한대열공이</p>
+                            <span class="role-badge role-buyer">BUYER (구매자)</span>
+                        </div>
+                    </div>
+                    <button class="btn-edit">프로필 수정</button>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-item">
+                        <p class="info-label">회원 고유 번호 (User ID)</p>
+                        <p class="info-value">#10204</p>
+                    </div>
+                    <div class="info-item">
+                        <p class="info-label">로그인 이메일 계정</p>
+                        <p class="info-value">student@yuhan.ac.kr</p>
+                    </div>
+                    <div class="info-item">
+                        <p class="info-label">가입 일시</p>
+                        <p class="info-value">2025년 09월 01일 14:30</p>
+                    </div>
+                    <div class="info-item">
+                        <p class="info-label">비밀번호</p>
+                        <p class="info-value">********</p>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <footer>
+   <iframe src="footer_prototype.html" width="100%" height="200px" frameborder="0"></iframe>
+</footer>
+</body>
+</html>
