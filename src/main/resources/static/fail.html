@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>결제 실패</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #3182f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1>❌</h1>
+<h2>결제에 실패했어요</h2>
+<p id="message"></p>
+<button onclick="location.href='/payment.html'">다시 시도하기</button>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    document.getElementById("message").innerText =
+        params.get("message") || "알 수 없는 오류";
+</script>
+</body>
+</html>
