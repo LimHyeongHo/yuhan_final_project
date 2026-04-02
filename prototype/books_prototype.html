@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>YU-BOOK | 전체 전공도서</title>
+    <link rel="stylesheet" href="css/common.css">
+    <style>
+        .page-wrapper { max-width: 1200px; margin: 60px auto; padding: 0 20px; }
+        .page-title { font-size: 28px; font-weight: 700; margin-bottom: 40px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+        
+        /* 기존 메인 페이지 상품 그리드 CSS 재사용 */
+        .product-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 30px; margin-bottom: 50px; }
+        .product-item { width: 100%; transition: transform 0.2s; }
+        .product-item:hover { transform: translateY(-5px); }
+        .product-img { width: 100%; aspect-ratio: 3/4; margin-bottom: 15px; }
+        .product-info { padding: 0 10px; }
+        .product-title { font-size: 15px; font-weight: 500; margin-bottom: 8px; line-height: 1.4; height: 2.8em; overflow: hidden; }
+        .price-retail { font-size: 13px; color: #999; text-decoration: line-through; margin-bottom: 4px; }
+        .price-group { font-size: 18px; font-weight: 700; color: #d32f2f; }
+    </style>
+</head>
+<header>
+    <div class="top-bar">
+        <div class="top-bar-content">
+            <a href="login_prototype.html">로그인</a>
+            <a href="cart_prototype.html">장바구니</a>
+            <a href="mypage_prototype.html">마이페이지</a>
+            <a href="board_prototype.html">고객센터</a>
+        </div>
+    </div>
+    
+    <nav class="main-nav">
+        <a href="prototype_1.html" class="logo">YU-BOOK</a>
+        <ul class="nav-menu">
+            <li><a href="books_prototype.html">전공도서</a></li>
+            <li><a href="recommend_prototype.html">학부별 추천</a></li>
+            <li><a href="best_prototype.html">베스트 공구</a></li>
+            <li><a href="community_prototype.html">게시판</a></li>
+        </ul>
+    </nav>
+</header>
+<body>
+    <main class="page-wrapper">
+        <h2 class="page-title">전체 전공도서 목록</h2>
+        <div class="product-grid">
+            <div class="product-item">
+                <div class="product-img img-placeholder">[전공책 이미지]</div>
+                <div class="product-info">
+                    <p class="product-title"><a href="detail_prototype.html">데이터베이스 입문 (4판)</a></p>
+                    <p class="price-retail">정가: 28,000원</p>
+                    <p><span class="price-group">22,000원</span></p>
+                </div>
+            </div>
+            <div class="product-item">
+                <div class="product-img img-placeholder">[전공책 이미지]</div>
+                <div class="product-info">
+                    <p class="product-title"><a href="detail_prototype.html">C언어 기초와 실습</a></p>
+                    <p class="price-retail">정가: 25,000원</p>
+                    <p><span class="price-group">19,000원</span></p>
+                </div>
+            </div>
+             <div class="product-item">
+                <div class="product-img img-placeholder">[전공책 이미지]</div>
+                <div class="product-info">
+                    <p class="product-title"><a href="detail_prototype.html">경영학의 이해</a></p>
+                    <p class="price-retail">정가: 30,000원</p>
+                    <p><span class="price-group">24,000원</span></p>
+                </div>
+            </div>
+             <div class="product-item">
+                <div class="product-img img-placeholder">[전공책 이미지]</div>
+                <div class="product-info">
+                    <p class="product-title"><a href="detail_prototype.html">디자인 씽킹 프로세스</a></p>
+                    <p class="price-retail">정가: 32,000원</p>
+                    <p><span class="price-group">25,000원</span></p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <iframe src="footer_prototype.html" width="100%" height="200px" frameborder="0"></iframe>
+    </footer>
+</body>
+</html>
