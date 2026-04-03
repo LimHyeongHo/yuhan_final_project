@@ -416,3 +416,17 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+*.key
+*.p12
+.gradle/
+.idea/
+build/
+*.DS_Store
+*.key
+*.p12
+.gradle/
+.idea/
+build/
+**/.DS_Store
+*.key
+*.p12
