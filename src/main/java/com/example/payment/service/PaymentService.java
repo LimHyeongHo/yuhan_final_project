@@ -9,7 +9,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.beans.factory.annotation.Value;
 
+import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,6 +29,81 @@ public class PaymentService {
             .baseUrl("https://api.tosspayments.com")
             .build();
 
+
+    public Map<String, Object> getRealCertInfo() {
+        try {
+            // 실제 인증서 파일 읽기
+            CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            FileInputStream fis = new FileInputStream(
+                    "/Users/geonwoo/ca-pratice/server.crt"
+            );
+            X509Certificate cert = (X509Certificate) cf.generateCertificate(fis);
+
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+
+            Map<String, Object> certInfo = new HashMap<>();
+            certInfo.put("subject", cert.getSubjectDN().getName());
+            certInfo.put("issuer", cert.getIssuerDN().getName());
+            certInfo.put("validFrom", sdf.format(cert.getNotBefore()));
+            certInfo.put("validTo", sdf.format(cert.getNotAfter()));
+            certInfo.put("algorithm", cert.getSigAlgName());
+            certInfo.put("keyLength",
+                    ((java.security.interfaces.RSAPublicKey) cert.getPublicKey())
+                            .getModulus().bitLength() + " bit");
+            certInfo.put("serialNumber", cert.getSerialNumber().toString());
+            certInfo.put("version", "V" + cert.getVersion());
+
+            // 만료 여부 확인
+            try {
+                cert.checkValidity();
+                certInfo.put("status", "유효함");
+            } catch (Exception e) {
+                certInfo.put("status", "만료됨");
+            }
+
+            fis.close();
+            return certInfo;
+
+        } catch (Exception e) {
+            throw new RuntimeException("인증서 읽기 실패: " + e.getMessage());
+        }
+    }
+
+    // 만료된 인증서 읽기
+    public Map<String, Object> getExpiredCertInfo() {
+        try {
+            CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            FileInputStream fis = new FileInputStream(
+                    "/Users/geonwoo/ca-pratice/expired.crt"
+            );
+            X509Certificate cert = (X509Certificate) cf.generateCertificate(fis);
+
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+
+            Map<String, Object> certInfo = new HashMap<>();
+            certInfo.put("subject", cert.getSubjectDN().getName());
+            certInfo.put("issuer", cert.getIssuerDN().getName());
+            certInfo.put("validFrom", sdf.format(cert.getNotBefore()));
+            certInfo.put("validTo", sdf.format(cert.getNotAfter()));
+            certInfo.put("algorithm", cert.getSigAlgName());
+
+            // 만료 여부 확인
+            try {
+                cert.checkValidity();
+                certInfo.put("status", "유효함");
+                certInfo.put("expired", false);
+            } catch (Exception e) {
+                certInfo.put("status", "만료됨 ❌");
+                certInfo.put("expired", true);
+            }
+
+            fis.close();
+            return certInfo;
+
+        } catch (Exception e) {
+            throw new RuntimeException("인증서 읽기 실패: " + e.getMessage());
+        }
+    }
 
     public PaymentResponse confirmPayment(PaymentRequest request){
 

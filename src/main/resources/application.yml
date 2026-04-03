@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: payment
+
+server:
+  port: 8443
+  ssl:
+    key-store: classpath:keystore.p12
+    key-store-password: 123456
+    key-store-type: PKCS12
+    key-alias: payment
+
+app:
+  base-url: https://localhost:8443
+
+toss:
+  client-key: test_ck_6BYq7GWPVvvpYXJq0dbaVNE5vbo1
+  secret-key: test_sk_Z61JOxRQVEbEQQ09q5MmrW0X9bAq
