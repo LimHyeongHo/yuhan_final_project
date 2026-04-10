@@ -65,10 +65,14 @@
         const html5QrCode = new Html5Qrcode("reader");
 
         function ScanSuccess(result) {
-            console.log(`코드 인식 성공! 번호 = ${result}`);
-            alert("바코드 인식 성공: " + result);
+            /// 바코드 형식이 ISBN13이 아니거나, 978 또는 979로 시작하지 않는 경우에는 잘못된 바코드 임으로 무시.
+            if (result.length !== 13 || (!result.startsWith("978") && !result.startsWith("979"))) {
+                console.log("잘못 인식된 바코드 무시함:", result);
+                return;
+            }
 
             /// 인식된 바코드 번호를 isbn 변수에 저장 + 알라딘 검색 api 경로 수정
+            /// [*] api 키값과 퍼블릭 키값은 나중에 백엔드로 저장
             isbn = result; // 인식된 바코드 번호를 isbn 변수에 저장
             ALADIN_LOOKUP_URL = "http://www.aladin.co.kr/ttb/api/ItemLookUp.aspx?ttbkey=" + ALADIN_API_KEY + "&itemIdType=ISBN13&ItemId=" + isbn + "&output=js&Version=20131101";
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(ALADIN_LOOKUP_URL)}`;
@@ -94,6 +98,7 @@
                 .then(data => {
                     // 데이터가 진짜로 있을 때 실행. 노트나 다른 바코드는 인식 불가
                     if (data.item && data.item.length > 0) {
+                        /// [*] DB에 저장할 경우 하단 데이터를 DB에 연결하면 됨.
                         bookInfo.name = data.item[0].title;
                         bookInfo.author = data.item[0].author;
                         bookInfo.publisher = data.item[0].publisher;
@@ -132,10 +137,11 @@
 
             // 5. 수동으로 스캐너 시작
             html5QrCode.start(
+                /// [*] 나중에 만약 핸드폰을 놔두고 작업할 경우 전면 카메라로 수정함.
                 { facingMode: "environment" }, // 스마트폰의 경우 후면 카메라를 강제로 사용
                 {
                     fps: 10,
-                    qrbox: { width: 300, height: 100 }
+                    qrbox: { width: 300, height: 150 }
                 },
                 ScanSuccess,
                 ScanError
