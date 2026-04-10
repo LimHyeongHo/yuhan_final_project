@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,24 +19,63 @@
             cursor: pointer;
             margin-bottom: 20px;
         }
-        #scan-btn:hover { background-color: #005a4f; }
+
+        #scan-btn:hover {
+            background-color: #005a4f;
+        }
     </style>
 </head>
+
 <body>
     <h1>버튼으로 작동하는 스캐너</h1>
-    
-    <button id="scan-btn">바코드 스캔하기</button>
-    
-    <div id="reader" style="width: 100%; max-width: 600px; display: none;"></div>    
 
+    <button id="scan-btn">바코드 스캔하기</button>
+
+    <div id="reader" style="width: 100%; max-width: 600px; display: none;"></div>
+    <div id="book-display"
+        style="display: none; border: 1px solid #ccc; padding: 20px; margin-top: 20px; border-radius: 8px; max-width: 500px;">
+        <div style="display: flex; gap: 20px;">
+            <img id="book-cover" src="" alt="책 표지"
+                style="width: 120px; height: auto; object-fit: cover; border-radius: 4px; box-shadow: 2px 2px 5px rgba(0,0,0,0.2);">
+
+            <div>
+                <h2 id="book-title" style="margin: 0 0 10px 0; font-size: 1.2rem;">책 제목</h2>
+                <p style="margin: 5px 0;"><strong>저자:</strong> <span id="book-author"></span></p>
+                <p style="margin: 5px 0;"><strong>출판사:</strong> <span id="book-publisher"></span></p>
+                <p style="margin: 5px 0;"><strong>정가:</strong> <span id="book-priceStandard"></span>원</p>
+                <p style="margin: 5px 0;"><strong>페이지:</strong> <span id="book-itemPage"></span>쪽</p>
+            </div>
+        </div>
+
+        <div
+            style="margin-top: 15px; background-color: #f9f9f9; padding: 10px; border-radius: 4px; font-size: 0.9rem; line-height: 1.5;">
+            <strong>책 소개:</strong>
+            <p id="book-description" style="margin-top: 5px;"></p>
+        </div>
+    </div>
     <script>
+        /// 알라딘 api키 값 추가
+        var isbn = "0000000000";
+        var ALADIN_API_KEY = "ttbsuper81141609001";
+        var ALADIN_LOOKUP_URL = "http://www.aladin.co.kr/ttb/api/ItemLookUp.aspx?ttbkey=" + ALADIN_API_KEY + "&itemIdType=ISBN13&ItemId=" + isbn + "&output=js&Version=20131101";
+        var bookInfo = { "name": "책 제목", "author": "저자 이름", "publisher": "출판사 이름", "priceStandard": "정가", "cover": "책 표지 이미지 URL", "itemPage": "책 페이지 수", "description": "줄거리" };
+
+
         // 3. Scanner가 빠진 순수 코어 엔진을 불러옵니다.
         const html5QrCode = new Html5Qrcode("reader");
 
         function ScanSuccess(result) {
             console.log(`코드 인식 성공! 번호 = ${result}`);
             alert("바코드 인식 성공: " + result);
-            
+
+            /// 인식된 바코드 번호를 isbn 변수에 저장 + 알라딘 검색 api 경로 수정
+            isbn = result; // 인식된 바코드 번호를 isbn 변수에 저장
+            ALADIN_LOOKUP_URL = "http://www.aladin.co.kr/ttb/api/ItemLookUp.aspx?ttbkey=" + ALADIN_API_KEY + "&itemIdType=ISBN13&ItemId=" + isbn + "&output=js&Version=20131101";
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(ALADIN_LOOKUP_URL)}`;
+
+            /// 책 정보 조회 함수 호출
+            LookUpBookInfo(proxyUrl);
+
             // 바코드를 인식하면 카메라를 자동으로 끄고 화면을 숨깁니다.
             html5QrCode.stop().then(() => {
                 document.getElementById('reader').style.display = "none";
@@ -44,12 +84,49 @@
             });
         }
 
+        /// 알라딘 api로 책 정보 조회
+        function LookUpBookInfo(url) {
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) throw new Error("서버 응답 에러");
+                    return response.json();
+                })
+                .then(data => {
+                    // 데이터가 진짜로 있을 때 실행. 노트나 다른 바코드는 인식 불가
+                    if (data.item && data.item.length > 0) {
+                        bookInfo.name = data.item[0].title;
+                        bookInfo.author = data.item[0].author;
+                        bookInfo.publisher = data.item[0].publisher;
+                        bookInfo.priceStandard = data.item[0].priceStandard;
+                        bookInfo.cover = data.item[0].cover;
+
+                        /// 알라딘 api로 데이터가 없는 경우 다른 api 데이터 확인 후 전달
+                        bookInfo.pages = data.item[0].subInfo?.itemPage || "정보 없음";
+                        bookInfo.description = data.item[0].description || "제공된 책 소개가 없습니다.";
+
+                        document.getElementById('book-title').innerText = bookInfo.name;
+                        document.getElementById('book-author').innerText = bookInfo.author;
+                        document.getElementById('book-publisher').innerText = bookInfo.publisher;
+                        document.getElementById('book-priceStandard').innerText = bookInfo.priceStandard.toLocaleString();
+                        document.getElementById('book-itemPage').innerText = bookInfo.pages;
+                        document.getElementById('book-description').innerText = bookInfo.description;
+                        document.getElementById('book-cover').src = bookInfo.cover;
+
+                        document.getElementById('book-display').style.display = "block";
+                    } else {
+                        alert("알라딘 서버에 해당 바코드의 책 정보가 없습니다.");
+                    }
+                })
+                .catch(err => {
+                    console.error("책 정보 조회 실패", err);
+                });
+        }
         function ScanError(err) {
             // 무시
         }
 
         // 4. 버튼 클릭 이벤트 설정
-        document.getElementById('scan-btn').addEventListener('click', function() {
+        document.getElementById('scan-btn').addEventListener('click', function () {
             // 버튼을 누르면 카메라 영역을 화면에 보여줍니다.
             document.getElementById('reader').style.display = "block";
 
@@ -58,7 +135,7 @@
                 { facingMode: "environment" }, // 스마트폰의 경우 후면 카메라를 강제로 사용
                 {
                     fps: 10,
-                    qrbox: { width: 250, height: 250 }
+                    qrbox: { width: 300, height: 100 }
                 },
                 ScanSuccess,
                 ScanError
@@ -70,4 +147,5 @@
         });
     </script>
 </body>
+
 </html>
