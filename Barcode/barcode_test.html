@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>버튼형 바코드 스캐너</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        /* 버튼을 예쁘게 꾸미는 간단한 CSS */
+        #scan-btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: #00796b;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        #scan-btn:hover { background-color: #005a4f; }
+    </style>
+</head>
+<body>
+    <h1>버튼으로 작동하는 스캐너</h1>
+    
+    <button id="scan-btn">바코드 스캔하기</button>
+    
+    <div id="reader" style="width: 100%; max-width: 600px; display: none;"></div>    
+
+    <script>
+        // 3. Scanner가 빠진 순수 코어 엔진을 불러옵니다.
+        const html5QrCode = new Html5Qrcode("reader");
+
+        function ScanSuccess(result) {
+            console.log(`코드 인식 성공! 번호 = ${result}`);
+            alert("바코드 인식 성공: " + result);
+            
+            // 바코드를 인식하면 카메라를 자동으로 끄고 화면을 숨깁니다.
+            html5QrCode.stop().then(() => {
+                document.getElementById('reader').style.display = "none";
+            }).catch(err => {
+                console.log("카메라 끄기 실패", err);
+            });
+        }
+
+        function ScanError(err) {
+            // 무시
+        }
+
+        // 4. 버튼 클릭 이벤트 설정
+        document.getElementById('scan-btn').addEventListener('click', function() {
+            // 버튼을 누르면 카메라 영역을 화면에 보여줍니다.
+            document.getElementById('reader').style.display = "block";
+
+            // 5. 수동으로 스캐너 시작
+            html5QrCode.start(
+                { facingMode: "environment" }, // 스마트폰의 경우 후면 카메라를 강제로 사용
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 }
+                },
+                ScanSuccess,
+                ScanError
+            ).catch(err => {
+                // 카메라 권한이 없거나 기기에 카메라가 없을 때의 에러 처리
+                alert("카메라를 시작할 수 없습니다. 권한을 확인해주세요.");
+                console.error(err);
+            });
+        });
+    </script>
+</body>
+</html>
