@@ -71,8 +71,17 @@ spring.jpa.show-sql=true
 `pki` 패키지의 엔티티가 우리가 만든 테이블을 바라보도록 수정합니다.
 ```java
 @Entity
-@Table(name = "pki_table") // 'users'에서 'pki_table'로 변경
-public class User { ... }
+@Table(name = "pki_table")
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "USER_ID", unique = true, nullable = false)
+    private String userId; // USER 테이블의 email과 매칭
+
+    // ... 나머지 필드 (PASSWORD, CI_HASH, DEVICE_ID, PUBLIC_KEY)
+}
 ```
 
 ---
@@ -83,7 +92,7 @@ public class User { ... }
 
 ### (1) 테스트용 부모 데이터(USER) 삽입
 ```powershell
-# MySQL에 직접 입력하거나 API로 생성
+# MySQL에 직접 입력하거나 API로 생성 (이 단계에서 role이 결정됨)
 INSERT INTO project1.USER (email, nickname, password, role) 
 VALUES ('test@example.com', '테스터', 'hashed_pw', 'BUYER');
 ```
