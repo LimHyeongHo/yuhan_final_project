@@ -8,6 +8,8 @@
 - Java 17
 - WebFlux (OpenAI API 호출)
 - OpenAI GPT-3.5-turbo
+- Spring Data JPA
+- MySQL
 
 ---
 
@@ -15,7 +17,8 @@
 
 ### 1. 검색어 저장
 - 사용자가 도서 검색할 때마다 검색어와 횟수 저장
-- 메모리 기반 저장 (ConcurrentHashMap)
+- MySQL DB에 영구 저장 (search_log 테이블)
+- 동일 검색어 재검색 시 횟수 누적
 
 ### 2. 인기 검색어 조회
 - 검색 횟수 기준 상위 10개 정렬
@@ -47,7 +50,12 @@
 
 ## ⚙️ 실행 방법
 
-### 1. application.yml 생성
+### 1. MySQL DB 생성
+```sql
+CREATE DATABASE searchdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+### 2. application.yml 생성
 
 src/main/resources/application.yml 파일 생성 후 아래 내용 붙여넣기
 
@@ -55,6 +63,15 @@ src/main/resources/application.yml 파일 생성 후 아래 내용 붙여넣기
 spring:
   application:
     name: ai-search-trend
+  datasource:
+    url: jdbc:mysql://localhost:3306/searchdb?useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 본인_MySQL_비밀번호
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
 
 server:
   port: 8081
@@ -64,7 +81,7 @@ openai:
   model: gpt-3.5-turbo
 ```
 
-### 2. OpenAI API 키 발급
+### 3. OpenAI API 키 발급
 ```
 https://platform.openai.com 접속
 → 로그인
@@ -73,10 +90,11 @@ https://platform.openai.com 접속
 → 복사해서 application.yml에 입력
 ```
 
-### 3. 서버 실행
+### 4. 서버 실행
 ```
 AiSearchTrendApplication.java 실행
 ```
+서버 시작 시 search_log 테이블 자동 생성됩니다.
 
 ---
 
@@ -111,7 +129,7 @@ GET http://localhost:8081/api/search/trend/view
 ## ⚠️ 주의사항
 - application.yml은 보안상 깃허브에 올리지 않습니다
 - OpenAI API 키는 유료이므로 본인 키를 직접 발급받아야 합니다
-- 현재 메모리 기반 저장이라 서버 재시작 시 데이터 초기화됩니다 (DB 연동 예정)
+- MySQL이 로컬에 설치되어 있어야 합니다
 
 ---
 
@@ -125,11 +143,21 @@ GET http://localhost:8081/api/search/trend/view
 | 트렌드 이유 설명 | ❌ 불가 | ✅ 가능 |
 
 
+## ✅ DB 연동 완료
+
+| 테이블 | 컬럼 | 설명 |
+|--------|------|------|
+| search_log | id | 자동 증가 PK |
+| | keyword | 검색어 (unique) |
+| | search_count | 검색 횟수 |
+| | last_searched | 마지막 검색 시간 |
+
+---
+
 ##  추후 개발 예정
 
-- [ ] DB 연동 (JPA + MySQL)
-      → 현재 메모리 저장이라 서버 재시작 시 데이터 초기화
-      → 검색 기록 영구 저장 예정
+- [x] DB 연동 (JPA + MySQL)
+      → MySQL search_log 테이블에 영구 저장
 
 - [ ] 검색어 기반 개인화 추천
       → 사용자별 검색 기록 저장
