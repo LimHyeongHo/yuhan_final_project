@@ -12,9 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -35,74 +32,6 @@ public class PaymentController {
             return ResponseEntity.ok(response);
         }catch(Exception e){
             return ResponseEntity.badRequest().body("결제 실패: "+e.getMessage());
-        }
-    }
-
-
-    // 인증서 정보 조회 API
-    @GetMapping("/cert-info")
-    public ResponseEntity<?> getCertInfo() {
-        try {
-            Map<String, Object> certInfo = paymentService.getRealCertInfo();
-            return ResponseEntity.ok(certInfo);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("조회 실패: " + e.getMessage());
-        }
-    }
-
-    @GetMapping("/cert-verify")
-    public ResponseEntity<?> verifyCert() {
-        try {
-            List<Map<String, Object>> steps = new ArrayList<>();
-
-            Map<String, Object> step1 = new HashMap<>();
-            step1.put("step", "1");
-            step1.put("title", "브라우저가 서버 접속");
-            step1.put("description", "클라이언트가 https://localhost:8443 접속 요청");
-            step1.put("status", "success");
-            steps.add(step1);
-
-            Map<String, Object> step2 = new HashMap<>();
-            step2.put("step", "2");
-            step2.put("title", "서버가 인증서 제출");
-            step2.put("description", "서버가 Yuhan Root CA가 발급한 인증서 전달");
-            step2.put("status", "success");
-            steps.add(step2);
-
-            Map<String, Object> step3 = new HashMap<>();
-            step3.put("step", "3");
-            step3.put("title", "CA 서명 검증");
-            step3.put("description", "Yuhan Root CA의 공개키로 서버 인증서 서명 검증");
-            step3.put("status", "success");
-            steps.add(step3);
-
-            Map<String, Object> step4 = new HashMap<>();
-            step4.put("step", "4");
-            step4.put("title", "유효기간 확인");
-            step4.put("description", "인증서 유효기간 2026-04-03 ~ 2027-04-03 확인");
-            step4.put("status", "success");
-            steps.add(step4);
-
-            Map<String, Object> step5 = new HashMap<>();
-            step5.put("step", "5");
-            step5.put("title", "암호화 통신 시작");
-            step5.put("description", "검증 완료 후 HTTPS 암호화 통신 시작");
-            step5.put("status", "success");
-            steps.add(step5);
-
-            return ResponseEntity.ok(steps);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("검증 실패: " + e.getMessage());
-        }
-    }
-
-    @GetMapping("/cert-expired")
-    public ResponseEntity<?> certExpired() {
-        try {
-            Map<String, Object> certInfo = paymentService.getExpiredCertInfo();
-            return ResponseEntity.ok(certInfo);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("조회 실패: " + e.getMessage());
         }
     }
 
@@ -134,6 +63,8 @@ public class PaymentController {
             request.setPaymentKey(paymentKey);
             request.setOrderId(orderId);
             request.setAmount(amount);
+            request.setOrderName(orderName);
+            request.setParticipants(participants);
             paymentService.confirmPayment(request);
 
             // 성공 페이지로 이동
@@ -174,12 +105,13 @@ public class PaymentController {
     @PostMapping("/save")
     public ResponseEntity<?> saveOrder(
             @RequestParam String orderId,
+            @RequestParam String orderName,
             @RequestParam Long totalAmount,
             @RequestParam int participants,
             @RequestParam int deadlineMinutes) {
         try {
             LocalDateTime deadline = LocalDateTime.now().plusMinutes(deadlineMinutes);
-            paymentService.saveOrder(orderId, totalAmount, participants, deadline);
+            paymentService.saveOrder(orderId, orderName, totalAmount, participants, deadline);
             return ResponseEntity.ok("주문 저장 완료. 마감: " + deadline);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("저장 실패: " + e.getMessage());
