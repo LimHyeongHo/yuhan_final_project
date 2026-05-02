@@ -3,6 +3,7 @@ package com.demo.gp.service;
 import com.demo.gp.dto.DeadlineResult;
 import com.demo.gp.entity.*;
 import com.demo.gp.repository.*;
+import com.demo.gp.entity.AdminLog;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ public class GroupPurchaseService {
     private final ProductRepository productRepo;
     private final UserRepository userRepo;
     private final HistoryRepository historyRepo;
+    private final AdminLogRepository adminLogRepo;
     private final com.demo.gp.DataInitializer dataInitializer;
 
     public GroupPurchaseService(GroupPurchaseRepository gpRepo,
@@ -30,12 +32,14 @@ public class GroupPurchaseService {
                                 ProductRepository productRepo,
                                 UserRepository userRepo,
                                 HistoryRepository historyRepo,
+                                AdminLogRepository adminLogRepo,
                                 com.demo.gp.DataInitializer dataInitializer) {
-        this.gpRepo         = gpRepo;
-        this.partRepo       = partRepo;
-        this.productRepo    = productRepo;
-        this.userRepo       = userRepo;
-        this.historyRepo    = historyRepo;
+        this.gpRepo          = gpRepo;
+        this.partRepo        = partRepo;
+        this.productRepo     = productRepo;
+        this.userRepo        = userRepo;
+        this.historyRepo     = historyRepo;
+        this.adminLogRepo    = adminLogRepo;
         this.dataInitializer = dataInitializer;
     }
 
@@ -170,6 +174,11 @@ public class GroupPurchaseService {
             h.setCreatedAt(LocalDateTime.now());
             historyRepo.save(h);
         }
+
+        String scenarioLabel = (gpId == 2) ? "시나리오B" : "시나리오A";
+        String msg = String.format("[%s] 발주 확정 - 결제완료 %d명, 발주진행으로 전환", scenarioLabel, paidParts.size());
+        adminLog.info(msg);
+        saveAdminLog(scenarioLabel, "발주확정", msg);
     }
 
     // 실패 및 환불 확정 처리
@@ -177,14 +186,17 @@ public class GroupPurchaseService {
         GroupPurchase checkGp = gpRepo.findById(gpId).orElseThrow();
         if ("실패".equals(checkGp.getStatus())) return;
         doDeadlineLogic(gpId, true, "실패");
+
+        String scenarioLabel = (gpId == 2) ? "시나리오B" : "시나리오A";
+        String msg = String.format("[%s] 실패 확정 - 공동구매 실패 처리 및 환불 완료", scenarioLabel);
+        adminLog.info(msg);
+        saveAdminLog(scenarioLabel, "실패확정", msg);
     }
 
     // 단가 인상 후 마감 연장
     public void reopenRecruitment(Integer gpId) {
         GroupPurchase gp = gpRepo.findById(gpId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 공동구매: " + gpId));
-
-        Product product = productRepo.findById(gp.getProductId()).orElseThrow();
 
         List<Participation> allParts = partRepo.findByGpId(gpId);
         Map<Integer, User> userMap = buildUserMap(allParts);
@@ -238,8 +250,9 @@ public class GroupPurchaseService {
         gpRepo.save(gp);
 
         String scenarioLabel = (gpId == 2) ? "시나리오B" : "시나리오A";
-        adminLog.info("[{}] 관리자 액션: 모집중(마감기간 연장) - 미입금자 {}명 퇴출 처리 완료",
-                scenarioLabel, failedParts.size());
+        String msg = String.format("[%s] 관리자 액션: 모집중(마감기간 연장) - 미입금자 %d명 퇴출 처리 완료", scenarioLabel, failedParts.size());
+        adminLog.info(msg);
+        saveAdminLog(scenarioLabel, "마감연장", msg);
     }
 
     // 시연용 초기화
@@ -283,6 +296,15 @@ public class GroupPurchaseService {
             }
         }
         return failedUsers;
+    }
+
+    private void saveAdminLog(String scenario, String action, String message) {
+        AdminLog log = new AdminLog();
+        log.setCreatedAt(LocalDateTime.now());
+        log.setScenario(scenario);
+        log.setAction(action);
+        log.setMessage(message);
+        adminLogRepo.save(log);
     }
 
     // N빵 계산
