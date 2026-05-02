@@ -1,34 +1,51 @@
 # 💬 WebSocket 실시간 채팅
- 
+
 ---
- 
+
 ## 📌 데모 (프로토타입)
- 
+
 현재 구현은 WebSocket의 핵심 원리인 실시간 양방향 통신을 Spring Boot와 React로 구현한 테스트용 데모입니다.
 대학생 공동구매 마켓 플랫폼에서 채팅 기능이 어떻게 동작하는지 확인하기 위한 시연 목적으로 제작되었습니다.
- 
+
 ### 주요 기능
- 
+
 - SockJS + STOMP 프로토콜 기반 실시간 양방향 통신 구현
 - 메시지 전송 즉시 채팅방 내 모든 참여자에게 브로드캐스트
 - 입장/퇴장 알림 및 참여자 목록 자동 갱신
 - 브라우저 종료 시 세션 감지로 자동 퇴장 처리
+- 채팅 메시지 MySQL DB 저장 및 재접속 시 이전 메시지 자동 로드 (최근 50개)
+
 ### 기술 스택
- 
+
 | 구분 | 기술 |
 |------|------|
-| **Backend** | Spring Boot · WebSocket · STOMP |
+| **Backend** | Spring Boot · WebSocket · STOMP · Spring Data JPA |
 | **Frontend** | React · SockJS · @stomp/stompjs |
+| **DB** | MySQL 8.0 |
 | **언어** | Java 17 · JavaScript |
- 
+
 ### 실행 방법
- 
+
 **시스템 요구사항**
 - Java 17 이상
+- MySQL 8.0 이상
 - Node.js 18 이상
 - npm 9 이상
-**Step 1. 백엔드 실행 (Spring Boot)**
- 
+
+**Step 1. MySQL 설정**
+
+1. MySQL 서버를 실행합니다.
+2. 아래 명령어로 데이터베이스를 생성합니다.
+```sql
+CREATE DATABASE chat_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+3. `src/main/resources/application.properties` 에서 비밀번호를 본인 MySQL 비밀번호로 변경합니다.
+```properties
+spring.datasource.password=your_password_here
+```
+
+**Step 2. 백엔드 실행 (Spring Boot)**
+
 1. IntelliJ IDEA에서 Chatting 폴더를 엽니다.
 2. `src/main/java/com/springboot/chatting/ChattingApplication.java` 를 찾습니다.
 3. 상단 초록색 ▶️ 버튼을 클릭하여 실행합니다.
@@ -36,84 +53,87 @@
 ```
 Started ChattingApplication in X.XXX seconds
 ```
- 
+
 백엔드 서버 : `http://localhost:8080`
- 
-**Step 2. 프론트엔드 실행 (React)**
- 
+
+**Step 3. 프론트엔드 실행 (React)**
+
 ```bash
 cd frontend
 npm install
 npm start
 ```
- 
+
 브라우저에서 `http://localhost:3000` 접속
- 
+
 > ⚠️ 반드시 백엔드를 먼저 실행한 후 프론트엔드를 실행하세요.
- 
-**Step 3. 테스트 방법**
- 
+
+**Step 4. 테스트 방법**
+
 1. 브라우저에서 `http://localhost:3000` 접속
 2. 아래 테스트 계정 중 하나를 선택하여 입장
+
 | 계정 | 역할 |
 |------|------|
 | admin1 | 구매자 |
 | admin2 | 판매자 |
 | admin3 | 관리자 |
- 
+
 3. 크롬 시크릿 창 (Mac: `Cmd + Shift + N`) 을 추가로 열어 다른 계정으로 입장합니다.
 4. 두 창에서 메시지를 주고받으며 실시간 채팅을 확인합니다.
+5. 새로고침 후 재입장 시 이전 채팅 내역이 자동으로 복원되는 것을 확인합니다.
+
 ### 주의사항
- 
-- 본 데모는 DB 연동 없이 서버 메모리에서 참여자를 관리하므로, 서버 재시작 시 참여자 목록이 초기화됩니다.
+
+- 참여자 목록은 서버 메모리에서 관리되므로 서버 재시작 시 초기화됩니다.
+- 채팅 메시지는 MySQL에 영구 저장되며 서버 재시작 후에도 유지됩니다.
 - 테스트용 로컬 환경에서만 동작하며 실제 배포 환경에서는 HTTPS 및 보안 설정이 추가로 필요합니다.
+
 ---
- 
+
 ## 📌 실제 구현 예정
- 
+
 데모를 기반으로 실제 서비스 수준으로 아래와 같이 구현할 예정입니다.
- 
+
 ### 기술 스택
- 
+
 | 구분 | 기술 |
 |------|------|
 | **Frontend** | React · SockJS · @stomp/stompjs |
 | **Backend** | Spring Boot · WebSocket · STOMP |
 | **DB** | MySQL |
 | **언어** | Java 17 · JavaScript |
- 
+
 ### 1. 판매자 1:1 채팅
- 
+
 - 구매자가 공동구매 참여 버튼 클릭 시 해당 판매자와 1:1 채팅방 자동 생성
 - 기존에 같은 판매자와의 채팅방이 있으면 기존 방으로 바로 입장
 - `/topic/chat/{roomId}` 기반으로 구독하여 1:1 메시지 전송
 - 구매자 ↔ 판매자 간 개인 문의용 (비공개)
-### 2. MySQL 연동 — 채팅 기록 영구 저장
- 
-- 현재는 서버 재시작 시 모든 대화 내역 초기화
-- 채팅방 입장 시 REST API로 이전 메시지 페이징 로드
-- 이후 새 메시지는 WebSocket으로 실시간 수신
-- REST + WebSocket 혼합 하이브리드 구조로 구현 예정
-### 3. 읽음 / 안읽음 처리
- 
+
+### 2. 읽음 / 안읽음 처리
+
 - 상대방이 읽지 않으면 말풍선 옆 `1` 표시, 읽으면 사라짐
 - 참여자별 `last_read_message_id` 로 읽음 상태 관리
-### 4. 채팅방 목록 UI
- 
+
+### 3. 채팅방 목록 UI
+
 - 최근 메시지 기준 내림차순 정렬
 - 상대방 이름, 마지막 메시지 미리보기, 전송 시각 표시
 - 안읽은 메시지 뱃지 표시 및 실시간 갱신
-### 5. HTTPS 전환 및 JWT 인증
- 
+
+### 4. HTTPS 전환 및 JWT 인증
+
 - 배포 시 SSL 인증서 적용, `ws://` → `wss://` 프로토콜 전환
 - 현재 닉네임 입력 방식 → JWT 토큰 기반 인증으로 전환
 - CORS 설정 : 배포 시 실제 도메인만 허용하도록 제한
+
 ---
- 
+
 ## 📌 추가 구현 예정
- 
+
 ### QA 게시판
- 
+
 - 공동구매 상세 페이지 내 탭 형태로 제공
 - 해당 공동구매에 참여한 구매자만 질문 작성 가능
 - 답변은 참여 구매자 전체에게 공개

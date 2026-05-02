@@ -15,8 +15,18 @@ const Chat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const connect = (name) => {
+  const connect = async (name) => {
     setUsername(name);
+
+    // 이전 채팅 내역 불러오기
+    try {
+      const res = await fetch('http://localhost:8080/api/messages');
+      const history = await res.json();
+      setMessages(history);
+    } catch (e) {
+      console.error('채팅 내역 불러오기 실패', e);
+    }
+
     const client = new Client({
       webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
       onConnect: () => {
