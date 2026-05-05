@@ -9,6 +9,8 @@
 - Java 17
 - Toss Payments API
 - WebFlux (외부 API 호출)
+- Spring Data JPA
+- MySQL
 - OpenSSL (모의 CA 및 인증서 생성)
 - HTTPS / TLS (X.509 인증서 기반)
 
@@ -26,6 +28,7 @@
 - 토스페이먼츠 샌드박스(테스트 환경) 연동
 - 실제 돈 없이 결제 시뮬레이션 가능
 - 결제 성공/실패 처리
+- 결제 완료 시 payments 테이블에 자동 저장 (주문명, 금액, 1인당 금액, 결제수단)
 
 #### 3. 중복 결제 방지
 - 같은 주문번호로 중복 결제 시도 시 자동 차단
@@ -39,6 +42,7 @@
 - 마감 시간 설정 가능 (분 단위)
 - 마감 시간 초과 시 미입금자 자동 제외
 - 1분마다 자동으로 마감 시간 체크
+- 주문 및 참여자 정보 MySQL DB에 영구 저장
 
 #### 6. 예외처리
 
@@ -113,7 +117,12 @@
 
 ## ⚙️ 실행 방법
 
-### 1. application.yml 생성
+### 1. MySQL DB 생성
+```sql
+CREATE DATABASE paymentdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+### 2. application.yml 생성
 
 프로젝트 루트에 application.yml 파일 생성 후 아래 내용 붙여넣기
 
@@ -121,6 +130,15 @@
 spring:
   application:
     name: payment
+  datasource:
+    url: jdbc:mysql://localhost:3306/paymentdb?useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 본인_MySQL_비밀번호
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
 
 server:
   port: 8443
@@ -138,7 +156,7 @@ toss:
   secret-key: test_sk_Z61JOxRQVEbEQQ09q5MmrW0X9bAq
 ```
 
-### 2. keystore.p12 생성
+### 3. keystore.p12 생성
 
 openssl이 설치되어 있어야 합니다. 터미널에서 순서대로 실행해주세요.
 
@@ -170,12 +188,13 @@ openssl pkcs12 -export -in server.crt -inkey server.key \
 cp keystore.p12 src/main/resources/
 ```
 
-### 3. 서버 실행
+### 4. 서버 실행
 ```
 PaymentApplication.java 실행
 ```
+서버 시작 시 orders, participants, payments 테이블 자동 생성됩니다.
 
-### 4. 접속
+### 5. 접속
 ```
 https://localhost:8443/payment.html
 ```
@@ -206,11 +225,13 @@ https://localhost:8443/api/payment/calculate?totalAmount=50000&participants=3
 Postman에서
 POST https://localhost:8443/api/payment/save
 ?orderId=order_test
+&orderName=치킨
 &totalAmount=48000
 &participants=4
 &deadlineMinutes=1
 
 → 1분 후 콘솔에서 자동 제외 확인
+→ MySQL participants 테이블에서 cancelled=true 확인
 ```
 
 ### CA 인증서 대시보드
@@ -227,7 +248,7 @@ https://localhost:8443/ca-dashboard.html
 ## ⚠️ 주의사항
 - keystore.p12, *.key 파일은 개인키 포함으로 깃허브에 올리지 않음
 - 토스페이먼츠 테스트 키로만 동작함 (실제 결제 없음)
-- DB 연동은 하지 않았음
+- MySQL이 로컬에 설치되어 있어야 합니다
 - 모의 CA라 브라우저 경고가 뜨지만 암호화 통신은 정상 작동
 
 ---
@@ -262,6 +283,46 @@ Microsoft 공식 문서에 따르면, X.509 인증서는 사용자, 컴퓨터, �
 - 로컬 환경 한계: keystore.p12 경로가 로컬에 고정되어 있어 환경마다 재생성 필요
 
 ---
+
+## ✅ DB 연동 완료
+
+| 테이블 | 주요 컬럼 | 설명 |
+|--------|-----------|------|
+| orders | orderId, orderName, totalAmount, totalParticipants, activeParticipants, deadline | 주문 정보 |
+| participants | seq, order_id, name, cancelled, unpaid | 참여자 정보 |
+| payments | paymentKey, orderId, orderName, totalAmount, perPerson, status, method, paidAt | 결제 완료 내역 |
+
+---
+
+##  추후 개발 예정
+
+### 결제/정산
+- [x] DB 연동 (JPA + MySQL)
+      → orders, participants, payments 테이블에 영구 저장
+
+- [ ] 카카오페이 송금 링크 자동 발송
+      → 참여자별 카카오페이 링크 알림 자동 발송
+
+- [ ] 신뢰도 시스템 연동
+      → 미입금/취소 반복 시 신뢰도 점수 반영
+      → 신뢰도 낮은 사용자 참여 제한
+
+- [ ] 정산 내역 PDF 출력
+      → 공동주문 완료 후 정산 내역 PDF 저장 기능
+
+### CA 인증서
+- [ ] 인증서 자동 갱신
+      → 유효기간 만료 시 자동 재발급 로직 추가
+
+### 공통
+- [ ] AWS 배포
+      → EC2 + RDS 배포 예정
+
+- [ ] 회원 시스템 연동
+      → PKI 기반 1인 1계정과 결제 시스템 연결
+
+- [ ] 공동주문 상태머신 연동
+      → 주문 상태에 따른 결제 흐름 자동화
 
 ## 📚 참고 자료
 - [Microsoft Learn - X.509 인증서](https://learn.microsoft.com/ko-kr/azure/iot-hub/reference-x509-certificates)

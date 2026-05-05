@@ -11,4 +11,6 @@ public class PaymentRequest {
     private String orderId;
     private Long amount;
     private LocalDateTime deadline;
+    private String orderName;
+    private int participants;
 }

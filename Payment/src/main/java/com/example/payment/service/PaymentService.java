@@ -1,123 +1,50 @@
 package com.example.payment.service;
 
-
 import com.example.payment.dto.OrderInfo;
 import com.example.payment.dto.PaymentRequest;
 import com.example.payment.dto.PaymentResponse;
+import com.example.payment.entity.Order;
+import com.example.payment.entity.Participant;
+import com.example.payment.entity.Payment;
+import com.example.payment.repository.OrderRepository;
+import com.example.payment.repository.PaymentRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.beans.factory.annotation.Value;
 
-import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class PaymentService {
 
     @Value("${toss.secret-key}")
     private String secretKey;
 
+    private final OrderRepository orderRepository;
+    private final PaymentRepository paymentRepository;
 
     private final WebClient webClient = WebClient.builder()
             .baseUrl("https://api.tosspayments.com")
             .build();
 
-
-    public Map<String, Object> getRealCertInfo() {
-        try {
-            // 실제 인증서 파일 읽기
-            CertificateFactory cf = CertificateFactory.getInstance("X.509");
-            FileInputStream fis = new FileInputStream(
-                    "/Users/geonwoo/ca-pratice/server.crt"
-            );
-            X509Certificate cert = (X509Certificate) cf.generateCertificate(fis);
-
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-
-            Map<String, Object> certInfo = new HashMap<>();
-            certInfo.put("subject", cert.getSubjectDN().getName());
-            certInfo.put("issuer", cert.getIssuerDN().getName());
-            certInfo.put("validFrom", sdf.format(cert.getNotBefore()));
-            certInfo.put("validTo", sdf.format(cert.getNotAfter()));
-            certInfo.put("algorithm", cert.getSigAlgName());
-            certInfo.put("keyLength",
-                    ((java.security.interfaces.RSAPublicKey) cert.getPublicKey())
-                            .getModulus().bitLength() + " bit");
-            certInfo.put("serialNumber", cert.getSerialNumber().toString());
-            certInfo.put("version", "V" + cert.getVersion());
-
-            // 만료 여부 확인
-            try {
-                cert.checkValidity();
-                certInfo.put("status", "유효함");
-            } catch (Exception e) {
-                certInfo.put("status", "만료됨");
-            }
-
-            fis.close();
-            return certInfo;
-
-        } catch (Exception e) {
-            throw new RuntimeException("인증서 읽기 실패: " + e.getMessage());
-        }
-    }
-
-    // 만료된 인증서 읽기
-    public Map<String, Object> getExpiredCertInfo() {
-        try {
-            CertificateFactory cf = CertificateFactory.getInstance("X.509");
-            FileInputStream fis = new FileInputStream(
-                    "/Users/geonwoo/ca-pratice/expired.crt"
-            );
-            X509Certificate cert = (X509Certificate) cf.generateCertificate(fis);
-
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-
-            Map<String, Object> certInfo = new HashMap<>();
-            certInfo.put("subject", cert.getSubjectDN().getName());
-            certInfo.put("issuer", cert.getIssuerDN().getName());
-            certInfo.put("validFrom", sdf.format(cert.getNotBefore()));
-            certInfo.put("validTo", sdf.format(cert.getNotAfter()));
-            certInfo.put("algorithm", cert.getSigAlgName());
-
-            // 만료 여부 확인
-            try {
-                cert.checkValidity();
-                certInfo.put("status", "유효함");
-                certInfo.put("expired", false);
-            } catch (Exception e) {
-                certInfo.put("status", "만료됨 ❌");
-                certInfo.put("expired", true);
-            }
-
-            fis.close();
-            return certInfo;
-
-        } catch (Exception e) {
-            throw new RuntimeException("인증서 읽기 실패: " + e.getMessage());
-        }
-    }
-
-    public PaymentResponse confirmPayment(PaymentRequest request){
-
+    @Transactional
+    public PaymentResponse confirmPayment(PaymentRequest request) {
         String encodedKey = Base64.getEncoder()
                 .encodeToString((secretKey + ":").getBytes(StandardCharsets.UTF_8));
 
-        Map<String, Object> body  = new HashMap<>();
-        body.put("paymentKey",request.getPaymentKey());
-        body.put("orderId",request.getOrderId());
-        body.put("amount",request.getAmount());
+        Map<String, Object> body = new HashMap<>();
+        body.put("paymentKey", request.getPaymentKey());
+        body.put("orderId", request.getOrderId());
+        body.put("amount", request.getAmount());
 
-
-
-        return webClient.post()
+        PaymentResponse response = webClient.post()
                 .uri("/v1/payments/confirm")
                 .header("Authorization", "Basic " + encodedKey)
                 .header("Content-Type", "application/json")
@@ -125,9 +52,32 @@ public class PaymentService {
                 .retrieve()
                 .bodyToMono(PaymentResponse.class)
                 .block();
+
+        // DB에서 주문 조회 → 없으면 request 값 사용
+        Order order = orderRepository.findById(request.getOrderId()).orElse(null);
+        String orderName = (order != null) ? order.getOrderName()
+                : (request.getOrderName() != null && !request.getOrderName().isBlank())
+                        ? request.getOrderName() : "공동주문";
+        int participants = (order != null) ? order.getActiveParticipants()
+                : (request.getParticipants() > 0 ? request.getParticipants() : 1);
+        long perPerson = response.getTotalAmount() / participants;
+
+        // 결제 완료 시 DB 저장
+        Payment payment = new Payment();
+        payment.setPaymentKey(response.getPaymentKey());
+        payment.setOrderId(response.getOrderId());
+        payment.setOrderName(orderName);
+        payment.setTotalAmount(response.getTotalAmount());
+        payment.setPerPerson(perPerson);
+        payment.setStatus(response.getStatus());
+        payment.setMethod(response.getMethod());
+        payment.setPaidAt(LocalDateTime.now());
+        paymentRepository.save(payment);
+
+        return response;
     }
 
-    public Map<String, Object> calculateAmount(Long totalAmount, int participants){
+    public Map<String, Object> calculateAmount(Long totalAmount, int participants) {
         long perPerson = totalAmount / participants;
         long remainder = totalAmount % participants;
 
@@ -139,53 +89,72 @@ public class PaymentService {
         return result;
     }
 
-
-    // 주문 정보 메모리 저장
-    private final Map<String, OrderInfo> orderStorage = new ConcurrentHashMap<>();
-    private final Set<String> processedOrders = new HashSet<>();
-
-    // 주문 저장
-    public void saveOrder(String orderId, Long totalAmount, int participants, LocalDateTime deadline) {
-        OrderInfo order = new OrderInfo();
+    @Transactional
+    public void saveOrder(String orderId, String orderName, Long totalAmount, int participants, LocalDateTime deadline) {
+        Order order = new Order();
         order.setOrderId(orderId);
+        order.setOrderName(orderName);
         order.setTotalAmount(totalAmount);
         order.setTotalParticipants(participants);
         order.setActiveParticipants(participants);
         order.setDeadline(deadline);
 
-        // 참여자 목록 생성
         for (int i = 1; i < participants; i++) {
-            OrderInfo.ParticipantInfo p = new OrderInfo.ParticipantInfo();
-            p.setId(i);
+            Participant p = new Participant();
+            p.setParticipantId(i);
             p.setName("참여자 " + i);
             p.setCancelled(false);
             p.setUnpaid(false);
+            p.setOrder(order);
             order.getParticipants().add(p);
         }
-        orderStorage.put(orderId, order);
+        orderRepository.save(order);
     }
 
-    // 마감 시간 지난 미입금자 자동 제외
-    @Scheduled(fixedDelay = 60000) // 1분마다 실행
+    @Scheduled(fixedDelay = 60000)
+    @Transactional
     public void checkDeadline() {
         LocalDateTime now = LocalDateTime.now();
+        List<Order> expiredOrders = orderRepository.findByDeadlineBefore(now);
 
-        orderStorage.forEach((orderId, order) -> {
-            if (order.getDeadline() != null && now.isAfter(order.getDeadline())) {
-                order.getParticipants().forEach(p -> {
-                    if (!p.isCancelled() && !p.isUnpaid()) {
-                        p.setUnpaid(true); // 미입금 처리
-                        p.setCancelled(true); // 자동 제외
-                        order.setActiveParticipants(order.getActiveParticipants() - 1);
-                        System.out.println("미입금 자동 제외: " + p.getName() + " / 주문: " + orderId);
-                    }
-                });
+        for (Order order : expiredOrders) {
+            for (Participant p : order.getParticipants()) {
+                if (!p.isCancelled() && !p.isUnpaid()) {
+                    p.setUnpaid(true);
+                    p.setCancelled(true);
+                    order.setActiveParticipants(order.getActiveParticipants() - 1);
+                    System.out.println("미입금 자동 제외: " + p.getName() + " / 주문: " + order.getOrderId());
+                }
             }
-        });
+        }
+        orderRepository.saveAll(expiredOrders);
     }
 
-    // 주문 조회
     public OrderInfo getOrder(String orderId) {
-        return orderStorage.get(orderId);
+        return orderRepository.findById(orderId)
+                .map(this::toOrderInfo)
+                .orElse(null);
+    }
+
+    private OrderInfo toOrderInfo(Order order) {
+        OrderInfo info = new OrderInfo();
+        info.setOrderId(order.getOrderId());
+        info.setTotalAmount(order.getTotalAmount());
+        info.setTotalParticipants(order.getTotalParticipants());
+        info.setActiveParticipants(order.getActiveParticipants());
+        info.setDeadline(order.getDeadline());
+
+        List<OrderInfo.ParticipantInfo> participants = order.getParticipants().stream()
+                .map(p -> {
+                    OrderInfo.ParticipantInfo pi = new OrderInfo.ParticipantInfo();
+                    pi.setId(p.getParticipantId());
+                    pi.setName(p.getName());
+                    pi.setCancelled(p.isCancelled());
+                    pi.setUnpaid(p.isUnpaid());
+                    return pi;
+                })
+                .collect(Collectors.toList());
+        info.setParticipants(participants);
+        return info;
     }
 }
