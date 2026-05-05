@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PKI 통합 보안 시스템</title>
+    <script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; max-width: 650px; margin: 0 auto; padding: 40px; background-color: #f0f2f5; color: #333; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin-bottom: 25px; border: 1px solid #e1e4e8; }
+        h1 { text-align: center; color: #1a73e8; margin-bottom: 40px; }
+        h2 { font-size: 1.25rem; color: #1a73e8; border-bottom: 2px solid #e8f0fe; padding-bottom: 10px; margin-top: 0; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; color: #555; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        .btn-primary { background-color: #1a73e8; color: white; }
+        .btn-success { background-color: #34a853; color: white; }
+        .btn-info { background-color: #4285f4; color: white; }
+        .btn-danger { background-color: #ea4335; color: white; }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        .result { margin-top: 20px; padding: 20px; border-radius: 10px; display: none; text-align: center; }
+        .success { background-color: #e6ffed; color: #155724; border: 1px solid #b7eb8f; }
+        .error { background-color: #fff1f0; color: #cf1322; border: 1px solid #ffa39e; }
+        .welcome-msg { font-size: 1.5rem; font-weight: bold; color: #1a73e8; margin-bottom: 10px; }
+        .role-group { display: flex; gap: 10px; margin-top: 5px; }
+        .role-option { flex: 1; text-align: center; padding: 10px; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; }
+        input[type="radio"] { display: none; }
+        input[type="radio"]:checked + .role-option { background-color: #1a73e8; color: white; border-color: #1a73e8; }
+    </style>
+</head>
+<body>
+
+    <h1>🛡️ PKI 통합 보안 로그인</h1>
+    <div style="text-align: center; margin-bottom: 20px; font-size: 0.8rem; color: #666;">
+        현재 기기 식별자: <span id="displayDeviceId" style="font-weight: bold; color: #1a73e8;"></span>
+    </div>
+
+    <!-- 1. 회원가입 -->
+    <div class="card">
+        <h2>1단계: 통합 회원가입</h2>
+        <div class="form-group"><label>이메일</label><input type="email" id="regEmail" placeholder="example@naver.com"></div>
+        <div class="form-group"><label>비밀번호</label><input type="password" id="regPw" placeholder="비밀번호"></div>
+        <div class="form-group"><label>닉네임</label><input type="text" id="regNickname" placeholder="닉네임"></div>
+        <div class="form-group">
+            <label>회원 유형</label>
+            <div class="role-group">
+                <label><input type="radio" name="role" value="ROLE_ADMIN"><div class="role-option">관리자</div></label>
+                <label><input type="radio" name="role" value="ROLE_BUYER" checked><div class="role-option">구매자</div></label>
+                <label><input type="radio" name="role" value="ROLE_SELLER"><div class="role-option">판매자</div></label>
+            </div>
+        </div>
+        <button class="btn btn-info" onclick="verifyIdentity('reg')">본인인증 실행</button>
+        <button class="btn btn-primary" id="regBtn" onclick="register()" disabled>가입 및 인증서 발급</button>
+        <div id="regResult" class="result"></div>
+    </div>
+
+    <!-- 2. 로그인 -->
+    <div class="card">
+        <h2>2단계: 보안 로그인 (아이디+비번+기기인증)</h2>
+        <div class="form-group"><label>아이디 (이메일)</label><input type="email" id="loginEmail" placeholder="가입한 이메일"></div>
+        <div class="form-group"><label>비밀번호</label><input type="password" id="loginPw" placeholder="비밀번호"></div>
+        <button class="btn btn-info" id="loginVerifyBtn" onclick="verifyIdentity('login')">본인인증 실행</button>
+        
+        <div id="postVerifyBtns" style="display:none;">
+            <button class="btn btn-success" id="loginBtn" onclick="login()">안전 로그인 실행</button>
+            <button class="btn btn-info" id="reissueBtn" onclick="reissue()" style="background-color: #673ab7; color: white; margin-top: 5px;">기기 인증서 재발급 (기존 회원 전용)</button>
+        </div>
+        
+        <div id="loginResult" class="result">
+            <div id="welcomeArea"></div>
+            <p id="loginStatusMsg"></p>
+            <button class="btn btn-danger" onclick="logout()" style="margin-top: 15px;">로그아웃</button>
+        </div>
+    </div>
+
+    <!-- 3. 폐기 -->
+    <div class="card">
+        <h2>기타: 기기 분실/인증서 폐기</h2>
+        <button class="btn btn-danger" onclick="revoke()">현재 기기 인증서 무효화</button>
+    </div>
+
+    <script>
+        let privateKey = null;
+        let regCi = null;
+        let loginCiVerified = false;
+
+        const DB_NAME = "PKI_KeyStore";
+        const STORE_NAME = "privateKeys";
+
+        function getDeviceId() {
+            let deviceId = localStorage.getItem('pki_device_id');
+            if (!deviceId) {
+                try {
+                    if (window.crypto && window.crypto.randomUUID) {
+                        deviceId = 'dev-' + window.crypto.randomUUID();
+                    } else {
+                        // 대체 UUID 생성 로직
+                        deviceId = 'dev-' + ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+                            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+                        );
+                    }
+                } catch (e) {
+                    deviceId = 'dev-' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+                }
+                localStorage.setItem('pki_device_id', deviceId);
+            }
+            return deviceId;
+        }
+
+        // 페이지 로드 시 기기 식별자 표시
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('displayDeviceId').innerText = getDeviceId();
+        });
+
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME);
+                    }
+                };
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function savePrivateKey(deviceId, key) {
+            const db = await openDB();
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            tx.objectStore(STORE_NAME).put(key, deviceId.trim());
+            return new Promise((resolve, reject) => {
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        async function loadPrivateKey(deviceId) {
+            const db = await openDB();
+            const tx = db.transaction(STORE_NAME, "readonly");
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.get(deviceId.trim());
+            return new Promise((resolve, reject) => {
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function deletePrivateKey(deviceId) {
+            const db = await openDB();
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            tx.objectStore(STORE_NAME).delete(deviceId.trim());
+            return new Promise((resolve, reject) => {
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        async function checkKeyStatus() {
+            const email = document.getElementById('loginEmail').value.trim();
+            if(!email) return;
+
+            const key = await loadPrivateKey(email);
+            if(key) {
+                privateKey = key;
+                console.log("기기 인증 키 로드됨");
+            } else {
+                privateKey = null;
+                console.log("로컬에 저장된 키 없음");
+            }
+            // 재발급 버튼을 숨기지 않고 항상 보이도록 유지 (기기 동기화 문제 해결용)
+            document.getElementById('reissueBtn').style.display = 'block';
+        }
+
+        // blur 이벤트 리스너 제거 또는 내부 로직 비우기
+        document.getElementById('loginEmail').addEventListener('blur', async () => {
+            await checkKeyStatus(); 
+        });
+
+        async function verifyIdentity(type) {
+            const email = document.getElementById(type === 'reg' ? 'regEmail' : 'loginEmail').value.trim();
+            if(!email) return alert("이메일을 입력하세요.");
+
+            try {
+                // 1. 포트원 본인인증 창 호출
+                const response = await PortOne.requestIdentityVerification({
+                    storeId: "store-fd77dc69-cea9-4fd9-83c9-9888650fe579",
+                    channelKey: "channel-key-8ffdf987-acaa-40a7-bac8-c8000aab12f2",
+                    identityVerificationId: `verif-${Date.now()}`
+                });
+
+                if (response.code !== undefined) {
+                    return alert("인증 실패: " + response.message);
+                }
+
+                // 2. 백엔드 서버에 검증 요청
+                const verifyRes = await fetch('http://localhost:8080/api/pki/verify-portone', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ identityVerificationId: response.identityVerificationId })
+                });
+
+                if (!verifyRes.ok) throw new Error("서버 검증 실패");
+                
+                const result = await verifyRes.json();
+                console.log("PortOne Verification Result:", result); 
+                
+                if (!result.ci) {
+                    throw new Error("인증 결과에 CI 정보가 없습니다.");
+                }
+
+                regCi = result.ci; 
+
+                if (type === 'reg') {
+                    // document.getElementById('regNickname').value = result.name; // 이 라인을 주석 처리하거나 삭제하여 닉네임을 보존합니다.
+                    document.getElementById('regBtn').disabled = false;
+                } else {
+                    loginCiVerified = true;
+                    // 버튼 컨테이너 표시
+                    const postBtns = document.getElementById('postVerifyBtns');
+                    postBtns.style.display = 'block';
+                    
+                    // 재발급 버튼 강제 노출
+                    document.getElementById('reissueBtn').style.display = 'block';
+                    
+                    await checkKeyStatus();
+                }
+
+                alert(`✨ ${result.name}님 본인인증이 완료되었습니다! 아래 버튼 중 하나를 선택하세요.`);
+            } catch (e) {
+                console.error("Verification Error:", e);
+                alert("본인인증 처리 중 오류 발생: " + e.message);
+            }
+        }
+
+        async function generateKeyPair() {
+            return await window.crypto.subtle.generateKey(
+                { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+                true, ["sign", "verify"]
+            );
+        }
+
+        async function exportPublicKey(key) {
+            const exported = await window.crypto.subtle.exportKey("spki", key);
+            return btoa(String.fromCharCode(...new Uint8Array(exported)));
+        }
+
+        async function register() {
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPw').value;
+            const nickname = document.getElementById('regNickname').value;
+            const role = document.querySelector('input[name="role"]:checked').value;
+            
+            if(!email) return alert("이메일을 입력하세요.");
+
+            try {
+                const keyPair = await generateKeyPair();
+                privateKey = keyPair.privateKey;
+                await savePrivateKey(email, privateKey);
+                const pubKey = await exportPublicKey(keyPair.publicKey);
+
+                const res = await fetch('http://localhost:8080/api/pki/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, password, nickname, role, ci: regCi, publicKey: pubKey, deviceId: getDeviceId() })
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    alert("인증서 발급 및 가입 성공!");
+                    document.getElementById('loginEmail').value = email;
+                    checkKeyStatus();
+                } else throw new Error(data.error);
+            } catch(e) { 
+                alert("오류: " + e.message); 
+            }
+        }
+
+        async function reissue() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPw').value;
+            
+            console.log("Current regCi before reissue:", regCi); // 디버깅용 로그
+
+            if(!email || !password) return alert("이메일과 비밀번호를 입력하세요.");
+            if(!loginCiVerified || !regCi) return alert("본인인증을 먼저 완료해야 합니다.");
+
+            try {
+                const keyPair = await generateKeyPair();
+                privateKey = keyPair.privateKey;
+                await savePrivateKey(email, privateKey);
+                const pubKey = await exportPublicKey(keyPair.publicKey);
+
+                // 기존 회원 정보 유지하며 인증서만 새로 고침 (닉네임, 역할 비워서 전송)
+                const res = await fetch('http://localhost:8080/api/pki/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        email: email, 
+                        password: password, 
+                        nickname: "", 
+                        role: "", 
+                        ci: regCi, // 실제 포트원에서 받은 CI 사용
+                        publicKey: pubKey, 
+                        deviceId: getDeviceId() 
+                    })
+                });
+                
+                if(res.ok) {
+                    alert("인증서가 성공적으로 재발급되었습니다! 이제 로그인이 가능합니다.");
+                    checkKeyStatus();
+                } else {
+                    const data = await res.json();
+                    throw new Error(data.error || "재발급 중 오류 발생");
+                }
+            } catch(e) {
+                alert("오류: " + e.message);
+            }
+        }
+
+        async function logout() {
+            // 1. 메모리 상태 및 인증 변수 초기화
+            privateKey = null;
+            loginCiVerified = false;
+            regCi = null;
+
+            // 2. 입력 필드 초기화
+            document.getElementById('loginEmail').value = "";
+            document.getElementById('loginPw').value = "";
+
+            // 3. UI 영역 초기화
+            document.getElementById('loginResult').style.display = 'none';
+            document.getElementById('postVerifyBtns').style.display = 'none';
+            document.getElementById('welcomeArea').innerHTML = "";
+            document.getElementById('loginStatusMsg').innerText = "";
+
+            alert("성공적으로 로그아웃되었습니다.");
+        }
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPw').value;
+            const resultArea = document.getElementById('loginResult');
+            const welcomeArea = document.getElementById('welcomeArea');
+            const statusMsg = document.getElementById('loginStatusMsg');
+
+            if(!privateKey) {
+                privateKey = await loadPrivateKey(email);
+            }
+
+            if(!privateKey) {
+                resultArea.style.display = 'block';
+                resultArea.className = 'result error';
+                statusMsg.innerText = "기기 인증 정보가 없습니다. '인증서 재발급'을 먼저 진행하세요.";
+                return;
+            }
+
+            try {
+                const deviceId = getDeviceId();
+                const chalRes = await fetch(`http://localhost:8080/api/pki/login/challenge?deviceId=${deviceId}`);
+                if(!chalRes.ok) throw new Error("서버에서 기기 정보를 찾을 수 없습니다.");
+                const { challenge } = await chalRes.json();
+
+                const sig = await window.crypto.subtle.sign("RSASSA-PKCS1-v1_5", privateKey, new TextEncoder().encode(challenge));
+                const signature = btoa(String.fromCharCode(...new Uint8Array(sig)));
+
+                const verRes = await fetch('http://localhost:8080/api/pki/login/verify', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ deviceId: deviceId, password: password, signature: signature })
+                });
+                
+                const result = await verRes.json();
+                resultArea.style.display = 'block';
+                
+                if(verRes.ok) {
+                    resultArea.className = 'result success';
+                    welcomeArea.innerHTML = `<div class="welcome-msg">✨ ${result.nickname}님 환영합니다! ✨</div>`;
+                    statusMsg.innerText = "안전하게 기기 인증 로그인이 완료되었습니다.";
+                } else {
+                    resultArea.className = 'result error';
+                    welcomeArea.innerHTML = "";
+                    statusMsg.innerText = result.message;
+                }
+            } catch(e) { 
+                alert("로그인 중 오류 발생: " + e.message); 
+            }
+        }
+
+        async function revoke() {
+            const email = document.getElementById('loginEmail').value.trim();
+            if(!confirm("기기 인증서를 폐기하면 더 이상 로그인이 불가능합니다. 진행할까요?")) return;
+            try {
+                const res = await fetch('http://localhost:8080/api/pki/revoke', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ deviceId: getDeviceId() })
+                });
+                const data = await res.json();
+                
+                if(res.ok) {
+                    await deletePrivateKey(email);
+                    privateKey = null;
+                    checkKeyStatus();
+                }
+                
+                alert(data.message || data.error);
+            } catch(e) { alert("폐기 실패"); }
+        }
+    </script>
+</body>
+</html>
