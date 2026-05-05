@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>마감 처리 시연 모드</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+            background: #1e293b;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 500px;
+        }
+        
+        .timer-text {
+            font-size: 20px;
+            color: #94a3b8;
+            margin-bottom: 24px;
+        }
+
+        .countdown {
+            font-size: 80px;
+            font-weight: 800;
+            color: #3b82f6;
+            margin-bottom: 24px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #f8fafc;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="timer-text">공동구매 마감까지...</div>
+    <div class="countdown" id="counter">5</div>
+    <div class="title" th:text="${gp.gpId == 1 ? '시나리오 A 처리 시뮬레이션' : '시나리오 B 처리 시뮬레이션'}">
+        처리 중
+    </div>
+    
+    <!-- 실제 결과 페이지로 넘어가기 위한 Form -->
+    <form id="deadlineForm" th:action="@{/deadline/{id}(id=${gp.gpId})}" method="post"></form>
+</div>
+
+<script>
+    let count = 5;
+    const counterEl = document.getElementById("counter");
+    const timerText = document.querySelector(".timer-text");
+    const form = document.getElementById("deadlineForm");
+
+    const timer = setInterval(() => {
+        count--;
+        if (count > 0) {
+            counterEl.textContent = count;
+        } else {
+            clearInterval(timer);
+            counterEl.textContent = "0";
+            timerText.textContent = "마감 처리 중입니다...";
+            
+            // 0이 되면 자동으로 폼 서밋 -> result.html 이동
+            setTimeout(() => {
+                form.submit();
+            }, 500);
+        }
+    }, 1000);
+</script>
+
+</body>
+</html>
