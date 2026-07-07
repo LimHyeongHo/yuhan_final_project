@@ -2,6 +2,8 @@ package com.Nbbang.backend.domain.payment.service;
 
 import com.Nbbang.backend.domain.payment.dto.PaymentRequest;
 import com.Nbbang.backend.domain.payment.dto.PaymentResponse;
+// import com.Nbbang.backend.global.exception.CustomException;
+// import com.Nbbang.backend.global.exception.ErrorCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -23,6 +25,11 @@ public class PaymentService {
             .build();
 
     public PaymentResponse confirmPayment(PaymentRequest request) {
+        // TODO: global/exception 병합 후 CustomException으로 교체
+        if (request.getAmount() == null || request.getAmount() <= 0) {
+            throw new RuntimeException("결제 금액이 올바르지 않습니다");
+        }
+
         String encodedKey = Base64.getEncoder()
                 .encodeToString((secretKey + ":").getBytes(StandardCharsets.UTF_8));
 
@@ -41,7 +48,9 @@ public class PaymentService {
                     .bodyToMono(PaymentResponse.class)
                     .block();
         } catch (WebClientResponseException e) {
-            throw new RuntimeException("토스페이먼츠 오류: " + e.getResponseBodyAsString());
+            throw new RuntimeException("결제 서버와 통신에 실패했습니다. 잠시 후 다시 시도해주세요");
+        } catch (Exception e) {
+            throw new RuntimeException("결제 승인에 실패했습니다. 잠시 후 다시 시도해주세요");
         }
     }
 }

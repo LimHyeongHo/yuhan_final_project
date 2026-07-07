@@ -1,8 +1,14 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Flame, TrendingUp, Clock, Users } from 'lucide-react';
 import Header from '../../components/layout/Header';
 
 const HomePage = () => {
+  const navigate = useNavigate();
+
+  const handleProductClick = (product) => {
+    navigate('/payment', { state: { product } });
+  };
   const productList = [
     { id: 1, title: '명품 Java Programming (개정 4판)', major: '컴퓨터소프트웨어', author: '황기태, 김효수', current: 8, target: 10, originalPrice: '33,000', price: '24,000원', dDay: 'D-5', progress: 80, thumbnail: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600&auto=format&fit=crop' },
     { id: 2, title: '쉽게 배우는 스프링 부트 3 웹 프로그래밍', major: '컴퓨터소프트웨어', author: '구멍가게 코딩단', current: 4, target: 5, originalPrice: '29,000', price: '21,000원', dDay: 'D-5', progress: 80, thumbnail: 'https://images.unsplash.com/photo-1555662800-82a8747209e7?q=80&w=600&auto=format&fit=crop' },
@@ -57,7 +63,7 @@ const HomePage = () => {
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {productList.map((item) => (
-              <div key={item.id} className="bg-white rounded-[24px] border border-gray-200 shadow-sm flex flex-col hover:border-blue-300 hover:shadow-xl transition-all cursor-pointer group overflow-hidden">
+              <div key={item.id} onClick={() => handleProductClick(item)} className="bg-white rounded-[24px] border border-gray-200 shadow-sm flex flex-col hover:border-blue-300 hover:shadow-xl transition-all cursor-pointer group overflow-hidden">
                 <div className="w-full h-48 bg-gray-100 relative overflow-hidden flex items-center justify-center">
                   <img src={item.thumbnail} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   <span className="absolute top-3 left-3 text-[11px] font-black px-2.5 py-1 rounded-md shadow-sm z-10 bg-red-500 text-white">
@@ -103,7 +109,7 @@ const HomePage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
              {/* 현재는 위의 productList를 그대로 재사용하거나, 나중에 다른 API 데이터를 연결하시면 됩니다. */}
              {productList.map((item) => (
-              <div key={`popular-${item.id}`} className="bg-white rounded-[24px] border border-gray-200 shadow-sm flex flex-col hover:border-blue-300 hover:shadow-xl transition-all cursor-pointer group overflow-hidden">
+              <div key={`popular-${item.id}`} onClick={() => handleProductClick(item)} className="bg-white rounded-[24px] border border-gray-200 shadow-sm flex flex-col hover:border-blue-300 hover:shadow-xl transition-all cursor-pointer group overflow-hidden">
                 <div className="w-full h-48 bg-gray-100 relative overflow-hidden flex items-center justify-center">
                   <img src={item.thumbnail} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   {/* 인기 공구는 빨간 D-Day 대신 파란색 '모집 중' 뱃지로 변경 가능 */}

@@ -20,6 +20,11 @@ import SellerAnalyticsPage from './pages/seller/analytics/SellerAnalyticsPage';
 /// [*] 구매자용 페이지 import
 import BuyerProductsPage from './pages/buyer/products/BuyerProductsPage';
 
+/// [*] 결제 페이지 import
+import PaymentPage from './pages/payment/PaymentPage';
+import PaymentSuccessPage from './pages/payment/PaymentSuccessPage';
+import PaymentFailPage from './pages/payment/PaymentFailPage';
+
 /// [*] 공용 페이지 import
 import SharedChatPage from './pages/shared/chat/SharedChatPage';
 import SharedMyPageLayout from './pages/shared/mypage/SharedMyPageLayout';
@@ -75,6 +80,12 @@ function App() {
         { /* ----------------구매자 페이지-----------------*/}
         { /* 대시보드 페이지 접속 화면 */}
         <Route path="/buyer/products" element={<BuyerProductsPage />} />
+        { /* ---------------------------------------------*/}
+
+        { /* ----------------결제 페이지-----------------*/}
+        <Route path="/payment" element={<PaymentPage />} />
+        <Route path="/payment/success" element={<PaymentSuccessPage />} />
+        <Route path="/payment/fail" element={<PaymentFailPage />} />
         { /* ---------------------------------------------*/}
 
         { /* ----------------공용 페이지(채팅 등)-----------------*/}

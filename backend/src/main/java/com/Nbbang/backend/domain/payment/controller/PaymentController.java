@@ -25,13 +25,9 @@ public class PaymentController {
 
     // 토스페이먼츠 결제 승인
     @PostMapping("/confirm")
-    public ResponseEntity<?> confirmPayment(@RequestBody PaymentRequest request) {
-        try {
-            PaymentResponse response = paymentService.confirmPayment(request);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("결제 실패: " + e.getMessage());
-        }
+    public ResponseEntity<PaymentResponse> confirmPayment(@RequestBody PaymentRequest request) {
+        PaymentResponse response = paymentService.confirmPayment(request);
+        return ResponseEntity.ok(response);
     }
 
     // 토스페이먼츠 → 백엔드 콜백 (결제 성공)
