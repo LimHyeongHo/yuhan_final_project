@@ -2,6 +2,8 @@ package com.Nbbang.backend.domain.member.controller;
 
 import com.Nbbang.backend.domain.member.entity.CertificateSession;
 import com.Nbbang.backend.domain.member.service.CertificateSessionService;
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.ResponseEntity;
@@ -23,19 +25,15 @@ public class CertificateSessionController {
         this.certificateSessionService = certificateSessionService;
     }
 
-    // 남은 시간 조회 (새로고침 시 프론트가 이 값으로 카운트다운을 재동기화)
+    // 남은 시간 조회 (새로고침 시 프론트가 이 값으로 카운트다운을 재동기화).
+    // 로그인 안 된 상태/인증서 세션이 없는 상태는 서버 오류(500)가 아니라 401로 응답해야
+    // 프론트가 "세션 만료"로 정상 처리할 수 있음 -> CustomException으로 던져서 GlobalExceptionHandler가 401로 매핑하게 함.
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> status(HttpServletRequest request) {
-        try {
-            String userId = requireUserId(request);
-            CertificateSession session = certificateSessionService.findByUserId(userId)
-                    .orElseThrow(() -> new RuntimeException("발급된 인증서 세션이 없습니다."));
-            return ResponseEntity.ok(toResponse(session));
-        } catch (Exception e) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.internalServerError().body(error);
-        }
+        String userId = requireUserId(request);
+        CertificateSession session = certificateSessionService.findByUserId(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_SESSION_EXPIRED));
+        return ResponseEntity.ok(toResponse(session));
     }
 
     // +5분/-5분 조정: DB의 만료시각을 실제로 갱신
@@ -75,7 +73,7 @@ public class CertificateSessionController {
     private String requireUserId(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("userId") == null) {
-            throw new RuntimeException("로그인이 필요합니다.");
+            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
         }
         return (String) session.getAttribute("userId");
     }

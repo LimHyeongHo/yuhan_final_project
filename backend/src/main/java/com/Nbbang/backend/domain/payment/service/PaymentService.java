@@ -1,5 +1,7 @@
 package com.Nbbang.backend.domain.payment.service;
 
+import com.Nbbang.backend.domain.auth.entity.UserAccount;
+import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
 import com.Nbbang.backend.domain.payment.dto.PaymentPrepareRequest;
 import com.Nbbang.backend.domain.payment.dto.PaymentPrepareResponse;
 import com.Nbbang.backend.domain.payment.dto.PaymentRequest;
@@ -7,6 +9,7 @@ import com.Nbbang.backend.domain.payment.dto.PaymentResponse;
 import com.Nbbang.backend.domain.payment.entity.Payment;
 import com.Nbbang.backend.domain.payment.repository.PaymentRepository;
 import com.Nbbang.backend.domain.product.entity.Product;
+import com.Nbbang.backend.domain.product.repository.ParticipationRepository;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
 import com.Nbbang.backend.domain.product.service.ProductService;
 import com.Nbbang.backend.global.exception.CustomException;
@@ -34,6 +37,8 @@ public class PaymentService {
     private final ProductRepository productRepository;
     private final PaymentRepository paymentRepository;
     private final ProductService productService;
+    private final UserAccountRepository userAccountRepository;
+    private final ParticipationRepository participationRepository;
 
     @Value("${toss.secret-key}")
     private String secretKey;
@@ -43,7 +48,8 @@ public class PaymentService {
             .build();
 
     // 결제 준비: 결제창을 열기 전에 서버가 실제 상품 가격을 확인하고 PENDING 상태로 기록해둔다.
-    public PaymentPrepareResponse prepare(PaymentPrepareRequest request) {
+    // userId는 로그인 세션에서 검증된 값만 들어와야 함 (PaymentController에서 보장).
+    public PaymentPrepareResponse prepare(PaymentPrepareRequest request, String userId) {
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
@@ -51,13 +57,22 @@ public class PaymentService {
             throw new CustomException(ErrorCode.PURCHASE_FULL);
         }
 
+        // 결제 전에 미리 막아야 함 - joinProduct에서만 체크하면 이미 결제(Toss 승인)된 뒤에 거절하게 됨
+        if (participationRepository.existsByProduct_ProductIdAndMember_Email(product.getProductId(), userId)) {
+            throw new CustomException(ErrorCode.PURCHASE_ALREADY_JOINED);
+        }
+
+        UserAccount member = userAccountRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_UNAUTHORIZED));
+
         Long amount = product.getPrice().longValue();
         String orderId = "order_" + UUID.randomUUID().toString().replace("-", "");
 
         Payment payment = new Payment();
         payment.setOrderId(orderId);
         payment.setProductId(product.getProductId());
-        payment.setBuyerName(request.getBuyerName());
+        payment.setMember(member);
+        payment.setBuyerName(member.getNickname());
         payment.setAmount(amount);
         payment.setStatus("PENDING");
         paymentRepository.save(payment);
@@ -135,6 +150,6 @@ public class PaymentService {
         payment.setApprovedAt(LocalDateTime.now());
         paymentRepository.save(payment);
 
-        productService.joinProduct(payment.getProductId(), payment.getBuyerName());
+        productService.joinProduct(payment.getProductId(), payment.getMember().getEmail());
     }
 }

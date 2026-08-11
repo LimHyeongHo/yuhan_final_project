@@ -1,5 +1,6 @@
 package com.Nbbang.backend.domain.payment.entity;
 
+import com.Nbbang.backend.domain.auth.entity.UserAccount;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,8 +26,14 @@ public class Payment {
     @Column(name = "product_id", nullable = false)
     private Long productId;
 
+    // 실제 결제자 계정과의 연관관계. nullable인 이유는 Participation.member와 동일
+    // (기존 row와의 마이그레이션 호환성 때문에 NOT NULL로 걸 수 없음).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_email")
+    private UserAccount member;
+
     @Column(name = "buyer_name", nullable = false)
-    private String buyerName;
+    private String buyerName; // 결제 시점 member 닉네임 스냅샷 (화면 표시용)
 
     @Column(nullable = false)
     private Long amount; // 서버가 상품 가격 기준으로 계산한 금액 (클라이언트 값 신뢰하지 않음)

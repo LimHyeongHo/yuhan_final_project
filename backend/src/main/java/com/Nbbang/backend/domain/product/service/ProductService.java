@@ -1,9 +1,13 @@
 package com.Nbbang.backend.domain.product.service; // 🚨 본인 경로에 맞게 수정
 
+import com.Nbbang.backend.domain.auth.entity.UserAccount;
+import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
 import com.Nbbang.backend.domain.product.entity.Participation;
 import com.Nbbang.backend.domain.product.repository.ParticipationRepository;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +18,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,6 +29,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ParticipationRepository participationRepository;
+    private final UserAccountRepository userAccountRepository;
 
     // 로컬 업로드 경로 설정 (프로젝트 실행 위치의 uploads 폴더)
     private final String uploadDir = System.getProperty("user.dir") + "/uploads/";
@@ -84,26 +90,44 @@ public class ProductService {
         return productRepository.findBySellerIdOrderByCreatedAtDesc(sellerId);
     }
 
-    // 판매자 기준 최근 참여자 내역 조회
-    public List<Participation> getParticipationsBySellerId(Long sellerId) {
-        return participationRepository.findByProduct_SellerIdOrderByJoinDateDesc(sellerId);
+    // 판매자 기준 최근 참여자 내역 조회.
+    // product는 지연 로딩(LAZY)이라, 트랜잭션(이 메서드) 밖인 컨트롤러에서 접근하면
+    // open-in-view=false 설정 때문에 LazyInitializationException이 남 -> 여기서 미리 DTO로 변환해서 반환.
+    public List<Map<String, Object>> getParticipationsBySellerId(Long sellerId) {
+        return participationRepository.findByProduct_SellerIdOrderByJoinDateDesc(sellerId).stream()
+                .map(part -> Map.<String, Object>of(
+                        "id", part.getId(),
+                        "buyerName", part.getBuyerName(),
+                        "joinDate", part.getJoinDate(),
+                        "product", Map.of("title", part.getProduct().getTitle())
+                ))
+                .toList();
     }
 
-    // 공동구매 참여
+    // 공동구매 참여 (userId는 로그인 세션에서 검증된 값만 들어와야 함 - 컨트롤러에서 보장)
     @Transactional
-    public Product joinProduct(Long id, String buyerName) {
+    public Product joinProduct(Long id, String userId) {
         Product product = getProductById(id);
-        
+
         // 정원 초과 여부 확인
         if (product.getCurrentCount() != null && product.getCurrentCount() >= product.getTargetCount()) {
             throw new IllegalStateException("이미 목표 인원이 달성되었습니다.");
         }
 
+        // 같은 사용자가 같은 공동구매에 중복 참여(=인원 조작)하는 것 방지
+        if (participationRepository.existsByProduct_ProductIdAndMember_Email(id, userId)) {
+            throw new CustomException(ErrorCode.PURCHASE_ALREADY_JOINED);
+        }
+
+        UserAccount member = userAccountRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_UNAUTHORIZED));
+
         product.incrementCurrentCount();
 
         Participation participation = new Participation();
         participation.setProduct(product);
-        participation.setBuyerName(buyerName);
+        participation.setMember(member);
+        participation.setBuyerName(member.getNickname());
         participationRepository.save(participation);
 
         return product; // 트랜잭션 종료 시 자동 더티 체킹으로 DB에 반영됨

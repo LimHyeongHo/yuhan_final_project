@@ -1,8 +1,11 @@
 package com.Nbbang.backend.domain.product.controller; // 🚨 본인 경로에 맞게 수정
 
-import com.Nbbang.backend.domain.product.entity.Participation;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.service.ProductService;
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -42,10 +45,19 @@ public class ProductController {
     }
 
     @PostMapping("/{id}/join")
-    public ResponseEntity<Product> joinProduct(@PathVariable Long id, @RequestBody(required = false) Map<String, String> request) {
-        String buyerName = (request != null && request.containsKey("buyerName")) ? request.get("buyerName") : "익명 구매자";
-        Product product = productService.joinProduct(id, buyerName);
+    public ResponseEntity<Product> joinProduct(@PathVariable Long id, HttpServletRequest request) {
+        String userId = requireUserId(request);
+        Product product = productService.joinProduct(id, userId);
         return ResponseEntity.ok(product);
+    }
+
+    // 로그인 여부 확인: 세션에 userId가 없으면 참여 인원 조작(비로그인 상태로 join 호출)을 막기 위해 거부
+    private String requireUserId(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute("userId") == null) {
+            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
+        }
+        return (String) session.getAttribute("userId");
     }
 
     @PostMapping("/{id}/cancel")
@@ -62,15 +74,6 @@ public class ProductController {
 
     @GetMapping("/seller/{sellerId}/participations")
     public ResponseEntity<List<Map<String, Object>>> getParticipationsBySellerId(@PathVariable Long sellerId) {
-        List<Participation> participations = productService.getParticipationsBySellerId(sellerId);
-        List<Map<String, Object>> response = participations.stream().map(part -> 
-            Map.of(
-                "id", part.getId(),
-                "buyerName", part.getBuyerName(),
-                "joinDate", part.getJoinDate(),
-                "product", Map.of("title", part.getProduct().getTitle())
-            )
-        ).toList();
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(productService.getParticipationsBySellerId(sellerId));
     }
 }
