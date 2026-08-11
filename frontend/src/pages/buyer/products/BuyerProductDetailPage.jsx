@@ -44,7 +44,8 @@ const BuyerProductDetailPage = () => {
           dDay: dDayText,
           status: data.status === 'OPEN' ? '모집 중' : '마감됨',
           thumbnail: data.imageUrl || null,
-          description: data.description
+          description: data.description,
+          sellerEmail: data.sellerEmail // [신규] 문의하기 버튼에서 채팅방 생성 API 호출용
         });
       })
       .catch(err => {
@@ -80,9 +81,37 @@ const BuyerProductDetailPage = () => {
     }
   };
 
+  // [신규] 문의하기 버튼 클릭 핸들러 — 채팅방 생성 후 채팅방 목록으로 이동
+  const handleChatInquiry = async () => {
+    if (!localStorage.getItem('user_nickname')) {
+      alert('로그인이 필요합니다');
+      return;
+    }
+    try {
+      const res = await fetch('http://localhost:8080/api/chat/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          sellerEmail: product.sellerEmail,
+          productId: product.id,
+          productName: product.title,
+        }),
+      });
+      if (!res.ok) throw new Error('채팅방 생성에 실패했습니다.');
+      navigate('/buyer/chat');
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
   if (!product) return <div className="p-8 text-center font-bold">도서 정보를 불러오는 중입니다...</div>;
 
   const progressRatio = Math.min(Math.round((product.currentCount / product.targetCount) * 100), 100);
+  // [신규] 본인이 등록한 상품이면 구매자용 버튼 대신 판매자용 버튼(판매 현황 / 구매자 문의)을 보여줌
+  const isOwnProduct = !!product.sellerEmail && product.sellerEmail === localStorage.getItem('email');
+  // [신규] 판매자(본인 상품 아닌 경우) 또는 관리자 계정 — 구매자 행동(참여/문의) 전부 비활성화
+  const isRestrictedViewer = ['ROLE_SELLER', 'ROLE_ADMIN'].includes(localStorage.getItem('user_role')) && !isOwnProduct;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
@@ -194,33 +223,79 @@ const BuyerProductDetailPage = () => {
                 </div>
               </div>
 
-              {/* 🌟 구매자 최종 액션 버튼 (참여 여부에 따른 조건부 UI) */}
-              <button
-                onClick={handleJoinToggle}
-                className={`w-full py-4 rounded-2xl font-black text-base md:text-lg transition-all shadow-md flex items-center justify-center gap-2 ${
-                  isJoined
-                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100'
-                    : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-500/20'
-                }`}
-              >
-                {isJoined ? (
-                  <>
-                    <CheckCircle size={20} />
-                    공구 탑승 완료 (취소하기)
-                  </>
-                ) : (
-                  '공동구매 참여하기 (N빵 탑승)'
-                )}
-              </button>
+              {isOwnProduct ? (
+                <>
+                  {/* [신규] 본인 상품: 참여하기 → 판매 현황 확인하기 */}
+                  <button
+                    onClick={() => navigate('/seller/status')}
+                    className="w-full py-4 rounded-2xl font-black text-base md:text-lg transition-all shadow-md flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-500/20"
+                  >
+                    판매 현황 확인하기
+                  </button>
 
-              {/* 문의하기 (채팅) 버튼 */}
-              <button 
-                onClick={() => alert('채팅 기능은 준비 중입니다.')}
-                className="w-full py-3.5 rounded-2xl font-bold text-gray-700 bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center justify-center gap-2"
-              >
-                <MessageCircle size={18} />
-                판매자에게 문의하기 (채팅)
-              </button>
+                  {/* [신규] 본인 상품: 문의하기 → 구매자 문의 확인하기 (이 상품 채팅만 필터링) */}
+                  <button
+                    onClick={() => navigate(`/seller/chat?productId=${product.id}`)}
+                    className="w-full py-3.5 rounded-2xl font-bold text-gray-700 bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={18} />
+                    구매자 문의 확인하기
+                  </button>
+                </>
+              ) : isRestrictedViewer ? (
+                <>
+                  {/* [신규] 판매자(남의 상품)/관리자 계정 — 전부 비활성화 */}
+                  <button
+                    disabled
+                    title="판매자·관리자 계정은 공동구매에 참여할 수 없습니다"
+                    className="w-full py-4 rounded-2xl font-black text-base md:text-lg flex items-center justify-center gap-2 bg-gray-100 text-gray-400 cursor-not-allowed"
+                  >
+                    공동구매 참여하기 (N빵 탑승)
+                  </button>
+
+                  <button
+                    disabled
+                    title="판매자·관리자 계정은 문의하기를 이용할 수 없습니다"
+                    className="w-full py-3.5 rounded-2xl font-bold bg-gray-100 text-gray-400 border-2 border-gray-200 cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={18} />
+                    판매자에게 문의하기 (채팅)
+                  </button>
+                  <p className="text-xs text-center text-gray-400 font-medium -mt-3">
+                    판매자·관리자 계정으로는 이용할 수 없는 기능입니다
+                  </p>
+                </>
+              ) : (
+                <>
+                  {/* 🌟 구매자 최종 액션 버튼 (참여 여부에 따른 조건부 UI) */}
+                  <button
+                    onClick={handleJoinToggle}
+                    className={`w-full py-4 rounded-2xl font-black text-base md:text-lg transition-all shadow-md flex items-center justify-center gap-2 ${
+                      isJoined
+                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100'
+                        : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-500/20'
+                    }`}
+                  >
+                    {isJoined ? (
+                      <>
+                        <CheckCircle size={20} />
+                        공구 탑승 완료 (취소하기)
+                      </>
+                    ) : (
+                      '공동구매 참여하기 (N빵 탑승)'
+                    )}
+                  </button>
+
+                  {/* 문의하기 (채팅) 버튼 */}
+                  <button
+                    onClick={handleChatInquiry}
+                    className="w-full py-3.5 rounded-2xl font-bold text-gray-700 bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={18} />
+                    판매자에게 문의하기 (채팅)
+                  </button>
+                </>
+              )}
 
             </div>
           </div>

@@ -42,6 +42,15 @@ public class ChatRoomService {
     /** 채팅방 생성 (이미 있으면 기존 방 반환) */
     @Transactional
     public ChatRoom findOrCreate(String buyerEmail, String sellerEmail, Long productId, String productName) {
+        // [신규] 판매자(본인 상품 아닌 경우)·관리자는 문의(채팅) 시작 불가
+        String buyerRole = userAccountRepository.findById(buyerEmail)
+                .map(u -> u.getRole())
+                .orElse(null);
+        boolean isRestrictedRole = "ROLE_SELLER".equals(buyerRole) || "ROLE_ADMIN".equals(buyerRole);
+        if (isRestrictedRole && !buyerEmail.equals(sellerEmail)) {
+            throw new CustomException(ErrorCode.AUTH_ACCESS_DENIED);
+        }
+
         return chatRoomRepository
                 .findByBuyerEmailAndSellerEmailAndProductId(buyerEmail, sellerEmail, productId)
                 .orElseGet(() -> chatRoomRepository.save(

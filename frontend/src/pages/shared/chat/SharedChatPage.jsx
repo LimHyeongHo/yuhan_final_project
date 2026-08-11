@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Store, Send, Image as ImageIcon, MoreVertical, Search, User, Calendar, X } from 'lucide-react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import { useSearchParams } from 'react-router-dom';
 import Header from '../../../components/layout/Header';
 
-const API_BASE = 'http://localhost:8080/api';
-const WS_URL = 'http://localhost:8080/ws';
+// [수정] localhost 고정 → 접속 호스트 기준 동적화
+const API_BASE = `http://${window.location.hostname}:8080/api`;
+const WS_URL = `http://${window.location.hostname}:8080/ws`;
 
 const formatTime = (dateTimeStr) => {
   if (!dateTimeStr) return '';
@@ -50,6 +52,12 @@ const isSameDay = (a, b) => {
 };
 
 const SharedChatPage = ({ userRole = 'SELLER' }) => {
+  // [신규] 상품 상세페이지의 "구매자 문의 확인하기" 등에서 ?productId=로 넘어오면 해당 게시물 채팅만 표시
+  const [searchParams] = useSearchParams();
+  const filterProductId = searchParams.get('productId');
+  // [신규] 헤더 채팅 알림 미리보기에서 ?roomId=로 넘어오면 그 방을 자동으로 오픈
+  const initialRoomId = searchParams.get('roomId');
+
   const [rooms, setRooms] = useState([]);
   const [activeRoom, setActiveRoom] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -93,14 +101,17 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
 
   // ── 읽음 처리 ─────────────────────────────────────────────────
   const markAsRead = useCallback(async (roomId) => {
+    // [수정] 서버 응답 기다리지 않고 먼저 지움 (낙관적 업데이트)
+    setRooms(prev =>
+      prev.map(r => r.roomId === roomId ? { ...r, unreadCount: 0 } : r)
+    );
+    window.dispatchEvent(new CustomEvent('chat-read', { detail: { roomId } }));
+
     try {
       await fetch(`${API_BASE}/chat/rooms/${roomId}/read`, {
         method: 'POST',
         ...fetchOptions,
       });
-      setRooms(prev =>
-        prev.map(r => r.roomId === roomId ? { ...r, unreadCount: 0 } : r)
-      );
     } catch (e) {
       console.error('읽음 처리 실패', e);
     }
@@ -215,6 +226,13 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   // ── 초기 로드 ─────────────────────────────────────────────────
   useEffect(() => { loadRooms(); }, [loadRooms]);
 
+  // [신규] roomId로 들어온 경우 방 목록 로드되면 자동 오픈
+  useEffect(() => {
+    if (!initialRoomId || activeRoom) return;
+    const target = rooms.find(r => String(r.roomId) === initialRoomId);
+    if (target) setActiveRoom(target);
+  }, [initialRoomId, rooms, activeRoom]);
+
   // ── 메시지 전송 ───────────────────────────────────────────────
   const handleSendMessage = (e) => {
     e.preventDefault();
@@ -263,9 +281,9 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     }
   };
 
-  const filteredRooms = rooms.filter(r =>
-    r.targetName?.includes(searchQuery) || r.productName?.includes(searchQuery)
-  );
+  const filteredRooms = rooms
+    .filter(r => !filterProductId || String(r.productId) === filterProductId)
+    .filter(r => r.targetName?.includes(searchQuery) || r.productName?.includes(searchQuery));
 
   // ── 로그인 안 된 경우 ─────────────────────────────────────────
   if (!currentEmail) {

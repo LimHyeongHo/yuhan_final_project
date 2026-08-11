@@ -60,6 +60,8 @@ const LoginPage = () => {
       if (res.ok) {
         localStorage.setItem('user_nickname', result.nickname);
         localStorage.setItem('user_role', result.role);
+        // [신규] 채팅 메시지 판별 email 저장
+        localStorage.setItem('email', email);
         // [신규] 관리자는 인증서 타이머가 없지만, 혹시 있을 상태를 정리하기 위해 동기화 호출
         await syncStatus();
         alert(`${result.nickname}님 환영합니다!`);
@@ -211,6 +213,8 @@ const LoginPage = () => {
       if (verRes.ok) {
         localStorage.setItem('user_nickname', result.nickname);
         localStorage.setItem('user_role', result.role || 'ROLE_BUYER');
+        // [신규] 채팅 메시지 판별 email 저장
+        localStorage.setItem('email', email);
         // [신규] 로그인 성공 직후 서버에서 시작된 인증서 10분 타이머를 프론트와 동기화
         await syncStatus();
         alert(`${result.nickname}님 환영합니다!`);

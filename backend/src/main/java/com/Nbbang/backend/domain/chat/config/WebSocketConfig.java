@@ -19,7 +19,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOrigins("http://localhost:3000")
+                // [수정] localhost:3000 고정 → 사설망 호스트 + 모든 포트 허용
+                .setAllowedOriginPatterns(
+                        "http://localhost:*",
+                        "http://127.0.0.1:*",
+                        "http://192.168.*.*:*",
+                        "http://10.*.*.*:*"
+                )
                 .addInterceptors(new HttpSessionHandshakeInterceptor())
                 .withSockJS();
     }

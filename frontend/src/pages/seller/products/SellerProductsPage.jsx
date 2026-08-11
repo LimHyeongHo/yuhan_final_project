@@ -6,7 +6,8 @@ const SellerProductsPage = () => {
   const [products, setProducts] = useState([]);
 
   React.useEffect(() => {
-    fetch('http://localhost:8080/api/products/seller/1')
+    // [수정] sellerId=1 고정 하드코딩 → 로그인한 본인 상품만 조회
+    fetch('http://localhost:8080/api/products/seller/me', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         const formattedData = data.map(item => ({

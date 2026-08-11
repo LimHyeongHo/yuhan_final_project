@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -104,7 +105,27 @@ public class ProductService {
                 .toList();
     }
 
-    // 공동구매 참여 (userId는 로그인 세션에서 검증된 값만 들어와야 함 - 컨트롤러에서 보장)
+    // [신규] 로그인 이메일 기준 상품 목록 조회 (sellerId는 항상 1로 고정되는 임시값이라 실사용 불가)
+    public List<Product> getProductsBySellerEmail(String sellerEmail) {
+        return productRepository.findBySellerEmailOrderByCreatedAtDesc(sellerEmail);
+    }
+
+    // [신규] 로그인 이메일 기준 최근 참여자 내역 조회 (LazyInitializationException 방지 위해 서비스에서 DTO 변환)
+    public List<Map<String, Object>> getParticipationsBySellerEmail(String sellerEmail) {
+        return participationRepository.findByProduct_SellerEmailOrderByJoinDateDesc(sellerEmail).stream()
+                .map(part -> Map.<String, Object>of(
+                        "id", part.getId(),
+                        "buyerName", part.getBuyerName(),
+                        "joinDate", part.getJoinDate(),
+                        "product", Map.of(
+                                "title", part.getProduct().getTitle(),
+                                "price", part.getProduct().getPrice()
+                        )
+                ))
+                .toList();
+    }
+
+    // 공동구매 참여
     @Transactional
     public Product joinProduct(Long id, String userId) {
         Product product = getProductById(id);

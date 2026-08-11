@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { User, ShieldAlert, LogOut, Menu, X } from 'lucide-react';
+// [신규] Bell — 헤더 채팅 알림 배지/미리보기 아이콘
+import { User, ShieldAlert, LogOut, Bell } from 'lucide-react';
 // [신규] 인증서 남은 시간(mm:ss) + +5분/-5분 조정을 위한 Context 훅
 import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
 
@@ -20,6 +21,14 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // [신규] 인증서 타이머 상태 (남은 초 / 조정 함수)
   const { remainingSeconds, extend } = useCertificateTimer();
+  // [신규] 헤더 알림 배지 + 미리보기 드롭다운용 상태 (채팅 + 판매자 참여 알림 통합)
+  const [chatRooms, setChatRooms] = useState([]);
+  const [participationAlerts, setParticipationAlerts] = useState([]);
+  const [isChatPreviewOpen, setIsChatPreviewOpen] = useState(false);
+  // [신규] 참여 알림 "읽음" 기준 시각 (로컬 저장)
+  const [lastSeenParticipationAt, setLastSeenParticipationAt] = useState(
+    () => localStorage.getItem('notif_participation_seen_at') || new Date(0).toISOString()
+  );
 
   const syncFromStorage = () => {
     const storedNickname = localStorage.getItem('user_nickname');
@@ -40,12 +49,67 @@ const Header = () => {
     return () => window.removeEventListener('user-profile-updated', syncFromStorage);
   }, []);
 
-  const handleLogout = () => {
-    // 로그아웃은 세션/로컬 정보만 정리하고 기기 인증서는 폐기하지 않음.
-    // (예전엔 여기서 /api/member/certificate/revoke를 호출해 매 로그아웃마다
-    //  인증서를 폐기시켰는데, 그러면 다음 로그인 때마다 재발급이 강제되는 문제가 있었음)
+  // [신규] 읽음 처리 이벤트 받으면 배지 즉시 갱신
+  useEffect(() => {
+    const handleChatRead = (e) => {
+      const { roomId } = e.detail || {};
+      if (roomId == null) return;
+      setChatRooms(prev => prev.map(r => r.roomId === roomId ? { ...r, unreadCount: 0 } : r));
+    };
+    window.addEventListener('chat-read', handleChatRead);
+    return () => window.removeEventListener('chat-read', handleChatRead);
+  }, []);
+
+  // [신규] 채팅방 목록(+ 판매자면 참여 알림)을 20초마다 갱신
+  useEffect(() => {
+    if (!localStorage.getItem('user_nickname')) {
+      setChatRooms([]);
+      setParticipationAlerts([]);
+      return;
+    }
+
+    const loadNotifications = () => {
+      fetch(`http://${window.location.hostname}:8080/api/chat/rooms`, { credentials: 'include' })
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch chat rooms');
+          return res.json();
+        })
+        .then(setChatRooms)
+        .catch(err => console.error('헤더 채팅 알림 로드 실패', err));
+
+      // [신규] 참여 알림은 판매자 계정에만 의미 있는 이벤트라 seller일 때만 조회
+      if (localStorage.getItem('user_role') === 'ROLE_SELLER') {
+        fetch(`http://${window.location.hostname}:8080/api/products/seller/me/participations`, { credentials: 'include' })
+          .then(res => {
+            if (!res.ok) throw new Error('Failed to fetch participations');
+            return res.json();
+          })
+          .then(setParticipationAlerts)
+          .catch(err => console.error('헤더 참여 알림 로드 실패', err));
+      } else {
+        setParticipationAlerts([]);
+      }
+    };
+
+    loadNotifications();
+    const intervalId = setInterval(loadNotifications, 20000);
+    return () => clearInterval(intervalId);
+  }, [nickname]);
+
+  const handleLogout = async () => {
+    // [수정] 기존엔 localStorage만 지웠는데, 로그아웃 시 서버 인증서도 함께 폐기하도록 요청 추가
+    try {
+      await fetch('http://localhost:8080/api/member/certificate/revoke', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (e) {
+      // 서버 요청이 실패해도 로컬 로그아웃은 그대로 진행
+    }
     localStorage.removeItem('user_nickname');
     localStorage.removeItem('user_role');
+    // [신규] 채팅 메시지 판별 email 삭제
+    localStorage.removeItem('email');
     setNickname('로그인 필요');
     setUserRole('ROLE_BUYER');
     alert('로그아웃 되었습니다.');
@@ -59,6 +123,62 @@ const Header = () => {
     if (!localStorage.getItem('user_nickname')) {
       e.preventDefault();
       alert('로그인이 필요합니다');
+    }
+  };
+
+  // [신규] 알림 배지/미리보기 — role별 채팅 목록 경로, 채팅+참여 알림을 하나로 합쳐서 최신순 표시
+  const chatBasePath = userRole === 'ROLE_SELLER' ? '/seller/chat' : '/buyer/chat';
+
+  const unreadChatItems = chatRooms
+    .filter(r => r.unreadCount > 0)
+    .map(r => ({
+      type: 'CHAT',
+      key: `chat-${r.roomId}`,
+      roomId: r.roomId,
+      title: r.targetName,
+      subtitle: r.productName,
+      preview: r.lastMessage || '새 메시지',
+      time: r.lastSentAt,
+      badge: r.unreadCount,
+    }));
+
+  const newParticipationItems = participationAlerts
+    .filter(p => new Date(p.joinDate) > new Date(lastSeenParticipationAt))
+    .map(p => ({
+      type: 'PARTICIPATION',
+      key: `participation-${p.id}`,
+      title: `구매자 '${p.buyerName}'님이 참여했습니다`,
+      subtitle: p.product?.title,
+      preview: null,
+      time: p.joinDate,
+    }));
+
+  const notificationItems = [...unreadChatItems, ...newParticipationItems]
+    .sort((a, b) => new Date(b.time) - new Date(a.time))
+    .slice(0, 6);
+
+  const totalUnreadCount = unreadChatItems.reduce((sum, item) => sum + item.badge, 0) + newParticipationItems.length;
+
+  // [신규] 닫히는 모든 경로(벨 재클릭/항목 클릭/전체보기 클릭)에서 공통으로 호출
+  const markNotificationsSeen = () => {
+    const now = new Date().toISOString();
+    localStorage.setItem('notif_participation_seen_at', now);
+    setLastSeenParticipationAt(now);
+  };
+
+  const handleToggleNotifications = () => {
+    if (isChatPreviewOpen) markNotificationsSeen();
+    setIsChatPreviewOpen(!isChatPreviewOpen);
+  };
+
+  // [신규] 항목 클릭 시 이동 — 채팅은 해당 방, 참여 알림은 판매 현황
+  const handleNotificationItemClick = (item) => {
+    markNotificationsSeen();
+    setIsChatPreviewOpen(false);
+    if (item.type === 'CHAT') {
+      navigate(`${chatBasePath}?roomId=${item.roomId}`);
+    } else {
+      navigate('/seller/status');
     }
   };
 
@@ -117,6 +237,71 @@ const Header = () => {
 
         {localStorage.getItem('user_nickname') ? (
           <>
+            {/* [신규] 알림 배지 + 미리보기 드롭다운 */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={handleToggleNotifications}
+                className="relative p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition"
+                title="알림"
+              >
+                <Bell size={20} />
+                {totalUnreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isChatPreviewOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <span className="text-sm font-bold text-gray-900">알림</span>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notificationItems.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-sm text-gray-400">새 알림이 없습니다</div>
+                    ) : (
+                      notificationItems.map(item => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => handleNotificationItemClick(item)}
+                          className="w-full text-left px-4 py-3 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition flex flex-col gap-0.5"
+                        >
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-sm font-bold text-gray-900 truncate">{item.title}</span>
+                            {item.badge > 0 && (
+                              <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {item.badge}
+                              </span>
+                            )}
+                          </div>
+                          {item.subtitle && (
+                            <span className="text-xs text-gray-400 font-medium truncate">{item.subtitle}</span>
+                          )}
+                          {item.preview && (
+                            <span className="text-xs text-gray-600 truncate">{item.preview}</span>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  <Link
+                    to={
+                      userRole === 'ROLE_SELLER' ? '/seller/dashboard'
+                        : userRole === 'ROLE_ADMIN' ? '/admin/security'
+                          : chatBasePath
+                    }
+                    onClick={() => { markNotificationsSeen(); setIsChatPreviewOpen(false); }}
+                    className="block text-center py-2.5 text-xs font-bold text-blue-600 hover:bg-blue-50 transition border-t border-gray-100"
+                  >
+                    전체 알림 보기
+                  </Link>
+                </div>
+              )}
+            </div>
+
             {/* [신규] 인증서 남은 시간 표시 + +5분/-5분 조정 버튼 (인증서 타이머 세션이 있을 때만 표시) */}
             {remainingSeconds !== null && (
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gray-50 border border-gray-200 shrink-0">
@@ -129,9 +314,8 @@ const Header = () => {
                   -
                 </button>
                 <span
-                  className={`text-xs font-mono font-bold tabular-nums w-10 text-center ${
-                    remainingSeconds <= 60 ? 'text-red-600' : 'text-gray-700'
-                  }`}
+                  className={`text-xs font-mono font-bold tabular-nums w-10 text-center ${remainingSeconds <= 60 ? 'text-red-600' : 'text-gray-700'
+                    }`}
                   title="인증서 남은 유효시간"
                 >
                   {formatRemaining(remainingSeconds)}
@@ -156,9 +340,8 @@ const Header = () => {
                   {nickname} 님
                 </span>
                 <span
-                  className={`text-[10px] font-black tracking-wider uppercase transition ${
-                    userRole === 'ROLE_ADMIN' ? 'text-red-600' : userRole === 'ROLE_SELLER' ? 'text-emerald-600' : 'text-blue-600'
-                  }`}
+                  className={`text-[10px] font-black tracking-wider uppercase transition ${userRole === 'ROLE_ADMIN' ? 'text-red-600' : userRole === 'ROLE_SELLER' ? 'text-emerald-600' : 'text-blue-600'
+                    }`}
                 >
                   {userRole.replace('ROLE_', '')} MODE
                 </span>

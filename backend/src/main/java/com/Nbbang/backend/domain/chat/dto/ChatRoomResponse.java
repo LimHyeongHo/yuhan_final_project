@@ -14,15 +14,17 @@ public class ChatRoomResponse {
 
     private final Long roomId;
     private final String targetName;      // 상대방 닉네임
+    private final Long productId;         // [신규] 게시물별 채팅 목록 필터링용
     private final String productName;
     private final String lastMessage;
     private final LocalDateTime lastSentAt;
     private final int unreadCount;
 
-    private ChatRoomResponse(Long roomId, String targetName, String productName,
+    private ChatRoomResponse(Long roomId, String targetName, Long productId, String productName,
                              String lastMessage, LocalDateTime lastSentAt, int unreadCount) {
         this.roomId = roomId;
         this.targetName = targetName;
+        this.productId = productId;
         this.productName = productName;
         this.lastMessage = lastMessage;
         this.lastSentAt = lastSentAt;
@@ -37,6 +39,7 @@ public class ChatRoomResponse {
         return new ChatRoomResponse(
                 room.getId(),
                 targetNickname,
+                room.getProductId(),
                 room.getProductName(),
                 room.getLastMessage(),
                 room.getLastSentAt(),

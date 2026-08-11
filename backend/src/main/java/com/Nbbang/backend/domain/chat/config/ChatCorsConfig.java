@@ -17,7 +17,13 @@ public class ChatCorsConfig {
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public CorsFilter chatCorsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:3000"));
+        // [수정] localhost:3000 고정 → 사설망 호스트 + 모든 포트 허용
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "http://192.168.*.*:*",
+                "http://10.*.*.*:*"
+        ));
         config.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

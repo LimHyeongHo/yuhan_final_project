@@ -166,6 +166,7 @@ const ProductRegisterPage = () => {
     try {
       const response = await fetch('http://localhost:8080/api/products', {
         method: 'POST',
+        credentials: 'include', // [수정] 로그인 세션 쿠키 포함
         body: submitData, // FormData 전송 시 Content-Type은 브라우저가 자동으로 multipart/form-data로 설정함
       });
 

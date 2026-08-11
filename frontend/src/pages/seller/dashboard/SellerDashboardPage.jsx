@@ -6,10 +6,38 @@ import Header from '../../../components/layout/Header'; // 공통 헤더
 const SellerDashboardPage = () => {
   const [listings, setListings] = useState([]);
   const [participations, setParticipations] = useState([]);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+  // [수정] 하드코딩된 "+₩77,000 이번 주" → 최근 7일 이내 참여 건의 실제 가격 합산
+  const weeklyRevenue = participations.reduce((sum, part) => {
+    const joinedAt = part.joinDate ? new Date(part.joinDate) : null;
+    const isWithinWeek = joinedAt && (Date.now() - joinedAt.getTime()) <= 7 * 24 * 60 * 60 * 1000;
+    return isWithinWeek ? sum + (part.product?.price || 0) : sum;
+  }, 0);
 
   React.useEffect(() => {
+    // [수정] 하드코딩된 "12건" → 실제 채팅방 안읽음 메시지 합산, 새로고침 없이도 20초마다 갱신
+    const loadUnreadChatCount = () => {
+      fetch(`http://${window.location.hostname}:8080/api/chat/rooms`, { credentials: 'include' })
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch chat rooms');
+          return res.json();
+        })
+        .then(rooms => {
+          setUnreadChatCount(rooms.reduce((sum, r) => sum + (r.unreadCount || 0), 0));
+        })
+        .catch(err => console.error(err));
+    };
+
+    loadUnreadChatCount();
+    const intervalId = setInterval(loadUnreadChatCount, 20000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  React.useEffect(() => {
+    // [수정] sellerId=1 고정 하드코딩 → 로그인한 본인 상품만 조회
     // 1. 내 판매 현황 목록 불러오기
-    fetch('http://localhost:8080/api/products/seller/1')
+    fetch('http://localhost:8080/api/products/seller/me', { credentials: 'include' })
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch products');
         return res.json();
@@ -28,7 +56,7 @@ const SellerDashboardPage = () => {
       .catch(err => console.error(err));
 
     // 2. 누군가 참여한 최근 내역 불러오기 (최근 알림용)
-    fetch('http://localhost:8080/api/products/seller/1/participations')
+    fetch('http://localhost:8080/api/products/seller/me/participations', { credentials: 'include' })
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch participations');
         return res.json();
@@ -85,7 +113,7 @@ const SellerDashboardPage = () => {
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">누적 판매 (예상 수익)</span>
               <h3 className="text-3xl font-black text-gray-950 mt-1">₩{listings.reduce((acc, curr) => acc + (curr.price * curr.current), 0).toLocaleString()}</h3>
               <span className="text-emerald-600 text-xs font-bold mt-1 flex items-center gap-1">
-                <TrendingUp size={14} /> +₩77,000 이번 주
+                <TrendingUp size={14} /> +₩{weeklyRevenue.toLocaleString()} 이번 주
               </span>
             </div>
             <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
@@ -97,9 +125,9 @@ const SellerDashboardPage = () => {
           <Link to="/seller/chat" className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center transition hover:shadow-md">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">신규 채팅/문의</span>
-              <h3 className="text-3xl font-black text-gray-950 mt-1">12 건</h3>
+              <h3 className="text-3xl font-black text-gray-950 mt-1">{unreadChatCount} 건</h3>
               <span className="text-orange-500 text-xs font-bold mt-1 flex items-center gap-1">
-                미확인 메시지가 있습니다
+                {unreadChatCount > 0 ? '미확인 메시지가 있습니다' : '새 메시지가 없습니다'}
               </span>
             </div>
             <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-orange-500">

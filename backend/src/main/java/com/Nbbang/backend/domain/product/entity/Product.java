@@ -22,6 +22,10 @@ public class Product {
     @Column(name = "seller_id", nullable = false)
     private Long sellerId;
 
+    // [신규] POST /api/chat/rooms 호출용 판매자 이메일
+    @Column(name = "seller_email")
+    private String sellerEmail;
+
     @Column(nullable = false, length = 20)
     private String type; // 'BOOK' or 'ITEM'
 
