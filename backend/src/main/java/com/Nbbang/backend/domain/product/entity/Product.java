@@ -71,6 +71,10 @@ public class Product {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<Participation> participations = new java.util.ArrayList<>();
+
     // 데이터가 처음 저장될 때 시간 및 기한 자동 설정
     @PrePersist
     protected void onCreate() {

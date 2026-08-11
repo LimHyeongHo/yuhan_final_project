@@ -1,63 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Store, BarChart3, TrendingUp, Users, Eye, ArrowUpRight, DollarSign, Calendar, Wallet } from 'lucide-react';
 import Header from '../../../components/layout/Header';
 
-// ----------------------------------------------------------------------------------
-// 🛠️ 기간별 동적 더미 데이터 세팅 (실제로는 백엔드 API 응답값으로 교체)
-// ----------------------------------------------------------------------------------
-const filterData = {
-  '7D': {
-    label: '최근 7일',
-    summary: { views: '1,720', revenue: '1,010,000' },
-    chart: [
-      { day: '월', revenue: 45000 },
-      { day: '화', revenue: 125000 },
-      { day: '수', revenue: 80000 },
-      { day: '목', revenue: 210000 },
-      { day: '금', revenue: 350000 },
-      { day: '토', revenue: 150000 },
-      { day: '일', revenue: 50000 },
-    ]
-  },
-  '1M': {
-    label: '최근 1개월',
-    summary: { views: '6,450', revenue: '4,250,000' },
-    chart: [
-      { day: '1주차', revenue: 850000 },
-      { day: '2주차', revenue: 1100000 },
-      { day: '3주차', revenue: 950000 },
-      { day: '4주차', revenue: 1350000 },
-    ]
-  },
-  '3M': {
-    label: '최근 3개월',
-    summary: { views: '18,900', revenue: '12,800,000' },
-    chart: [
-      { day: '4월', revenue: 3500000 },
-      { day: '5월', revenue: 4200000 },
-      { day: '6월', revenue: 5100000 },
-    ]
-  }
-};
-
-const mockTopProducts = [
-  { id: '1024', title: '컴퓨터 구조 및 설계 6판', views: 842, sales: 8, conversion: '0.95%' },
-  { id: '1021', title: '전공 실습용 라즈베리파이 키트', views: 520, sales: 15, conversion: '2.88%' },
-  { id: '1025', title: '카시오 공학용 계산기 fx-991EX', views: 310, sales: 12, conversion: '3.87%' },
-];
-
 const SellerAnalyticsPage = () => {
-  // 상태 관리: 기본 선택된 필터는 '7D' (최근 7일)
   const [timeRange, setTimeRange] = useState('7D'); 
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // 현재 선택된 필터에 해당하는 데이터 추출
-  const currentData = filterData[timeRange];
-  
-  // 전체 기간 누적 총 판매 수익 (필터에 영향을 받지 않는 고정 데이터)
-  const totalCumulativeRevenue = "23,500,000";
-  
-  // 차트 막대 높이 계산을 위한 최대값 찾기 (선택된 기간의 차트 데이터 기준)
+  useEffect(() => {
+    const userId = localStorage.getItem('user_id') || '1'; // 임시 기본값 지원
+    fetch(`http://localhost:8080/api/seller/${userId}/analytics`)
+      .then(res => res.json())
+      .then(data => {
+        setAnalyticsData(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch analytics', err);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading || !analyticsData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <Header />
+        <div className="flex-grow flex items-center justify-center">
+          <span className="text-gray-500 font-bold">분석 데이터를 불러오는 중입니다...</span>
+        </div>
+      </div>
+    );
+  }
+
+  const currentData = analyticsData.filterData[timeRange];
+  const totalCumulativeRevenue = analyticsData.totalCumulativeRevenue;
   const maxRevenue = Math.max(...currentData.chart.map(d => d.revenue));
+  const mockTopProducts = analyticsData.topProducts;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
@@ -100,7 +78,7 @@ const SellerAnalyticsPage = () => {
                     : 'text-gray-600 hover:bg-gray-200/50'
                 }`}
               >
-                {filterData[tabId].label}
+                {analyticsData.filterData[tabId].label}
               </button>
             ))}
           </div>

@@ -109,3 +109,18 @@ public class ProductController {
         return userId;
     }
 }
+    @PutMapping("/{id}")
+    public ResponseEntity<Product> updateProduct(
+            @PathVariable Long id,
+            @ModelAttribute Product product,
+            @RequestParam(value = "image", required = false) MultipartFile image) {
+        Product updatedProduct = productService.updateProduct(id, product, image);
+        return ResponseEntity.ok(updatedProduct);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
+        productService.deleteProduct(id);
+        return ResponseEntity.noContent().build();
+    }
+}

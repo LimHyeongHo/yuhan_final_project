@@ -58,10 +58,14 @@ const LoginPage = () => {
       });
       const result = await res.json();
       if (res.ok) {
+        // [임시] 백엔드의 sellerId(Long) 타입에 맞추기 위해 이메일을 숫자로 매핑
+        const numericId = email === 'seller01@test.com' ? 1 : (email === 'seller02@test.com' ? 2 : 3);
+
         localStorage.setItem('user_nickname', result.nickname);
         localStorage.setItem('user_role', result.role);
         // [신규] 채팅 메시지 판별 email 저장
         localStorage.setItem('email', email);
+        localStorage.setItem('user_id', numericId.toString());
         // [신규] 관리자는 인증서 타이머가 없지만, 혹시 있을 상태를 정리하기 위해 동기화 호출
         await syncStatus();
         alert(`${result.nickname}님 환영합니다!`);
@@ -138,6 +142,7 @@ const LoginPage = () => {
     e.preventDefault();
     if (!email) return alert("이메일을 입력해주세요.");
 
+
     setNeedsReissue(false);
     setIsLoading(true);
     try {
@@ -211,10 +216,14 @@ const LoginPage = () => {
 
       const result = await verRes.json();
       if (verRes.ok) {
+        // [임시] 백엔드의 sellerId(Long) 타입에 맞추기 위해 이메일을 숫자로 매핑
+        const numericId = email === 'seller01@test.com' ? 1 : (email === 'seller02@test.com' ? 2 : 3);
+
         localStorage.setItem('user_nickname', result.nickname);
         localStorage.setItem('user_role', result.role || 'ROLE_BUYER');
         // [신규] 채팅 메시지 판별 email 저장
         localStorage.setItem('email', email);
+        localStorage.setItem('user_id', numericId.toString());
         // [신규] 로그인 성공 직후 서버에서 시작된 인증서 10분 타이머를 프론트와 동기화
         await syncStatus();
         alert(`${result.nickname}님 환영합니다!`);
@@ -329,11 +338,10 @@ const LoginPage = () => {
                     key={key}
                     type="button"
                     onClick={() => setTestRoleHint(key)}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg border transition ${
-                      testRoleHint === key
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg border transition ${testRoleHint === key
                         ? 'border-purple-500 bg-purple-50 text-purple-600'
                         : 'border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     {label}
                   </button>

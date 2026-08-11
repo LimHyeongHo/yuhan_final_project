@@ -5,25 +5,14 @@ import { Shield, CheckCircle, AlertTriangle, Clock, RefreshCw, Download, Filter,
 /// [*] 헤더 컴포넌트 연결
 import Header from '../../../components/layout/Header';
 
-// 실시간 보안 감사 로그 가상 데이터 (나중에 DB와 연동할 그릇의 초기값)
-const mockLogs = [
-  { id: "TX-99824-B", timestamp: "2026-05-21 14:22:10.455", status: "SUCCESS", diff: "0x0000...0000", detail: "상세 정보" },
-  { id: "TX-99712-F", timestamp: "2026-05-21 13:05:44.201", status: "TAMPERED", diff: "Diff: -12.4% (PRICE_FIELD)", detail: "위변조 추적" },
-  { id: "TX-99709-X", timestamp: "2026-05-21 12:58:33.112", status: "SUCCESS", diff: "0x0000...0000", detail: "상세 정보" },
-  { id: "TX-99698-A", timestamp: "2026-05-21 12:45:01.890", status: "SUCCESS", diff: "0x0000...0000", detail: "상세 정보" }
-];
-
 const SecurityLogPage = () => {
-  const [logs, setLogs] = useState(mockLogs);
+  const [logs, setLogs] = useState([]);
 
-  // 🚨 [백엔드 API 연동 위치] 
-  // 나중에 Spring Boot 백엔드에서 실시간 해시 검증 로그를 받아올 때 주석을 해제하고 사용하세요.
   useEffect(() => {
-    /*
-    axios.get('http://localhost:8080/api/security/logs')
-      .then(response => setLogs(response.data))
+    fetch('http://localhost:8080/api/admin/logs?type=SECURITY')
+      .then(res => res.json())
+      .then(data => setLogs(data))
       .catch(error => console.error("보안 로그를 가져오는데 실패했습니다:", error));
-    */
   }, []);
 
   return (
@@ -122,9 +111,9 @@ const SecurityLogPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {logs.map((log, i) => (
-                  <tr key={i} className="hover:bg-gray-50/80 transition-colors">
-                    <td className="py-4 px-4 font-bold text-sm text-gray-900 tracking-wide">{log.id}</td>
+                {logs.map((log) => (
+                  <tr key={log.id} className="hover:bg-gray-50/80 transition-colors">
+                    <td className="py-4 px-4 font-bold text-sm text-gray-900 tracking-wide">{log.displayId}</td>
                     <td className="py-4 px-4 text-sm text-gray-500">{log.timestamp}</td>
                     <td className="py-4 px-4 text-center">
                       <span className={`inline-block text-[10px] font-black px-2.5 py-1 rounded-full uppercase ${

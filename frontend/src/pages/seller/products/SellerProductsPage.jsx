@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Store, BookOpen, Package, Search, Filter, Edit2, Trash2, CheckCircle, Clock, ExternalLink } from 'lucide-react';
 import Header from '../../../components/layout/Header';
 
 const SellerProductsPage = () => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
 
-  React.useEffect(() => {
+  const fetchProduct = () => {
     // [수정] sellerId=1 고정 하드코딩 → 로그인한 본인 상품만 조회
     fetch('http://localhost:8080/api/products/seller/me', { credentials: 'include' })
       .then(res => res.json())
@@ -23,10 +25,39 @@ const SellerProductsPage = () => {
         setProducts(formattedData);
       })
       .catch(err => console.error("상품 목록 로드 실패:", err));
+  };
+
+  React.useEffect(() => {
+    fetchProducts();
   }, []);
-  
+
+  const handleDelete = async (id, currentCount) => {
+    if (currentCount > 0) {
+      const confirmFirst = window.confirm(`현재 참여자가 ${currentCount}명 있습니다. 정말 삭제하시겠습니까?`);
+      if (!confirmFirst) return;
+    }
+
+    const confirmDelete = window.confirm("프로젝트를 삭제하면 복구할 수 없으며 참여 내역도 함께 삭제됩니다. 계속하시겠습니까?");
+    if (!confirmDelete) return;
+
+    try {
+      const response = await fetch(`http://localhost:8080/api/products/${id}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        alert("성공적으로 삭제되었습니다.");
+        fetchProducts(); // 리스트 갱신
+      } else {
+        alert("삭제에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("삭제 중 오류 발생:", error);
+      alert("삭제 중 오류가 발생했습니다.");
+    }
+  };
+
   // 1. 상태 관리 (탭, 필터, 필터창 열림/닫힘)
-  const [activeTab, setActiveTab] = useState('ALL'); 
+  const [activeTab, setActiveTab] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('ALL'); // 'ALL', '진행중', '목표달성'
   const [isFilterOpen, setIsFilterOpen] = useState(false); // 필터 드롭다운 메뉴 상태
 
@@ -53,7 +84,7 @@ const SellerProductsPage = () => {
       </section>
 
       <main className="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
-        
+
         {/* ... (상단 통계 카드 3종도 기존과 동일) ... */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
@@ -72,10 +103,10 @@ const SellerProductsPage = () => {
 
         <section className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
-            
+
             {/* 탭 버튼 영역 */}
             <div className="flex gap-2 bg-gray-100 p-1 rounded-xl">
-              {[ { id: 'ALL', label: '전체 보기' }, { id: 'BOOK', label: '전공 도서' }, { id: 'ITEM', label: '학과 물품' } ].map((tab) => (
+              {[{ id: 'ALL', label: '전체 보기' }, { id: 'BOOK', label: '전공 도서' }, { id: 'ITEM', label: '학과 물품' }].map((tab) => (
                 <button
                   key={tab.id} onClick={() => setActiveTab(tab.id)}
                   className={`px-4 py-2 text-xs font-bold rounded-lg transition ${activeTab === tab.id ? 'bg-white text-blue-600 shadow-sm ring-1 ring-gray-900/5' : 'text-gray-600 hover:bg-gray-200/50'}`}
@@ -84,7 +115,7 @@ const SellerProductsPage = () => {
                 </button>
               ))}
             </div>
-            
+
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <div className="relative flex-grow sm:flex-grow-0">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -93,11 +124,10 @@ const SellerProductsPage = () => {
 
               {/* 3. ✨ 상태 필터 드롭다운 메뉴 영역 ✨ */}
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`flex items-center gap-2 px-3 py-2 border rounded-xl transition shrink-0 text-sm font-bold ${
-                    isFilterOpen || filterStatus !== 'ALL' ? 'border-blue-300 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-600 bg-white hover:bg-gray-50'
-                  }`}
+                  className={`flex items-center gap-2 px-3 py-2 border rounded-xl transition shrink-0 text-sm font-bold ${isFilterOpen || filterStatus !== 'ALL' ? 'border-blue-300 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-600 bg-white hover:bg-gray-50'
+                    }`}
                 >
                   <Filter size={18} />
                   {/* 선택된 필터가 있으면 버튼에 글자를 보여줍니다 */}
@@ -118,9 +148,8 @@ const SellerProductsPage = () => {
                           setFilterStatus(status.id);
                           setIsFilterOpen(false); // 선택하면 메뉴 닫기
                         }}
-                        className={`text-left px-4 py-3 text-sm font-bold transition hover:bg-gray-50 ${
-                          filterStatus === status.id ? 'text-blue-600 bg-blue-50/50' : 'text-gray-700'
-                        }`}
+                        className={`text-left px-4 py-3 text-sm font-bold transition hover:bg-gray-50 ${filterStatus === status.id ? 'text-blue-600 bg-blue-50/50' : 'text-gray-700'
+                          }`}
                       >
                         {status.label}
                       </button>
@@ -166,14 +195,14 @@ const SellerProductsPage = () => {
                     </div>
                   </div>
                   <div className="md:col-span-2 flex items-center gap-2 justify-start md:justify-end border-t md:border-t-0 pt-4 md:pt-0 border-gray-100">
-                    <button className="flex items-center justify-center p-2.5 text-gray-400 hover:text-blue-600 bg-gray-50 rounded-xl hover:bg-blue-50 transition"><ExternalLink size={18} /></button>
-                    <button className="flex items-center justify-center p-2.5 text-gray-400 hover:text-gray-700 bg-gray-50 rounded-xl hover:bg-gray-200 transition"><Edit2 size={18} /></button>
-                    <button className="flex items-center justify-center p-2.5 text-red-400 hover:text-red-600 bg-red-50/50 rounded-xl hover:bg-red-50 transition"><Trash2 size={18} /></button>
+                    <button onClick={() => navigate(`/buyer/products/${item.id}`)} className="flex items-center justify-center p-2.5 text-gray-400 hover:text-blue-600 bg-gray-50 rounded-xl hover:bg-blue-50 transition"><ExternalLink size={18} /></button>
+                    <button onClick={() => navigate(`/seller/products/edit/${item.id}`)} className="flex items-center justify-center p-2.5 text-gray-400 hover:text-gray-700 bg-gray-50 rounded-xl hover:bg-gray-200 transition"><Edit2 size={18} /></button>
+                    <button onClick={() => handleDelete(item.id, item.currentCount)} className="flex items-center justify-center p-2.5 text-red-400 hover:text-red-600 bg-red-50/50 rounded-xl hover:bg-red-50 transition"><Trash2 size={18} /></button>
                   </div>
                 </div>
               );
             })}
-            
+
             {filteredProducts.length === 0 && (
               <div className="bg-white rounded-[24px] p-12 border border-gray-200 flex flex-col items-center justify-center text-gray-400 gap-3">
                 <Package size={40} className="opacity-20" />

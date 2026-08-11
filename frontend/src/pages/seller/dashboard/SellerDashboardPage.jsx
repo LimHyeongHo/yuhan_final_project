@@ -69,7 +69,7 @@ const SellerDashboardPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
-      
+
       {/* 1. 글로벌 헤더 */}
       <Header />
 
@@ -90,7 +90,7 @@ const SellerDashboardPage = () => {
 
       {/* 3. 메인 콘텐츠 영역 */}
       <main className="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
-        
+
         {/* 상단 3종 요약 통계 카드 */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* 카드 1: 진행 중인 공동구매 */}
@@ -138,7 +138,7 @@ const SellerDashboardPage = () => {
 
         {/* 하단 스플릿 레이아웃 (2/3 게시글 관리 + 1/3 빠른 알림) */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
+
           {/* 좌측 패널: 내 판매 게시글 현황 (2/3) */}
           <div className="lg:col-span-2 bg-white rounded-[28px] p-6 md:p-8 border border-gray-200 shadow-sm flex flex-col gap-6">
             <div className="flex justify-between items-center border-b border-gray-100 pb-4">
@@ -161,9 +161,8 @@ const SellerDashboardPage = () => {
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${
-                            isCompleted ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'
-                          }`}>
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${isCompleted ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'
+                            }`}>
                             {item.status}
                           </span>
                           <span className="text-[10px] font-mono text-gray-400">#{item.id}</span>
@@ -180,7 +179,7 @@ const SellerDashboardPage = () => {
                         <span>{item.current} / {item.target} 명</span>
                       </div>
                       <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className={`h-full rounded-full transition-all duration-500 ${isCompleted ? 'bg-blue-600' : 'bg-emerald-500'}`}
                           style={{ width: `${ratio}%` }}
                         ></div>
@@ -190,7 +189,7 @@ const SellerDashboardPage = () => {
                 );
               })}
             </div>
-            
+
             <button className="text-sm font-bold text-gray-500 flex items-center justify-center gap-1 mt-2 hover:text-blue-600 transition">
               전체 게시글 보기 <ArrowRight size={16} />
             </button>
@@ -205,7 +204,7 @@ const SellerDashboardPage = () => {
               </div>
 
               <div className="flex flex-col gap-4">
-                
+
                 {participations.length > 0 ? (
                   participations.slice(0, 3).map((part, index) => {
                     const timeDiffStr = "방금 전"; // 실제로는 part.joinDate 시간 계산 로직 필요
@@ -224,7 +223,7 @@ const SellerDashboardPage = () => {
                 ) : (
                   <div className="text-sm text-gray-400 text-center py-4 font-bold">새로운 알림이 없습니다.</div>
                 )}
-                
+
               </div>
             </div>
 

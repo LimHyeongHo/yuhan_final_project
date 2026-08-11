@@ -19,6 +19,7 @@ import ProductsManagementPage from './pages/admin/products/ProductsManagementPag
 /// [*] 판매자용 페이지 import
 import SellerDashboardPage from './pages/seller/dashboard/SellerDashboardPage';
 import ProductsRegisterPage from './pages/seller/products/ProductsRegisterPage';
+import ProductsEditPage from './pages/seller/products/ProductsEditPage';
 import SellerProductsPage from './pages/seller/products/SellerProductsPage';
 import SellerAnalyticsPage from './pages/seller/analytics/SellerAnalyticsPage';
 
@@ -81,6 +82,8 @@ function App() {
         <Route path="/seller/dashboard" element={<SellerDashboardPage />} />
         { /* 상품관리 페이지 접속 화면 */}
         <Route path="/seller/products" element={<ProductsRegisterPage />} />
+        { /* 상품 수정 페이지 접속 화면 */}
+        <Route path="/seller/products/edit/:id" element={<ProductsEditPage />} />
         { /* 상품관리 페이지 접속 화면 */}
         <Route path="/seller/status" element={<SellerProductsPage />} />
         { /* 분석데이터 페이지 접속 화면 */}

@@ -154,14 +154,62 @@ public class ProductService {
         return product; // 트랜잭션 종료 시 자동 더티 체킹으로 DB에 반영됨
     }
 
-    // 공동구매 참여 취소
+    // 공동구매 취소
     @Transactional
     public Product cancelJoinProduct(Long id) {
         Product product = getProductById(id);
-        
-        // 참여 내역 테이블 연결 끊음 (테스트 용도)
         product.decrementCurrentCount();
-
         return product;
+    }
+
+    // 상품 수정 로직
+    @Transactional
+    public Product updateProduct(Long id, Product updatedData, MultipartFile image) {
+        Product product = getProductById(id);
+        
+        // 필드 업데이트
+        product.setTitle(updatedData.getTitle());
+        product.setType(updatedData.getType());
+        // product.setCategory(updatedData.getCategory()); // TODO: fix/search_bug 브랜치 병합 후 주석 해제 (category 연동)
+        product.setPrice(updatedData.getPrice());
+        product.setOriginalPrice(updatedData.getOriginalPrice() != null ? updatedData.getOriginalPrice() : updatedData.getPrice());
+        product.setTargetCount(updatedData.getTargetCount());
+        if (updatedData.getDeadline() != null) {
+            product.setDeadline(updatedData.getDeadline());
+        }
+        product.setDescription(updatedData.getDescription());
+        product.setPublisher(updatedData.getPublisher());
+        product.setAuthor(updatedData.getAuthor());
+        if (updatedData.getImageUrl() != null && !updatedData.getImageUrl().isEmpty()) {
+            product.setImageUrl(updatedData.getImageUrl());
+        }
+
+        // 새 이미지가 있는 경우 업데이트
+        if (image != null && !image.isEmpty()) {
+            try {
+                File directory = new File(uploadDir);
+                if (!directory.exists()) {
+                    directory.mkdirs();
+                }
+                String originalFilename = image.getOriginalFilename();
+                String extension = originalFilename != null ? originalFilename.substring(originalFilename.lastIndexOf(".")) : ".jpg";
+                String savedFilename = UUID.randomUUID().toString() + extension;
+                
+                Path filePath = Paths.get(uploadDir + savedFilename);
+                Files.write(filePath, image.getBytes());
+                
+                product.setImageUrl("http://localhost:8080/uploads/" + savedFilename);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return product;
+    }
+
+    // 상품 삭제 로직
+    @Transactional
+    public void deleteProduct(Long id) {
+        Product product = getProductById(id);
+        productRepository.delete(product); // CascadeType.ALL 이므로 참여내역도 자동 삭제됨
     }
 }
