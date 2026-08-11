@@ -74,7 +74,9 @@ public class CertificateSessionService {
         return certificateSessionRepository.save(session);
     }
 
-    // 인증서 폐기: CA 서비스 CRL 등록 + DeviceCert.revoked 갱신 + 세션 삭제
+    // 인증서 폐기: CA 서비스 CRL 등록 + DeviceCert.revoked 갱신 + 세션 삭제.
+    // N분 타이머 만료 또는 회원 탈퇴처럼 기기 인증서 자체를 못 쓰게 만들어야 하는 경우에 사용.
+    // (수동 로그아웃 버튼에서는 호출하지 않음 - Header.jsx는 로컬 세션 정리만 함)
     @Transactional
     public void revoke(String userId) {
         deviceCertRepository.findByUserId(userId).ifPresent(cert -> {

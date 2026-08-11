@@ -39,16 +39,10 @@ const Header = () => {
     return () => window.removeEventListener('user-profile-updated', syncFromStorage);
   }, []);
 
-  const handleLogout = async () => {
-    // [수정] 기존엔 localStorage만 지웠는데, 로그아웃 시 서버 인증서도 함께 폐기하도록 요청 추가
-    try {
-      await fetch('http://localhost:8080/api/member/certificate/revoke', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (e) {
-      // 서버 요청이 실패해도 로컬 로그아웃은 그대로 진행
-    }
+  const handleLogout = () => {
+    // 로그아웃은 세션/로컬 정보만 정리하고 기기 인증서는 폐기하지 않음.
+    // (예전엔 여기서 /api/member/certificate/revoke를 호출해 매 로그아웃마다
+    //  인증서를 폐기시켰는데, 그러면 다음 로그인 때마다 재발급이 강제되는 문제가 있었음)
     localStorage.removeItem('user_nickname');
     localStorage.removeItem('user_role');
     setNickname('로그인 필요');

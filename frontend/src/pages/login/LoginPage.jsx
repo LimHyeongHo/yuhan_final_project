@@ -23,6 +23,7 @@ const LoginPage = () => {
   const [regCi, setRegCi] = useState(null);
   const [privateKey, setPrivateKey] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [needsReissue, setNeedsReissue] = useState(false);
   // [신규] 테스트 로그인 탭에서 선택한 역할 힌트 ('seller' | 'buyer' | 'admin' | null)
   const [testRoleHint, setTestRoleHint] = useState(null);
   // [신규] 로그인 성공 후 인증서 타이머 상태를 갱신하기 위해 Context에서 syncStatus를 꺼내옴
@@ -68,6 +69,7 @@ const LoginPage = () => {
       }
     } catch (e) {
       alert("로그인 오류: " + e.message);
+      window.location.reload();
     } finally {
       setIsLoading(false);
     }
@@ -134,6 +136,7 @@ const LoginPage = () => {
     e.preventDefault();
     if (!email) return alert("이메일을 입력해주세요.");
 
+    setNeedsReissue(false);
     setIsLoading(true);
     try {
       const response = await window.PortOne.requestIdentityVerification({
@@ -176,14 +179,21 @@ const LoginPage = () => {
     if (!password) return alert("비밀번호를 입력해주세요.");
 
     setIsLoading(true);
+    let reissueNeeded = false;
     try {
       let currentKey = privateKey;
       if (!currentKey) currentKey = await loadPrivateKey(email);
-      if (!currentKey) throw new Error("기기 인증 정보가 없습니다. '인증서 재발급'이 필요합니다.");
+      if (!currentKey) {
+        reissueNeeded = true;
+        throw new Error("기기 인증 정보가 없습니다. '인증서 재발급'이 필요합니다.");
+      }
 
       const deviceId = getDeviceId();
       const chalRes = await fetch(`http://localhost:8080/api/pki/login/challenge?deviceId=${deviceId}`);
-      if (!chalRes.ok) throw new Error("서버에서 기기 정보를 찾을 수 없습니다.");
+      if (!chalRes.ok) {
+        reissueNeeded = true;
+        throw new Error("서버에서 기기 정보를 찾을 수 없습니다.");
+      }
       const { challenge } = await chalRes.json();
 
       const sig = await window.crypto.subtle.sign("RSASSA-PKCS1-v1_5", currentKey, new TextEncoder().encode(challenge));
@@ -205,11 +215,22 @@ const LoginPage = () => {
         await syncStatus();
         alert(`${result.nickname}님 환영합니다!`);
         navigate('/');
+        return;
       } else {
-        throw new Error(result.message);
+        const message = result.message || "로그인에 실패했습니다.";
+        // 기기 인증서가 없거나 폐기/서명 불일치인 경우도 재발급 대상.
+        if (message.includes("기기 인증 정보가 없습니다") || message.includes("기기 인증 실패")) {
+          reissueNeeded = true;
+        }
+        throw new Error(message);
       }
     } catch (e) {
+      setNeedsReissue(reissueNeeded);
       alert("로그인 오류: " + e.message);
+      // 재발급이 필요한 경우엔 새로고침하면 재발급 버튼이 다시 숨겨지므로, 이 경우만 새로고침을 건너뜀.
+      if (!reissueNeeded) {
+        window.location.reload();
+      }
     } finally {
       setIsLoading(false);
     }
@@ -235,6 +256,7 @@ const LoginPage = () => {
       if (res.ok) {
         await savePrivateKey(email, keyPair.privateKey);
         setPrivateKey(keyPair.privateKey);
+        setNeedsReissue(false);
         alert("인증서가 성공적으로 재발급되었습니다! 이제 로그인이 가능합니다.");
       } else {
         const data = await res.json();
@@ -276,14 +298,14 @@ const LoginPage = () => {
           <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-6">
             <button
               type="button"
-              onClick={() => { setMode('user'); setEmail(''); setPassword(''); setIsVerified(false); setTestRoleHint(null); }}
+              onClick={() => { setMode('user'); setEmail(''); setPassword(''); setIsVerified(false); setTestRoleHint(null); setNeedsReissue(false); }}
               className={`flex-1 py-2.5 text-sm font-bold transition ${mode === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
             >
               일반 로그인
             </button>
             <button
               type="button"
-              onClick={() => { setMode('admin'); setEmail(''); setPassword(''); setIsVerified(false); setTestRoleHint(null); }}
+              onClick={() => { setMode('admin'); setEmail(''); setPassword(''); setIsVerified(false); setTestRoleHint(null); setNeedsReissue(false); }}
               className={`flex-1 py-2.5 text-sm font-bold transition ${mode === 'admin' ? 'bg-red-600 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
             >
               관리자 로그인
@@ -388,14 +410,16 @@ const LoginPage = () => {
                 >
                   {isLoading ? '로그인 중...' : '안전 로그인 실행'}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleReissue}
-                  disabled={isLoading}
-                  className="w-full p-3 bg-purple-600 text-white rounded-xl font-bold text-base shadow-lg shadow-purple-200 hover:bg-purple-700 transition duration-150"
-                >
-                  기기 인증서 재발급
-                </button>
+                {needsReissue && (
+                  <button
+                    type="button"
+                    onClick={handleReissue}
+                    disabled={isLoading}
+                    className="w-full p-3 bg-purple-600 text-white rounded-xl font-bold text-base shadow-lg shadow-purple-200 hover:bg-purple-700 transition duration-150"
+                  >
+                    기기 인증서 재발급
+                  </button>
+                )}
               </div>
             )}
           </form>
