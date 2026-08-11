@@ -1,6 +1,7 @@
 package com.Nbbang.backend.domain.product.controller; // 🚨 본인 경로에 맞게 수정
 
 import com.Nbbang.backend.domain.product.entity.Product;
+import com.Nbbang.backend.domain.product.entity.Participation;
 import com.Nbbang.backend.domain.product.service.ProductService;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
@@ -77,16 +78,7 @@ public class ProductController {
 
     @GetMapping("/seller/{sellerId}/participations")
     public ResponseEntity<List<Map<String, Object>>> getParticipationsBySellerId(@PathVariable Long sellerId) {
-        List<Participation> participations = productService.getParticipationsBySellerId(sellerId);
-        List<Map<String, Object>> response = participations.stream().map(part ->
-            Map.of(
-                "id", part.getId(),
-                "buyerName", part.getBuyerName(),
-                "joinDate", part.getJoinDate(),
-                "product", Map.of("title", part.getProduct().getTitle())
-            )
-        ).toList();
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(productService.getParticipationsBySellerId(sellerId));
     }
 
     /** [신규] 로그인한 판매자 본인의 상품 목록 (sellerId 대신 sellerEmail 기준) */
@@ -108,7 +100,7 @@ public class ProductController {
         if (userId == null) throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
         return userId;
     }
-}
+
     @PutMapping("/{id}")
     public ResponseEntity<Product> updateProduct(
             @PathVariable Long id,

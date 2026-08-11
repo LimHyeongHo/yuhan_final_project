@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Flame, TrendingUp, Clock, Users } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Header from '../../components/layout/Header';
 
 const HomePage = () => {

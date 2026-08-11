@@ -7,7 +7,7 @@ const SellerProductsPage = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
 
-  const fetchProduct = () => {
+  const fetchProducts = () => {
     // [수정] sellerId=1 고정 하드코딩 → 로그인한 본인 상품만 조회
     fetch('http://localhost:8080/api/products/seller/me', { credentials: 'include' })
       .then(res => res.json())

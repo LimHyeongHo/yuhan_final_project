@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 // [신규] Bell — 헤더 채팅 알림 배지/미리보기 아이콘
-import { User, ShieldAlert, LogOut, Bell } from 'lucide-react';
+import { User, ShieldAlert, LogOut, Bell, X, Menu } from 'lucide-react';
 // [신규] 인증서 남은 시간(mm:ss) + +5분/-5분 조정을 위한 Context 훅
 import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
 
