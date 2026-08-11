@@ -8,7 +8,8 @@ const BuyerProductsPage = () => {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchTarget, setSearchTarget] = useState('ALL');
-  const [majorFilter, setMajorFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
   
   // 🛠️ 뷰 모드 상태 관리 (GRID: 바둑판형, LIST: 목록형)
   const [viewMode, setViewMode] = useState('GRID');
@@ -22,6 +23,8 @@ const BuyerProductsPage = () => {
         const formattedData = data.map(item => ({
           id: item.productId,
           title: item.title,
+          type: item.type, // 'BOOK' or 'ITEM'
+          category: item.category || '', // 백엔드에서 추가된 category 값
           major: item.type === 'BOOK' ? '전공 도서' : '학과 물품', 
           author: item.author || item.publisher || '정보 없음',
           current: item.currentCount,
@@ -40,9 +43,14 @@ const BuyerProductsPage = () => {
   // 🌟 프론트엔드 검색 및 필터링 로직
   const filteredList = React.useMemo(() => {
     return productList.filter(item => {
-      // 1. 전공 분류 필터 (DB에 전공 컬럼이 없으므로 제목/내용 키워드 매칭으로 우회 처리)
-      if (majorFilter !== 'ALL') {
-        if (!item.title.includes(majorFilter) && !item.description.includes(majorFilter)) {
+      // 1. 상품 종류 필터 (전체, 전공도서, 학과물품)
+      if (typeFilter !== 'ALL' && item.type !== typeFilter) {
+        return false;
+      }
+
+      // 1-1. 세부 카테고리 필터 적용
+      if (categoryFilter !== 'ALL') {
+        if (!item.category.includes(categoryFilter)) {
           return false;
         }
       }
@@ -60,7 +68,7 @@ const BuyerProductsPage = () => {
       
       return true;
     });
-  }, [productList, searchQuery, searchTarget, majorFilter]);
+  }, [productList, searchQuery, searchTarget, typeFilter, categoryFilter]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
@@ -125,13 +133,40 @@ const BuyerProductsPage = () => {
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5"><BookOpen size={14} /> 전공 분류</label>
+                <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5"><BookOpen size={14} /> 상품 종류</label>
+                <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-200">
+                  {['ALL', 'BOOK', 'ITEM'].map((type) => (
+                    <button 
+                      key={type} 
+                      onClick={() => {
+                        setTypeFilter(type);
+                        if (type !== 'BOOK') setCategoryFilter('ALL');
+                      }} 
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${typeFilter === type ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                    >
+                      {type === 'ALL' ? '전체 상품' : type === 'BOOK' ? '전공도서' : '학과물품'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5"><Filter size={14} /> 세부 카테고리</label>
                 <div className="relative">
-                  <select value={majorFilter} onChange={(e) => setMajorFilter(e.target.value)} className="w-full appearance-none px-4 py-2.5 bg-gray-50 border border-gray-200 focus:border-blue-500 rounded-xl text-sm font-semibold text-gray-700 outline-none cursor-pointer">
-                    <option value="ALL">전체 전공</option>
-                    <option value="컴퓨터소프트웨어">컴퓨터소프트웨어</option>
-                    <option value="IT융합">IT융합</option>
-                    <option value="경영학">경영학</option>
+                  <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-full appearance-none px-4 py-2.5 bg-gray-50 border border-gray-200 focus:border-blue-500 rounded-xl text-sm font-semibold text-gray-700 outline-none cursor-pointer">
+                    <option value="ALL">전체 카테고리</option>
+                    <option value="대학교재">대학교재</option>
+                    <option value="전문서적">전문서적</option>
+                    <option value="컴퓨터">컴퓨터/IT</option>
+                    <option value="모바일">모바일</option>
+                    <option value="수험서">수험서/자격증</option>
+                    <option value="자격증">자격증</option>
+                    <option value="과학">과학</option>
+                    <option value="공학">공학</option>
+                    <option value="인문">인문학</option>
+                    <option value="사회">사회과학</option>
+                    <option value="어학">어학</option>
+                    <option value="외국어">외국어사전</option>
                   </select>
                   <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16} />
                 </div>
