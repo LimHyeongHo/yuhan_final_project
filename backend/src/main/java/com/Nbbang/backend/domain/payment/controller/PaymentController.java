@@ -6,7 +6,9 @@ import com.Nbbang.backend.domain.payment.dto.PaymentRequest;
 import com.Nbbang.backend.domain.payment.dto.PaymentResponse;
 import com.Nbbang.backend.domain.payment.service.PaymentService;
 import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -27,16 +29,18 @@ public class PaymentController {
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
 
-    // 결제 준비: Toss 결제창을 열기 전에 서버가 가격을 검증하고 PENDING 기록을 남긴다.
+    // 결제 준비: Toss 결제창을 열기 전에 서버가 가격을 검증하고 PENDING 기록을 남긴다. (로그인 회원만 가능)
     @PostMapping("/prepare")
-    public ResponseEntity<PaymentPrepareResponse> preparePayment(@RequestBody PaymentPrepareRequest request) {
+    public ResponseEntity<PaymentPrepareResponse> preparePayment(@RequestBody PaymentPrepareRequest request, HttpSession session) {
+        requireLogin(session);
         PaymentPrepareResponse response = paymentService.prepare(request);
         return ResponseEntity.ok(response);
     }
 
-    // 토스페이먼츠 결제 승인
+    // 토스페이먼츠 결제 승인 (로그인 회원만 가능)
     @PostMapping("/confirm")
-    public ResponseEntity<PaymentResponse> confirmPayment(@RequestBody PaymentRequest request) {
+    public ResponseEntity<PaymentResponse> confirmPayment(@RequestBody PaymentRequest request, HttpSession session) {
+        requireLogin(session);
         PaymentResponse response = paymentService.confirmPayment(request);
         return ResponseEntity.ok(response);
     }
@@ -78,5 +82,12 @@ public class PaymentController {
         response.sendRedirect(frontendUrl + "/payment/fail"
                 + "?message=" + URLEncoder.encode(message, StandardCharsets.UTF_8)
                 + "&code=" + code);
+    }
+
+    // 세션에 로그인된 회원(userId)이 없으면 401 - 비회원의 결제 API 접근 차단
+    private void requireLogin(HttpSession session) {
+        if (session.getAttribute("userId") == null) {
+            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
+        }
     }
 }

@@ -3,7 +3,8 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { CreditCard, Image as ImageIcon, Users } from 'lucide-react';
 import Header from '../../components/layout/Header';
 
-const TOSS_CLIENT_KEY = 'test_ck_6BYq7GWPVvvpYXJq0dbaVNE5vbo1';
+//클라이언트키 추가
+const TOSS_CLIENT_KEY = 'test_ck_a27c64c44aac6a79696abfe411bda51075f648cc09b41868a0169864ac7c4620';
 
 const PaymentPage = () => {
   const location = useLocation();
@@ -30,8 +31,14 @@ const PaymentPage = () => {
       const prepareRes = await fetch('http://localhost:8080/api/payment/prepare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ productId: Number(product.id), buyerName: '유한대학교 학우님' }),
       });
+      if (prepareRes.status === 401) {
+        alert('로그인이 필요합니다.');
+        navigate('/login');
+        return;
+      }
       if (!prepareRes.ok) {
         const err = await prepareRes.json().catch(() => ({}));
         throw new Error(err.message || '결제 준비에 실패했습니다.');
@@ -103,9 +110,9 @@ const PaymentPage = () => {
               <div className="flex items-end justify-between">
                 <div className="flex flex-col">
                   {product.originalPrice && (
-                    <span className="text-sm text-gray-400 line-through font-semibold">{product.originalPrice}원</span>
+                    <span className="text-sm text-gray-400 line-through font-semibold">{Number(product.originalPrice).toLocaleString()}원</span>
                   )}
-                  <span className="text-2xl font-black text-blue-600">{product.price}</span>
+                  <span className="text-2xl font-black text-blue-600">{Number(product.price).toLocaleString()}원</span>
                 </div>
                 {product.dDay && (
                   <span className="text-xs font-black px-2.5 py-1 rounded-md bg-red-500 text-white">{product.dDay}</span>
