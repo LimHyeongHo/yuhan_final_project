@@ -8,8 +8,9 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Arrays;
+import java.util.List;
+import java.util.ArrayList;
 
 @Service
 public class AladinSearchService {
@@ -17,76 +18,83 @@ public class AladinSearchService {
     @Value("${aladin.ttb.key}")
     private String ttbKey;
 
-    public Map<String, String> searchBook(String query) {
+    public List<Map<String, String>> searchBook(String query) {
         RestTemplate restTemplate = new RestTemplate();
         
-        // 바코드(숫자 13자리 또는 10자리)인지 확인하여 알라딘 API 엔드포인트를 다르게 설정합니다.
         String url;
         boolean isBarcode = query.matches("^[0-9]{10}$") || query.matches("^[0-9]{13}$");
         
         if (isBarcode) {
-            // 바코드로 정확한 책 검색 (ItemLookUp)
             url = "https://www.aladin.co.kr/ttb/api/ItemLookUp.aspx?ttbkey={ttbkey}&ItemIdType=ISBN13&ItemId={query}&output=js&Version=20131101";
         } else {
-            // 책 이름으로 키워드 검색 (ItemSearch)
-            url = "https://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey={ttbkey}&Query={query}&QueryType=Keyword&MaxResults=1&start=1&SearchTarget=Book&output=js&Version=20131101";
+            // 결과 10개까지 가져오도록 변경
+            url = "https://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey={ttbkey}&Query={query}&QueryType=Keyword&MaxResults=10&start=1&SearchTarget=Book&output=js&Version=20131101";
         }
 
         try {
-            // 강제로 String으로 받아옵니다. (에러가 나든 정상 데이터든 무조건 문자열로 받아서 파싱 에러 방지)
-            ResponseEntity<String> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, String.class, ttbKey.trim(), query.trim());
-            String responseBody = responseEntity.getBody();
+            ResponseEntity<Map> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Map.class, ttbKey.trim(), query.trim());
+            Map<String, Object> responseMap = responseEntity.getBody();
             
-            System.out.println("Aladin API URL: " + url);
-            System.out.println("Aladin Raw Response: " + responseBody); // 터미널에서 실제 응답 확인용
+            List<Map<String, String>> results = new ArrayList<>();
             
-            Map<String, String> result = new HashMap<>();
-            
-            if (responseBody != null && responseBody.contains("\"item\"")) {
-                // 알라딘 응답 JSON의 최상단에도 "title": "알라딘 검색결과 - ..." 가 있어서, 
-                // 정규식이 실제 책 제목이 아닌 최상단 제목을 가져오는 버그가 있습니다.
-                // 따라서 "item" 배열 내부의 텍스트만 먼저 잘라낸 후 거기서 값을 추출합니다.
-                int itemIndex = responseBody.indexOf("\"item\"");
-                String itemContent = responseBody.substring(itemIndex);
-                
-                String title = extractValue(itemContent, "title");
-                
-                if (title.isEmpty() || title.startsWith("알라딘 검색결과")) {
-                    result.put("error", "해당 바코드(또는 검색어)로 알라딘에서 도서를 찾을 수 없습니다.");
-                } else {
-                    result.put("title", title);
-                    result.put("author", extractValue(itemContent, "author"));
-                    result.put("maker", extractValue(itemContent, "publisher"));
-                    result.put("brand", ""); 
-                    result.put("image", extractValue(itemContent, "cover"));
-                    result.put("description", extractValue(itemContent, "description"));
-                    result.put("price", extractValue(itemContent, "priceStandard"));
-                }
-            } else {
-                result.put("error", "알라딘 API 결과가 없거나 오류 메시지입니다: " + responseBody);
+            if (responseMap == null) {
+                Map<String, String> errorResult = new HashMap<>();
+                errorResult.put("error", "알라딘 API 응답이 비어있습니다.");
+                results.add(errorResult);
+                return results;
             }
-            return result;
+            
+            // "item" 배열이 포함되어 있는지 확인
+            if (!responseMap.containsKey("item")) {
+                Map<String, String> errorResult = new HashMap<>();
+                errorResult.put("error", "알라딘 API 결과가 없거나 오류 메시지입니다.");
+                results.add(errorResult);
+                return results;
+            }
+            List<Map<String, Object>> items = (List<Map<String, Object>>) responseMap.get("item");
+            
+            List<String> allowedKeywords = Arrays.asList("대학교재", "전문서적", "컴퓨터", "모바일", "수험서", "자격증", "과학", "공학", "인문", "사회", "어학", "외국어");
+            
+            for (Map<String, Object> item : items) {
+                String categoryName = item.get("categoryName") != null ? item.get("categoryName").toString() : "";
+                
+                // 화이트리스트 검사
+                boolean isAllowed = allowedKeywords.stream().anyMatch(categoryName::contains);
+                
+                if (isAllowed) {
+                    // 카테고리를 '>' 기호로 분리하여 2번째(인덱스 1) 항목만 추출
+                    String[] categoryParts = categoryName.split(">");
+                    String displayCategory = categoryParts.length > 1 ? categoryParts[1].trim() : categoryName.trim();
+
+                    Map<String, String> book = new HashMap<>();
+                    book.put("title", item.get("title") != null ? item.get("title").toString() : "");
+                    book.put("category", displayCategory);
+                    book.put("author", item.get("author") != null ? item.get("author").toString() : "");
+                    book.put("maker", item.get("publisher") != null ? item.get("publisher").toString() : "");
+                    book.put("brand", ""); 
+                    book.put("image", item.get("cover") != null ? item.get("cover").toString() : "");
+                    book.put("description", item.get("description") != null ? item.get("description").toString() : "");
+                    book.put("price", item.get("priceStandard") != null ? item.get("priceStandard").toString() : "");
+                    results.add(book);
+                }
+            }
+            
+            // 필터링 결과 남은 책이 없는 경우
+            if (results.isEmpty() && items != null && !items.isEmpty()) {
+                Map<String, String> errorResult = new HashMap<>();
+                errorResult.put("error", "검색된 결과 중 전공도서(수험서, 컴퓨터 등) 카테고리에 속한 도서가 없습니다. (만화, 소설 등 차단)");
+                results.add(errorResult);
+            }
+            
+            return results;
+            
         } catch (Exception e) {
             System.err.println("Aladin API Error: " + e.getMessage());
+            List<Map<String, String>> errorResults = new ArrayList<>();
             Map<String, String> errorResult = new HashMap<>();
             errorResult.put("error", "알라딘 API 연동 오류: " + e.getMessage());
-            return errorResult;
+            errorResults.add(errorResult);
+            return errorResults;
         }
-    }
-
-    private String extractValue(String json, String key) {
-        // 정규식으로 JSON 문자열에서 값을 추출합니다 (ObjectMapper 의존성 문제 회피)
-        // 값에 따옴표가 있는 경우(문자열)와 없는 경우(숫자)를 모두 처리합니다.
-        String patternString = "\"" + key + "\"\\s*:\\s*(\"(.*?)\"|([^,\"}]+))";
-        Pattern pattern = Pattern.compile(patternString);
-        Matcher matcher = pattern.matcher(json);
-        if (matcher.find()) {
-            if (matcher.group(2) != null) {
-                return matcher.group(2).replace("\\\"", "\"").replace("\\\\", "\\");
-            } else if (matcher.group(3) != null) {
-                return matcher.group(3).trim();
-            }
-        }
-        return "";
     }
 }

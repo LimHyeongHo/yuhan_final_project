@@ -50,7 +50,8 @@ public class PaymentController {
 
     // 토스페이먼츠 결제 승인
     @PostMapping("/confirm")
-    public ResponseEntity<PaymentResponse> confirmPayment(@RequestBody PaymentRequest request) {
+    public ResponseEntity<PaymentResponse> confirmPayment(@RequestBody PaymentRequest request, HttpSession session) {
+        requireLogin(session);
         PaymentResponse response = paymentService.confirmPayment(request);
         return ResponseEntity.ok(response);
     }
@@ -92,5 +93,12 @@ public class PaymentController {
         response.sendRedirect(frontendUrl + "/payment/fail"
                 + "?message=" + URLEncoder.encode(message, StandardCharsets.UTF_8)
                 + "&code=" + code);
+    }
+
+    // 세션에 로그인된 회원(userId)이 없으면 401 - 비회원의 결제 API 접근 차단
+    private void requireLogin(HttpSession session) {
+        if (session.getAttribute("userId") == null) {
+            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
+        }
     }
 }

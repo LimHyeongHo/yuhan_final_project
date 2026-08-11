@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -18,14 +19,14 @@ public class NaverSearchController {
     private final AladinSearchService aladinSearchService;
 
     @GetMapping("/product")
-    public ResponseEntity<Map<String, String>> searchProduct(@RequestParam String query, @RequestParam String type) {
-        Map<String, String> result;
+    public ResponseEntity<List<Map<String, String>>> searchProduct(@RequestParam String query, @RequestParam String type) {
+        List<Map<String, String>> result;
         if ("BOOK".equals(type)) {
             result = aladinSearchService.searchBook(query);
         } else {
             result = naverSearchService.search(query);
         }
-        if (result.containsKey("error")) {
+        if (!result.isEmpty() && result.get(0).containsKey("error")) {
             return ResponseEntity.badRequest().body(result);
         }
         if (result.isEmpty()) {

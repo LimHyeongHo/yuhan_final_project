@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { User, ShieldAlert, LogOut } from 'lucide-react';
+import { User, ShieldAlert, LogOut, Menu, X } from 'lucide-react';
 // [신규] 인증서 남은 시간(mm:ss) + +5분/-5분 조정을 위한 Context 훅
 import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
 
@@ -17,6 +17,7 @@ const Header = () => {
   const navigate = useNavigate();
   const [nickname, setNickname] = useState(localStorage.getItem('user_nickname') || '로그인 필요');
   const [userRole, setUserRole] = useState(localStorage.getItem('user_role') || 'ROLE_BUYER');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // [신규] 인증서 타이머 상태 (남은 초 / 조정 함수)
   const { remainingSeconds, extend } = useCertificateTimer();
 
@@ -39,16 +40,10 @@ const Header = () => {
     return () => window.removeEventListener('user-profile-updated', syncFromStorage);
   }, []);
 
-  const handleLogout = async () => {
-    // [수정] 기존엔 localStorage만 지웠는데, 로그아웃 시 서버 인증서도 함께 폐기하도록 요청 추가
-    try {
-      await fetch('http://localhost:8080/api/member/certificate/revoke', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (e) {
-      // 서버 요청이 실패해도 로컬 로그아웃은 그대로 진행
-    }
+  const handleLogout = () => {
+    // 로그아웃은 세션/로컬 정보만 정리하고 기기 인증서는 폐기하지 않음.
+    // (예전엔 여기서 /api/member/certificate/revoke를 호출해 매 로그아웃마다
+    //  인증서를 폐기시켰는데, 그러면 다음 로그인 때마다 재발급이 강제되는 문제가 있었음)
     localStorage.removeItem('user_nickname');
     localStorage.removeItem('user_role');
     setNickname('로그인 필요');
@@ -76,8 +71,17 @@ const Header = () => {
         </Link>
       </div>
 
-      <div className="flex items-center gap-8 pr-6 md:pr-8">
+      <div className="flex items-center gap-4 md:gap-8 pr-4 md:pr-8">
 
+        {/* [+] 햄버거 버튼 (모바일 전용) */}
+        <button
+          className="md:hidden p-2 text-gray-600 hover:text-gray-900"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        >
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+
+        {/* [+] 데스크탑 네비게이션 */}
         <nav className="hidden md:flex items-center gap-6 text-sm font-bold text-gray-500">
           {userRole === 'ROLE_ADMIN' && (
             <>
@@ -191,6 +195,40 @@ const Header = () => {
         )}
 
       </div>
+
+      {/* [+] 모바일 햄버거 메뉴 드롭다운 */}
+      {isMobileMenuOpen && (
+        <div className="absolute top-16 left-0 w-full bg-white border-b border-gray-200 shadow-lg flex flex-col p-4 gap-4 md:hidden z-40">
+          <nav className="flex flex-col gap-4 text-sm font-bold text-gray-700">
+            {userRole === 'ROLE_ADMIN' && (
+              <>
+                <Link to="/admin/dashboard" onClick={() => setIsMobileMenuOpen(false)}>관리자 홈</Link>
+                <Link to="/admin/authorization" onClick={() => setIsMobileMenuOpen(false)}>회원 관리</Link>
+                <Link to="/admin/products" onClick={() => setIsMobileMenuOpen(false)}>상품 관리</Link>
+                <Link to="/admin/security" onClick={() => setIsMobileMenuOpen(false)}>보안 로그</Link>
+              </>
+            )}
+
+            {userRole === 'ROLE_SELLER' && (
+              <>
+                <Link to="/seller/dashboard" onClick={() => setIsMobileMenuOpen(false)}>대시보드</Link>
+                <Link to="/seller/products" onClick={() => setIsMobileMenuOpen(false)}>물품 등록</Link>
+                <Link to="/seller/status" onClick={() => setIsMobileMenuOpen(false)}>판매 현황</Link>
+                <Link to="/seller/analytics" onClick={() => setIsMobileMenuOpen(false)}>분석 데이터</Link>
+                <Link to="/seller/chat" onClick={(e) => { handleChatClick(e); setIsMobileMenuOpen(false); }}>채팅</Link>
+              </>
+            )}
+
+            {(userRole === 'ROLE_BUYER' || !userRole.startsWith('ROLE_')) && (
+              <>
+                <Link to="/" onClick={() => setIsMobileMenuOpen(false)}>홈</Link>
+                <Link to="/buyer/products" onClick={() => setIsMobileMenuOpen(false)}>공구 찾기</Link>
+                <Link to="/buyer/chat" onClick={(e) => { handleChatClick(e); setIsMobileMenuOpen(false); }}>채팅</Link>
+              </>
+            )}
+          </nav>
+        </div>
+      )}
     </header>
   );
 };

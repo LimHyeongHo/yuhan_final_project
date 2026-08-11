@@ -15,6 +15,7 @@ import com.Nbbang.backend.domain.product.service.ProductService;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentService {
@@ -101,8 +103,10 @@ public class PaymentService {
                     .bodyToMono(PaymentResponse.class)
                     .block();
         } catch (WebClientResponseException e) {
+            log.error("Toss 결제 승인 실패: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
             throw new CustomException(ErrorCode.PAYMENT_CONFIRM_FAILED);
         } catch (Exception e) {
+            log.error("Toss 결제 승인 중 알 수 없는 오류", e);
             throw new CustomException(ErrorCode.PAYMENT_CONFIRM_FAILED);
         }
     }

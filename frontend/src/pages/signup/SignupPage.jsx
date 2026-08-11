@@ -7,6 +7,63 @@ const backgroundImgUrl = "https://images.unsplash.com/photo-1589998059171-988d88
 const DB_NAME = "PKI_KeyStore";
 const STORE_NAME = "privateKeys";
 
+const KOREAN_NAME_REGEX = /^[가-힣]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_COMPOSITION_REGEX = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).+$/;
+
+const validateName = (value) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "이름을 입력해주세요.";
+  if (trimmed.length < 2) return "이름은 2자 이상 입력해주세요.";
+  if (!KOREAN_NAME_REGEX.test(trimmed)) return "이름은 한글로만 입력해주세요. (영문, 자음·모음 단독 입력 불가)";
+  return "";
+};
+
+const validateEmail = (value) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "이메일을 입력해주세요.";
+  if (!EMAIL_REGEX.test(trimmed)) return "올바른 이메일 형식이 아니에요. (예: name@example.com)";
+  return "";
+};
+
+const validateDepartment = (value) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "소속 학과를 입력해주세요.";
+  if (trimmed.length < 2) return "학과명은 2자 이상 입력해주세요.";
+  if (!KOREAN_NAME_REGEX.test(trimmed)) return "학과명은 한글로만 입력해주세요. (영문, 자음·모음 단독 입력 불가)";
+  return "";
+};
+
+const validatePassword = (value) => {
+  if (!value) return "비밀번호를 입력해주세요.";
+
+  const lengthOk = value.length >= 8;
+  const compositionOk = PASSWORD_COMPOSITION_REGEX.test(value);
+
+  if (!lengthOk && !compositionOk) return "비밀번호는 8자 이상 입력해주세요. 영문, 숫자, 특수문자를 모두 포함해 입력해주세요.";
+  if (!lengthOk) return "비밀번호는 8자 이상 입력해주세요.";
+  if (!compositionOk) return "영문, 숫자, 특수문자를 모두 포함해 입력해주세요.";
+  return "";
+};
+
+const validatePasswordConfirm = (passwordValue, confirmValue) => {
+  if (!passwordValue) return "";
+  if (!confirmValue) return "비밀번호 확인을 입력해주세요.";
+  if (passwordValue !== confirmValue) return "비밀번호가 일치하지 않습니다.";
+  return "";
+};
+
+const checkEmailAvailability = async (email) => {
+  try {
+    const res = await fetch(`http://localhost:8080/api/pki/check-email?email=${encodeURIComponent(email)}`);
+    if (!res.ok) return "";
+    const data = await res.json();
+    return data.available ? "" : "이미 사용 중인 이메일입니다.";
+  } catch {
+    return "";
+  }
+};
+
 const SignupPage = () => {
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -19,6 +76,7 @@ const SignupPage = () => {
   const [isVerified, setIsVerified] = useState(false);
   const [regCi, setRegCi] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState({ name: '', email: '', department: '', password: '', passwordConfirm: '' });
 
   const getDeviceId = () => {
     let deviceId = localStorage.getItem('pki_device_id');
@@ -65,11 +123,101 @@ const SignupPage = () => {
     return btoa(String.fromCharCode(...new Uint8Array(exported)));
   };
 
+  const handleNameChange = (e) => {
+    const value = e.target.value;
+    setName(value);
+    if (errors.name) {
+      setErrors((prev) => ({ ...prev, name: validateName(value) }));
+    }
+  };
+  const handleNameBlur = (e) => {
+    setErrors((prev) => ({ ...prev, name: validateName(e.target.value) }));
+  };
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    if (errors.email) {
+      setErrors((prev) => ({ ...prev, email: validateEmail(value) }));
+    }
+  };
+  const handleEmailBlur = async (e) => {
+    const value = e.target.value;
+    const formatError = validateEmail(value);
+    if (formatError) {
+      setErrors((prev) => ({ ...prev, email: formatError }));
+      return;
+    }
+    const duplicateError = await checkEmailAvailability(value.trim());
+    setErrors((prev) => ({ ...prev, email: duplicateError }));
+  };
+
+  const handleDepartmentChange = (e) => {
+    const value = e.target.value;
+    setDepartment(value);
+    if (errors.department) {
+      setErrors((prev) => ({ ...prev, department: validateDepartment(value) }));
+    }
+  };
+  const handleDepartmentBlur = (e) => {
+    setErrors((prev) => ({ ...prev, department: validateDepartment(e.target.value) }));
+  };
+
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setPassword(value);
+    setErrors((prev) => ({
+      ...prev,
+      password: prev.password ? validatePassword(value) : prev.password,
+      passwordConfirm: passwordConfirm ? validatePasswordConfirm(value, passwordConfirm) : prev.passwordConfirm,
+    }));
+  };
+  const handlePasswordBlur = (e) => {
+    setErrors((prev) => ({ ...prev, password: validatePassword(e.target.value) }));
+  };
+
+  const handlePasswordConfirmChange = (e) => {
+    const value = e.target.value;
+    setPasswordConfirm(value);
+    setErrors((prev) => ({ ...prev, passwordConfirm: validatePasswordConfirm(password, value) }));
+  };
+
   // 1. 본인인증
   const handleVerify = async (e) => {
     e.preventDefault();
-    if (!name || !email || !password || !department) return alert("모든 항목을 입력해주세요.");
-    if (password !== passwordConfirm) return alert("비밀번호가 일치하지 않습니다.");
+
+    const nameError = validateName(name);
+    let emailError = validateEmail(email);
+    const departmentError = validateDepartment(department);
+    const passwordError = validatePassword(password);
+    const passwordConfirmError = validatePasswordConfirm(password, passwordConfirm);
+
+    if (!emailError) {
+      emailError = await checkEmailAvailability(email.trim());
+    }
+
+    setErrors({
+      name: nameError,
+      email: emailError,
+      department: departmentError,
+      password: passwordError,
+      passwordConfirm: passwordConfirmError,
+    });
+
+    if (nameError || emailError || departmentError || passwordError || passwordConfirmError) {
+      const firstErrorField = nameError
+        ? 'name'
+        : emailError
+        ? 'email'
+        : departmentError
+        ? 'department'
+        : passwordError
+        ? 'password'
+        : 'passwordConfirm';
+      document.getElementById(firstErrorField)?.focus();
+      return;
+    }
+
     if (!agree) return alert("이용약관에 동의해주세요.");
 
     setIsLoading(true);
@@ -171,11 +319,13 @@ const SignupPage = () => {
                 type="text"
                 id="name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={handleNameChange}
+                onBlur={handleNameBlur}
                 placeholder="홍길동"
                 disabled={isVerified}
-                className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base"
+                className={`w-full p-3.5 rounded-xl border ${errors.name ? 'border-red-400' : 'border-gray-200'} bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base`}
               />
+              {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -184,11 +334,13 @@ const SignupPage = () => {
                 type="email"
                 id="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleEmailChange}
+                onBlur={handleEmailBlur}
                 placeholder="name@example.com"
                 disabled={isVerified}
-                className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base"
+                className={`w-full p-3.5 rounded-xl border ${errors.email ? 'border-red-400' : 'border-gray-200'} bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base`}
               />
+              {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -197,11 +349,13 @@ const SignupPage = () => {
                 type="text"
                 id="department"
                 value={department}
-                onChange={(e) => setDepartment(e.target.value)}
+                onChange={handleDepartmentChange}
+                onBlur={handleDepartmentBlur}
                 placeholder="컴퓨터소프트웨어공학과"
                 disabled={isVerified}
-                className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base"
+                className={`w-full p-3.5 rounded-xl border ${errors.department ? 'border-red-400' : 'border-gray-200'} bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base`}
               />
+              {errors.department && <p className="text-sm text-red-500">{errors.department}</p>}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -240,10 +394,12 @@ const SignupPage = () => {
                 type="password"
                 id="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
+                onBlur={handlePasswordBlur}
                 placeholder="••••••••"
-                className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base"
+                className={`w-full p-3.5 rounded-xl border ${errors.password ? 'border-red-400' : 'border-gray-200'} bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base`}
               />
+              {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -252,10 +408,11 @@ const SignupPage = () => {
                 type="password"
                 id="passwordConfirm"
                 value={passwordConfirm}
-                onChange={(e) => setPasswordConfirm(e.target.value)}
+                onChange={handlePasswordConfirmChange}
                 placeholder="••••••••"
-                className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base"
+                className={`w-full p-3.5 rounded-xl border ${errors.passwordConfirm ? 'border-red-400' : 'border-gray-200'} bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base`}
               />
+              {errors.passwordConfirm && <p className="text-sm text-red-500">{errors.passwordConfirm}</p>}
             </div>
 
             <div className="flex items-start gap-3 mt-2 p-1">

@@ -25,6 +25,9 @@ public class Product {
     @Column(nullable = false, length = 20)
     private String type; // 'BOOK' or 'ITEM'
 
+    @Column(length = 100)
+    private String category; // 도서 또는 물품 카테고리
+
     @Column(nullable = false)
     private String title;
 

@@ -85,6 +85,13 @@ public class MemberInfoController {
             String newPassword = request.get("newPassword");
             if (newPassword != null && !newPassword.isEmpty()) {
                 user.setPassword(newPassword);
+                // user_account뿐 아니라 pki_table(DeviceCert)에도 같은 비밀번호가 중복 저장되어 있어서
+                // 여기서 같이 갱신하지 않으면 두 테이블 값이 어긋남.
+                deviceCertRepository.findByUserId(userId)
+                        .ifPresent(cert -> {
+                            cert.setPassword(newPassword);
+                            deviceCertRepository.save(cert);
+                        });
             }
 
             userAccountRepository.save(user);

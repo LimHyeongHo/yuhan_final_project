@@ -29,6 +29,7 @@ public class CertificateExpirationFilter extends OncePerRequestFilter {
         if (session != null && session.getAttribute("userId") != null) {
             String userId = (String) session.getAttribute("userId");
             if (certificateSessionService.hasExpiredSession(userId)) {
+                // N분 타이머가 실제로 만료된 경우에만 인증서 자체를 폐기하고 로그아웃.
                 certificateSessionService.revoke(userId);
                 session.invalidate();
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

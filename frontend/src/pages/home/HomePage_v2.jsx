@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Search, Flame, TrendingUp, Clock, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '../../components/layout/Header';
 
 const HomePage = () => {
-  const navigate = useNavigate();
-
-  const handleProductClick = (product) => {
-    navigate('/payment', { state: { product } });
-  };
+  // ▼▼▼ 수정 시작: 상품 카드 클릭 시 상세 페이지를 건너뛰고 /payment로 바로 이동하던 버그 수정
+  // (기존 handleProductClick + navigate('/payment', ...) 제거, 아래 "인기 공구" 섹션을
+  //  1번 섹션과 동일하게 <Link to={`/buyer/products/${item.id}`}>로 변경)
+  // ▲▲▲ 수정 끝
   const [productList, setProductList] = useState([]);
 
   useEffect(() => {
@@ -154,8 +152,9 @@ const HomePage = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* 현재는 위의 productList를 그대로 재사용하거나, 나중에 다른 API 데이터를 연결하시면 됩니다. */}
+            {/* ▼▼▼ 수정 시작: onClick으로 /payment 바로 이동하던 것을, 1번 섹션과 동일하게 상세 페이지로 이동하도록 변경 */}
             {productList.map((item) => (
-              <div key={`popular-${item.id}`} onClick={() => handleProductClick(item)} className="bg-white rounded-[24px] border border-gray-200 shadow-sm flex flex-col hover:border-blue-300 hover:shadow-xl transition-all cursor-pointer group overflow-hidden">
+              <Link key={`popular-${item.id}`} to={`/buyer/products/${item.id}`} className="bg-white rounded-[24px] border border-gray-200 shadow-sm flex flex-col hover:border-blue-300 hover:shadow-xl transition-all cursor-pointer group overflow-hidden">
                 <div className="w-full h-48 bg-gray-100 relative overflow-hidden flex items-center justify-center">
                   <img src={item.thumbnail} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   {/* 인기 공구는 빨간 D-Day 대신 파란색 '모집 중' 뱃지로 변경 가능 */}
@@ -187,8 +186,9 @@ const HomePage = () => {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
+            {/* ▲▲▲ 수정 끝 */}
           </div>
         </section>
 

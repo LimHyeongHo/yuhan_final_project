@@ -114,6 +114,19 @@ public class PkiController {
         }
     }
 
+    /**
+     * 이메일(아이디) 중복 여부 확인 - 회원가입 폼 실시간 검증용
+     */
+    @GetMapping("/check-email")
+    public ResponseEntity<Map<String, Boolean>> checkEmail(@RequestParam String email) {
+        String normalizedEmail = email != null ? email.replaceAll("\\s", "") : "";
+        boolean available = normalizedEmail.isEmpty() || !userAccountRepository.existsById(normalizedEmail);
+
+        Map<String, Boolean> response = new HashMap<>();
+        response.put("available", available);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/register")
     @Transactional
     public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, String> request) {
@@ -150,16 +163,24 @@ public class PkiController {
                     throw new RuntimeException("가입되지 않은 계정입니다. 회원가입을 먼저 진행해주세요.");
                 }
                 userAccount = new UserAccount();
-            }
-
-            userAccount.setEmail(email);
-            userAccount.setPassword(password);
-
-            if (nickname != null && !nickname.trim().isEmpty()) {
+                userAccount.setEmail(email);
+                userAccount.setPassword(password);
                 userAccount.setNickname(nickname);
-            }
-            if (request.get("role") != null && !request.get("role").trim().isEmpty()) {
-                userAccount.setRole(role);
+                if (request.get("role") != null && !request.get("role").trim().isEmpty()) {
+                    userAccount.setRole(role);
+                }
+            } else if (nickname != null && !nickname.trim().isEmpty()) {
+                // 이미 가입된 이메일로 신규 회원가입(닉네임 포함) 요청이 들어온 경우.
+                // 기존에는 여기서 그대로 통과시켜 기존 계정의 비밀번호를 덮어썼음(계정 탈취 가능) -> 거부로 변경.
+                throw new RuntimeException("이미 사용 중인 이메일입니다.");
+            } else {
+                // 재발급/기기 재등록: 닉네임 없이 기존 계정에 대한 요청.
+                // 기존 비밀번호와 일치하는지 반드시 확인해야 함 - 확인 없이 통과시키면
+                // 이메일만 알아도 아무 비밀번호로 계정을 탈취할 수 있는 심각한 취약점이 됨.
+                if (password == null || !userAccount.getPassword().equals(password)) {
+                    throw new RuntimeException("비밀번호가 일치하지 않습니다.");
+                }
+                // 검증 용도로만 사용하고, 재발급 과정에서 비밀번호 자체는 변경하지 않음.
             }
 
             userAccountRepository.saveAndFlush(userAccount);

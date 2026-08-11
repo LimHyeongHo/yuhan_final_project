@@ -12,6 +12,28 @@ const ProductRegisterPage = () => {
   // [신규] 바코드 관련 상태 및 감지 로직
   const [barcode, setBarcode] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleSelectProduct = (data) => {
+    setFormData(prev => ({
+      ...prev,
+      title: data.title || '',
+      publisher: data.brand || data.maker || data.mallName || '',
+      author: data.author || '',
+      imageUrl: data.image || '',
+      price: data.price || '',
+      description: data.description || '',
+      category: data.category || '',
+    }));
+    if (data.image) {
+      setImagePreview(data.image); // 검색된 이미지를 미리보기 화면에 띄움
+    } else {
+      setImagePreview(null);
+    }
+    setIsModalOpen(false);
+    setSearchResults([]);
+  };
 
   const handleBarcodeKeyDown = async (e) => {
     if (e.key === 'Enter') {
@@ -22,22 +44,16 @@ const ProductRegisterPage = () => {
       try {
         const response = await fetch(`http://localhost:8080/api/search/product?query=${barcode}&type=${productType}`);
         if (response.ok) {
-          const data = await response.json();
-          setFormData(prev => ({
-            ...prev,
-            title: data.title || '',
-            publisher: data.brand || data.maker || data.mallName || '',
-            author: data.author || '',
-            imageUrl: data.image || '',
-            price: data.price || '',
-            description: data.description || '',
-          }));
-          if (data.image) {
-            setImagePreview(data.image); // 검색된 이미지를 미리보기 화면에 띄움
+          const dataList = await response.json();
+          if (dataList.length === 1) {
+            handleSelectProduct(dataList[0]);
+            alert("검색 완료! 항목이 새로 채워졌습니다.");
+          } else if (dataList.length > 1) {
+            setSearchResults(dataList);
+            setIsModalOpen(true);
           } else {
-            setImagePreview(null);
+            alert("검색 결과가 없습니다.");
           }
-          alert("바코드 검색 완료! 항목이 새로 채워졌습니다.");
         } else {
           // 검색 실패 시 이전 데이터 싹 지우기
           setFormData(prev => ({
@@ -51,8 +67,8 @@ const ProductRegisterPage = () => {
           
           try {
             const errorData = await response.json();
-            if (errorData.error) {
-              alert(errorData.error);
+            if (errorData.length > 0 && errorData[0].error) {
+              alert(errorData[0].error);
             } else {
               alert("상품을 찾을 수 없습니다. 직접 입력해 주세요.");
             }
@@ -78,6 +94,7 @@ const ProductRegisterPage = () => {
     targetCount: '',
     description: '',
     imageUrl: '',     // [신규] 네이버 등에서 가져온 외부 이미지 URL 저장용
+    category: '',     // [신규] API에서 추출된 카테고리 정보
   });
   // 2-1. 이미지 업로드용 함수
   const [imageFile, setImageFile] = useState(null);
@@ -115,6 +132,7 @@ const ProductRegisterPage = () => {
       targetCount: '',
       description: '',
       imageUrl: '',
+      category: '',
     });
     setImagePreview(null); // 유형 변경 시 이미지 미리보기도 초기화
   };
@@ -134,6 +152,7 @@ const ProductRegisterPage = () => {
     submitData.append('targetCount', formData.targetCount);
     submitData.append('description', formData.description);
     if (formData.imageUrl) submitData.append('imageUrl', formData.imageUrl); // URL 이미지 추가
+    if (formData.category) submitData.append('category', formData.category); // 카테고리 추가
 
     if (productType === 'BOOK') {
       submitData.append('author', formData.author);
@@ -250,6 +269,17 @@ const ProductRegisterPage = () => {
                 type="text" id="title" required
                 value={formData.title} onChange={handleChange}
                 placeholder={productType === 'BOOK' ? "예) 컴퓨터 구조 및 설계 6판" : "예) 카시오 공학용 계산기 fx-991EX"}
+                className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
+              />
+            </div>
+
+            {/* 분류(카테고리) - 신규 추가 */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="category" className="text-sm font-bold text-gray-700">분류 (카테고리)</label>
+              <input
+                type="text" id="category"
+                value={formData.category} onChange={handleChange}
+                placeholder="예) 컴퓨터/IT (검색 시 자동 입력됨)"
                 className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
               />
             </div>
@@ -395,6 +425,55 @@ const ProductRegisterPage = () => {
           </div>
         </form>
       </main>
+
+      {/* 검색 결과 리스트 팝업 모달 */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/80">
+              <h3 className="text-xl font-extrabold text-gray-950 flex items-center gap-2">
+                <Search size={22} className="text-blue-600" />
+                검색 결과 선택
+              </h3>
+              <button 
+                onClick={() => { setIsModalOpen(false); setSearchResults([]); }}
+                className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                type="button"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="overflow-y-auto p-4 flex flex-col gap-3 custom-scrollbar">
+              {searchResults.map((item, idx) => (
+                <div 
+                  key={idx}
+                  onClick={() => handleSelectProduct(item)}
+                  className="flex gap-5 p-4 border border-gray-100 rounded-2xl hover:border-blue-400 hover:shadow-md hover:bg-blue-50/40 cursor-pointer transition-all group"
+                >
+                  {item.image ? (
+                    <img src={item.image} alt={item.title} className="w-[72px] h-[96px] object-contain rounded-lg border border-gray-200 bg-white" />
+                  ) : (
+                    <div className="w-[72px] h-[96px] bg-gray-50 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 text-xs font-medium">
+                      No Img
+                    </div>
+                  )}
+                  <div className="flex flex-col flex-1 justify-center gap-1.5">
+                    <h4 className="text-[15px] font-extrabold text-gray-900 group-hover:text-blue-700 leading-snug">{item.title}</h4>
+                    <p className="text-sm font-medium text-gray-500">
+                      {productType === 'BOOK' ? item.author : (item.brand || item.maker || item.mallName)}
+                    </p>
+                    <p className="text-sm font-black text-gray-900 mt-0.5">
+                      {Number(item.price).toLocaleString()}원
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
