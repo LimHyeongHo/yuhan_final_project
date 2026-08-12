@@ -31,6 +31,7 @@ public enum ErrorCode {
     PURCHASE_LIST_LOAD_FAILED(500, "목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
     PURCHASE_FULL(409, "모집이 완료된 공동구매입니다"),
     PURCHASE_ALREADY_JOINED(409, "이미 참여 중인 공동구매입니다"),
+    PURCHASE_DEADLINE_PASSED(409, "마감된 공동구매입니다"),
 
     // ========== 결제 (PAYMENT) ==========(총4줄 추가됨)
     PAYMENT_INVALID_AMOUNT(400, "결제 금액이 올바르지 않습니다"),
