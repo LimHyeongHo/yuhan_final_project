@@ -57,7 +57,8 @@ public class PkiController {
     @PostMapping("/verify-portone")
     public ResponseEntity<?> verifyPortone(@RequestBody Map<String, String> request) {
         String identityVerificationId = request.get("identityVerificationId");
-        
+        String email = request.get("email") != null ? request.get("email").replaceAll("\\s", "") : null;
+
         try {
             org.springframework.web.reactive.function.client.WebClient webClient = 
                 org.springframework.web.reactive.function.client.WebClient.builder()
@@ -84,23 +85,39 @@ public class PkiController {
                 String name = (String) verifiedCustomer.get("name");
                 String ci = (String) verifiedCustomer.get("ci");
 
-                // KG이니시스 테스트 모드 등에서 CI가 안 들어올 경우 처리
-                if (ci == null || ci.trim().isEmpty()) {
-                    System.out.println("⚠️ [테스트 모드 감지] CI가 누락되어 고정된 임시 CI를 생성합니다.");
-                    
+                @SuppressWarnings("unchecked")
+                Map<String, Object> channel = (Map<String, Object>) response.get("channel");
+                boolean isTestChannel = channel != null && "TEST".equals(channel.get("type"));
+
+                // 테스트 채널은 ci 필드가 채워져 오더라도 동일 인물이 다시 인증할 때마다 값이 바뀔 수 있어
+                // 계정 재발급/로그인 시 본인 식별 기준으로 쓸 수 없다. 그래서 테스트 채널에서는 PG가 준 ci를
+                // 버리고 name+birthDate+phoneNumber로 우리가 직접 안정적인 식별값을 만든다.
+                // (라이브 채널로 전환하면 isTestChannel이 false가 되어 PG의 실제 ci를 그대로 신뢰한다.)
+                if (isTestChannel || ci == null || ci.trim().isEmpty()) {
+                    System.out.println("⚠️ [테스트 채널] name/birthDate/phoneNumber 기반 안정 CI를 생성합니다.");
+
                     String birthday = (String) verifiedCustomer.get("birthDate");
                     String phone = (String) verifiedCustomer.get("phoneNumber");
-                    
-                    String seed = (name != null ? name : "") + 
-                                  (birthday != null ? birthday : "1990-01-01") + 
+
+                    String seed = (name != null ? name : "") +
+                                  (birthday != null ? birthday : "1990-01-01") +
                                   (phone != null ? phone : "01000000000");
-                    
+
                     ci = "STABLE_TEST_CI_" + java.util.Base64.getEncoder().encodeToString(seed.getBytes());
                 }
 
                 Map<String, String> result = new HashMap<>();
                 result.put("name", name != null ? name : "테스트 사용자");
                 result.put("ci", ci);
+
+                // 로그인 화면에서 "이 계정 소유자 본인이 인증한 게 맞는지"를 바로 안내할 수 있도록,
+                // 이메일이 같이 오고 그 계정에 이미 등록된 기기가 있으면 이번 ci와 저장된 ciHash를 비교해 알려준다.
+                if (email != null && !email.isEmpty()) {
+                    String candidateCiHash = pkiService.generateCiHash(ci);
+                    deviceCertRepository.findByUserId(email).ifPresent(cert ->
+                            result.put("matchesAccount", String.valueOf(candidateCiHash.equals(cert.getCiHash()))));
+                }
+
                 return ResponseEntity.ok(result);
             } else {
                 String reason = response != null ? String.valueOf(response.get("cancellationReason")) : "알 수 없음";
@@ -181,6 +198,14 @@ public class PkiController {
                     throw new RuntimeException("비밀번호가 일치하지 않습니다.");
                 }
                 // 검증 용도로만 사용하고, 재발급 과정에서 비밀번호 자체는 변경하지 않음.
+
+                // 비밀번호가 맞아도, 이번 본인인증 결과(ciHash)가 기존 계정에 저장된 본인인증 정보와
+                // 다르면 다른 사람의 신원으로 통과한 것이므로 기기 재등록(로그인)을 거부한다.
+                deviceCertRepository.findByUserId(email).ifPresent(existing -> {
+                    if (existing.getCiHash() != null && !existing.getCiHash().equals(ciHash)) {
+                        throw new RuntimeException("본인인증 정보가 기존 계정과 일치하지 않습니다.");
+                    }
+                });
             }
 
             userAccountRepository.saveAndFlush(userAccount);
@@ -280,6 +305,7 @@ public class PkiController {
         String deviceId = request.get("deviceId") != null ? request.get("deviceId").replaceAll("\\s", "") : "";
         String password = request.get("password");
         String signature = request.get("signature");
+        String ci = request.get("ci");
 
         System.out.println("Login verification attempt for device: [" + deviceId + "]");
 
@@ -287,7 +313,7 @@ public class PkiController {
             // 1. PKI 서명 검증 및 기기 정보 조회
             DeviceCert cert = deviceCertRepository.findByDeviceId(deviceId)
                     .orElseThrow(() -> new RuntimeException("기기 인증 정보가 없습니다."));
-            
+
             // 2. 해당 기기와 연결된 사용자 계정 및 비밀번호 확인
             UserAccount user = userAccountRepository.findById(cert.getUserId())
                     .orElseThrow(() -> new RuntimeException("등록되지 않은 사용자입니다."));
@@ -296,6 +322,18 @@ public class PkiController {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
                 response.put("message", "비밀번호가 일치하지 않습니다.");
+                return ResponseEntity.status(401).body(response);
+            }
+
+            // 2-1. 이번 로그인 시도에서 방금 수행한 본인인증(ci)이 이 기기/계정에 등록된
+            // 본인인증 정보와 다르면, 비밀번호와 기기서명이 맞아도 로그인을 거부한다.
+            // (그렇지 않으면 본인인증 단계는 isVerified 플래그만 켜는 장식으로 전락해
+            //  아무 이름/생년월일/전화번호로 인증해도 로그인이 통과됨)
+            if (ci == null || ci.trim().isEmpty() || cert.getCiHash() == null
+                    || !cert.getCiHash().equals(pkiService.generateCiHash(ci))) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "본인인증 정보가 계정 소유자와 일치하지 않습니다.");
                 return ResponseEntity.status(401).body(response);
             }
 
