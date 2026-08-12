@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 //아래 import문 삭제
 // import { useParams, Link } from 'react-router-dom';
-import { Clock, Users, BookOpen, ChevronLeft, CheckCircle, Share2, AlertCircle, MessageCircle } from 'lucide-react';
+import { Clock, Users, BookOpen, ChevronLeft, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon } from 'lucide-react';
 import Header from '../../../components/layout/Header';
 //[추가]
 import {useParams, Link, useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ const BuyerProductDetailPage = () => {
   //[추가]
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
+  const [verification, setVerification] = useState(null); // [신규] 블록체인 검증 상태
   const [isJoined, setIsJoined] = useState(false); // 테스트용: 공구 참여 상태 토글
 
   useEffect(() => {
@@ -52,6 +53,12 @@ const BuyerProductDetailPage = () => {
         console.error("상품 상세 로드 실패:", err);
         alert("상품 정보를 불러오는데 실패했습니다.");
       });
+
+    // [신규] 블록체인 및 알라딘 가격 교차 검증 API 호출
+    fetch(`http://localhost:8080/api/products/${id}/verify`)
+      .then(res => res.json())
+      .then(data => setVerification(data))
+      .catch(err => console.error("검증 정보 로드 실패:", err));
   }, [id]);
 
   // 공구 참여하기 버튼 클릭 핸들러
@@ -112,6 +119,39 @@ const BuyerProductDetailPage = () => {
   const isOwnProduct = !!product.sellerEmail && product.sellerEmail === localStorage.getItem('email');
   // [신규] 판매자(본인 상품 아닌 경우) 또는 관리자 계정 — 구매자 행동(참여/문의) 전부 비활성화
   const isRestrictedViewer = ['ROLE_SELLER', 'ROLE_ADMIN'].includes(localStorage.getItem('user_role')) && !isOwnProduct;
+
+  // [신규] 검증 상태에 따른 뱃지 렌더링 함수
+  const renderVerificationBadge = () => {
+    if (!verification) return null;
+    switch (verification.status) {
+      case 'VALID':
+        return (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-sm font-bold rounded-full border border-green-200">
+            <CheckCircle size={16} /> 블록체인 검증 완료
+          </div>
+        );
+      case 'GOOD_DEAL':
+        return (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-sm font-bold rounded-full border border-blue-200">
+            <CheckCircle size={16} /> 검증 완료 (착한 가격)
+          </div>
+        );
+      case 'ANCHORING_WARNING':
+        return (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-orange-700 text-sm font-bold rounded-full border border-orange-200">
+            <AlertCircle size={16} /> 시세 조작 주의
+          </div>
+        );
+      case 'FORGED':
+        return (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 text-sm font-bold rounded-full border border-red-200">
+            <AlertCircle size={16} /> 데이터 위변조 감지됨
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
@@ -180,7 +220,8 @@ const BuyerProductDetailPage = () => {
 
               {/* 제목 및 저자 정보 */}
               <div className="flex flex-col gap-1.5">
-                <h1 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight">
+                {renderVerificationBadge()}
+                <h1 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight mt-2">
                   {product.title}
                 </h1>
                 <span className="text-sm font-bold text-gray-400">

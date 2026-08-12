@@ -44,6 +44,16 @@ public class Product {
     @Column(name = "image_url", length = 1000)
     private String imageUrl;
 
+    // [블록체인 연동]
+    @Column(name = "isbn", length = 20)
+    private String isbn; // 알라딘 정가 조회용 ISBN
+
+    @Column(name = "aladdin_price")
+    private BigDecimal aladdinPrice; // 알라딘 조회 정가 (캐싱용)
+
+    @Column(name = "tx_hash", length = 100)
+    private String txHash; // 블록체인 스마트 컨트랙트에 기록된 트랜잭션 해시
+
     @Column(name = "original_price")
     private BigDecimal originalPrice; // 프론트에서 정가 정보가 넘어올 경우 대비, 기본은 price 와 같게 처리
 
