@@ -20,6 +20,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/member")
@@ -27,6 +28,9 @@ import java.util.Map;
 public class MemberInfoController {
 
     private static final DateTimeFormatter CREATED_AT_FORMAT = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm");
+    // 프론트엔드 회원가입/마이페이지 비밀번호 검증 규칙과 동일 (영문+숫자+특수문자 조합, 8자 이상)
+    private static final Pattern PASSWORD_COMPOSITION_REGEX =
+            Pattern.compile("^(?=.*[a-zA-Z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]).+$");
 
     private final UserAccountRepository userAccountRepository;
     private final DeviceCertRepository deviceCertRepository;
@@ -84,6 +88,9 @@ public class MemberInfoController {
 
             String newPassword = request.get("newPassword");
             if (newPassword != null && !newPassword.isEmpty()) {
+                if (newPassword.length() < 8 || !PASSWORD_COMPOSITION_REGEX.matcher(newPassword).matches()) {
+                    throw new RuntimeException("비밀번호는 8자 이상, 영문/숫자/특수문자를 모두 포함해야 합니다.");
+                }
                 user.setPassword(newPassword);
                 // user_account뿐 아니라 pki_table(DeviceCert)에도 같은 비밀번호가 중복 저장되어 있어서
                 // 여기서 같이 갱신하지 않으면 두 테이블 값이 어긋남.

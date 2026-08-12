@@ -16,6 +16,7 @@ import java.util.Optional;
 public class CertificateSessionService {
 
     private static final long DEFAULT_VALID_MINUTES = 10;
+    private static final long MAX_VALID_MINUTES = 60; // +버튼으로 늘릴 수 있는 상한 (현재 시각 기준 최대 60분)
 
     private final CertificateSessionRepository certificateSessionRepository;
     private final DeviceCertRepository deviceCertRepository;
@@ -68,6 +69,10 @@ public class CertificateSessionService {
         LocalDateTime newExpiresAt = session.getExpiresAt().plusMinutes(deltaMinutes);
         if (newExpiresAt.isBefore(now)) {
             newExpiresAt = now; // 현재 시각보다 과거로는 내려가지 않도록 하한 처리
+        }
+        LocalDateTime maxExpiresAt = now.plusMinutes(MAX_VALID_MINUTES);
+        if (newExpiresAt.isAfter(maxExpiresAt)) {
+            newExpiresAt = maxExpiresAt; // 현재 시각 기준 60분을 넘지 않도록 상한 처리
         }
 
         session.setExpiresAt(newExpiresAt);

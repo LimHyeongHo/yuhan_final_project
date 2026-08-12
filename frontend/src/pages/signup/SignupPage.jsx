@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Header from '../../components/layout/Header';
+import { validatePassword, validatePasswordConfirm } from '../../utils/passwordValidation';
 
 const backgroundImgUrl = "https://images.unsplash.com/photo-1589998059171-988d887df646?q=80&w=2600";
 
@@ -9,7 +10,6 @@ const STORE_NAME = "privateKeys";
 
 const KOREAN_NAME_REGEX = /^[가-힣]+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_COMPOSITION_REGEX = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).+$/;
 
 const validateName = (value) => {
   const trimmed = value.trim();
@@ -31,25 +31,6 @@ const validateDepartment = (value) => {
   if (!trimmed) return "소속 학과를 입력해주세요.";
   if (trimmed.length < 2) return "학과명은 2자 이상 입력해주세요.";
   if (!KOREAN_NAME_REGEX.test(trimmed)) return "학과명은 한글로만 입력해주세요. (영문, 자음·모음 단독 입력 불가)";
-  return "";
-};
-
-const validatePassword = (value) => {
-  if (!value) return "비밀번호를 입력해주세요.";
-
-  const lengthOk = value.length >= 8;
-  const compositionOk = PASSWORD_COMPOSITION_REGEX.test(value);
-
-  if (!lengthOk && !compositionOk) return "비밀번호는 8자 이상 입력해주세요. 영문, 숫자, 특수문자를 모두 포함해 입력해주세요.";
-  if (!lengthOk) return "비밀번호는 8자 이상 입력해주세요.";
-  if (!compositionOk) return "영문, 숫자, 특수문자를 모두 포함해 입력해주세요.";
-  return "";
-};
-
-const validatePasswordConfirm = (passwordValue, confirmValue) => {
-  if (!passwordValue) return "";
-  if (!confirmValue) return "비밀번호 확인을 입력해주세요.";
-  if (passwordValue !== confirmValue) return "비밀번호가 일치하지 않습니다.";
   return "";
 };
 

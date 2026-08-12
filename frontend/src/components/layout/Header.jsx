@@ -13,6 +13,9 @@ const formatRemaining = (totalSeconds) => {
   return `${m}:${s}`;
 };
 
+// [신규] +버튼으로 늘릴 수 있는 상한 (서버 CertificateSessionService.MAX_VALID_MINUTES와 동일하게 60분)
+const MAX_REMAINING_SECONDS = 60 * 60;
+
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -323,8 +326,9 @@ const Header = () => {
                 <button
                   type="button"
                   onClick={() => extend(5)}
-                  className="w-6 h-6 flex items-center justify-center text-sm font-bold text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition"
-                  title="인증서 유효시간 5분 증가"
+                  disabled={remainingSeconds >= MAX_REMAINING_SECONDS}
+                  className="w-6 h-6 flex items-center justify-center text-sm font-bold text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition disabled:opacity-30 disabled:hover:text-gray-500 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                  title={remainingSeconds >= MAX_REMAINING_SECONDS ? '최대 60분까지 늘릴 수 있습니다.' : '인증서 유효시간 5분 증가'}
                 >
                   +
                 </button>
