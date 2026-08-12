@@ -100,15 +100,7 @@ const Header = () => {
   }, [nickname]);
 
   const handleLogout = async () => {
-    // [수정] 기존엔 localStorage만 지웠는데, 로그아웃 시 서버 인증서도 함께 폐기하도록 요청 추가
-    try {
-      await fetch('http://localhost:8080/api/member/certificate/revoke', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (e) {
-      // 서버 요청이 실패해도 로컬 로그아웃은 그대로 진행
-    }
+    // 인증서 폐기는 탈퇴/타이머 만료 때만 해야 함 - 수동 로그아웃은 로컬 세션 정리만 한다
     localStorage.removeItem('user_nickname');
     localStorage.removeItem('user_role');
     // [신규] 채팅 메시지 판별 email 삭제

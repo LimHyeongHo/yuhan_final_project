@@ -88,8 +88,8 @@ public class PkiController {
                 if (ci == null || ci.trim().isEmpty()) {
                     System.out.println("⚠️ [테스트 모드 감지] CI가 누락되어 고정된 임시 CI를 생성합니다.");
                     
-                    String birthday = (String) verifiedCustomer.get("birthday");
-                    String phone = (String) verifiedCustomer.get("phone");
+                    String birthday = (String) verifiedCustomer.get("birthDate");
+                    String phone = (String) verifiedCustomer.get("phoneNumber");
                     
                     String seed = (name != null ? name : "") + 
                                   (birthday != null ? birthday : "1990-01-01") + 
