@@ -42,7 +42,9 @@ public class VerificationService {
         }
 
         // 2. 현재 DB 데이터를 기반으로 해시 생성 (ProductID + ISBN + Price)
-        String currentDataString = productId + "_" + (product.getIsbn() != null ? product.getIsbn() : "") + "_" + product.getPrice();
+        String currentDataString = productId + "_" + 
+                                   (product.getIsbn() != null ? product.getIsbn() : "") + "_" + 
+                                   (product.getPrice() != null ? product.getPrice().stripTrailingZeros().toPlainString() : "");
         String currentHash = hashString(currentDataString);
 
         String cleanCurrent = currentHash.replace("0x", "").trim().toLowerCase().replaceAll("[^a-f0-9]", "");
@@ -66,6 +68,11 @@ public class VerificationService {
                 product.setAladdinPrice(aladdinPrice);
                 productRepository.save(product);
             }
+        }
+        
+        // API 호출 실패 등으로 여전히 null일 경우, DB에 저장된 originalPrice로 대체 (API Block 방어)
+        if (aladdinPrice == null) {
+            aladdinPrice = product.getOriginalPrice();
         }
 
         if (aladdinPrice != null) {

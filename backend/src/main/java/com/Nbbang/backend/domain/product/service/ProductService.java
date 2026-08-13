@@ -76,10 +76,10 @@ public class ProductService {
 
         Product savedProduct = productRepository.save(product);
 
-        // [블록체인 연동] 상품 등록 시 비동기로 블록체인에 해시 기록
+        // [블록체인 연동] 상품 등록 시 비동기로 블록체인에 데이터 해시 기록
         String dataString = savedProduct.getProductId() + "_" + 
                            (savedProduct.getIsbn() != null ? savedProduct.getIsbn() : "") + "_" + 
-                           savedProduct.getPrice();
+                           (savedProduct.getPrice() != null ? savedProduct.getPrice().stripTrailingZeros().toPlainString() : "");
         String dataHash = verificationService.hashString(dataString);
         blockchainService.recordHashAsync(savedProduct.getProductId(), dataHash);
 
