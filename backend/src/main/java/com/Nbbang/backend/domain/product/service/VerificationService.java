@@ -47,6 +47,12 @@ public class VerificationService {
                                    (product.getPrice() != null ? product.getPrice().stripTrailingZeros().toPlainString() : "");
         String currentHash = hashString(currentDataString);
 
+        // 스마트 영수증(보증서)용 상세 데이터 추가
+        result.put("txHash", product.getTxHash() != null ? product.getTxHash() : "Pending...");
+        result.put("blockchainHash", blockchainHash);
+        result.put("dbHash", currentHash);
+        result.put("targetData", currentDataString);
+
         String cleanCurrent = currentHash.replace("0x", "").trim().toLowerCase().replaceAll("[^a-f0-9]", "");
         String cleanBc = blockchainHash.replace("0x", "").trim().toLowerCase().replaceAll("[^a-f0-9]", "");
 

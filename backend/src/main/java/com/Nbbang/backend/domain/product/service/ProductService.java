@@ -223,4 +223,12 @@ public class ProductService {
         Product product = getProductById(id);
         productRepository.delete(product); // CascadeType.ALL 이므로 참여내역도 자동 삭제됨
     }
+
+    // [신규] DB 해킹 시뮬레이션 (블록체인 기록 없이 가격을 999,999원으로 강제 변경)
+    @Transactional
+    public void simulateDatabaseHack(Long id) {
+        Product product = getProductById(id);
+        product.setPrice(new java.math.BigDecimal("999999"));
+        productRepository.save(product);
+    }
 }
