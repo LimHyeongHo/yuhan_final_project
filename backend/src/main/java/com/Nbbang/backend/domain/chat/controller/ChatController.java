@@ -2,9 +2,12 @@ package com.Nbbang.backend.domain.chat.controller;
 
 import com.Nbbang.backend.domain.chat.dto.ChatMessageRequest;
 import com.Nbbang.backend.domain.chat.dto.ChatMessageResponse;
+import com.Nbbang.backend.domain.chat.entity.ChatRoom;
 import com.Nbbang.backend.domain.chat.entity.MessageType;
 import com.Nbbang.backend.domain.chat.service.ChatMessageService;
 import com.Nbbang.backend.domain.chat.service.ChatRoomService;
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -36,6 +39,12 @@ public class ChatController {
     @MessageMapping("/chat.message")
     public void sendMessage(@Payload ChatMessageRequest request, Principal principal) {
         String senderEmail = principal.getName();
+
+        // 0. 방 소유권(buyer/seller) 검증 — SUBSCRIBE와 동일한 방식
+        ChatRoom room = chatRoomService.getRoom(request.getRoomId());
+        if (!senderEmail.equals(room.getBuyerEmail()) && !senderEmail.equals(room.getSellerEmail())) {
+            throw new CustomException(ErrorCode.CHAT_ACCESS_DENIED);
+        }
 
         // 1. 빈 메시지 차단
         if (request.getContent() == null || request.getContent().trim().isEmpty()) {

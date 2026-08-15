@@ -10,6 +10,7 @@ public enum ErrorCode {
     INTERNAL_SERVER_ERROR(500, "서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요"),
     TOO_MANY_REQUESTS(429, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요"),
     VALIDATION_FAILED(400, "입력값을 확인해주세요"),
+    FILE_SIZE_EXCEEDED(400, "파일 크기는 5MB 이하여야 합니다"),
 
     // ========== 인증 (AUTH) ==========
     AUTH_SESSION_EXPIRED(401, "세션이 만료되었습니다. 다시 로그인해주세요"),
@@ -87,6 +88,8 @@ public enum ErrorCode {
     CHAT_ROOM_NOT_FOUND(404, "채팅방을 찾을 수 없습니다"),
     CHAT_ACCESS_DENIED(403, "접근 권한이 없는 채팅방입니다"),
     CHAT_HISTORY_LOAD_FAILED(500, "채팅 내역을 불러오지 못했습니다"),
+    CHAT_INVALID_FILE_FORMAT(400, "이미지 파일(PNG/JPG/GIF/WEBP)만 업로드 가능합니다"),
+    CHAT_FILE_SIZE_EXCEEDED(400, "파일 크기는 5MB 이하여야 합니다"),
 
     // ========== 구매자 (BUYER) ==========
     BUYER_PRODUCT_LIST_LOAD_FAILED(500, "목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),

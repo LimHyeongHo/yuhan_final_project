@@ -7,6 +7,7 @@ import com.Nbbang.backend.domain.chat.service.ChatMessageService;
 import com.Nbbang.backend.domain.chat.service.ChatRoomService;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -39,6 +40,9 @@ public class ChatRoomController {
     private final ChatRoomService chatRoomService;
     private final ChatMessageService chatMessageService;
     private final SimpMessageSendingOperations messagingTemplate;
+
+    private static final List<String> ALLOWED_IMAGE_EXTENSIONS = List.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
+    private static final long MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
     /** 내 채팅방 목록 */
     @GetMapping("/rooms")
@@ -89,8 +93,22 @@ public class ChatRoomController {
     @PostMapping("/upload")
     public ResponseEntity<Map<String, String>> uploadImage(
             @RequestParam("image") MultipartFile image,
-            HttpSession session) {
+            HttpSession session,
+            HttpServletRequest request) {
         getEmail(session); // 로그인 안 된 경우 401
+
+        if (image.getSize() > MAX_IMAGE_SIZE) {
+            throw new CustomException(ErrorCode.CHAT_FILE_SIZE_EXCEEDED);
+        }
+
+        String originalFilename = image.getOriginalFilename();
+        String extension = originalFilename != null && originalFilename.contains(".")
+                ? originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase()
+                : "";
+        String contentType = image.getContentType();
+        if (!ALLOWED_IMAGE_EXTENSIONS.contains(extension) || contentType == null || !contentType.startsWith("image/")) {
+            throw new CustomException(ErrorCode.CHAT_INVALID_FILE_FORMAT);
+        }
 
         String uploadDir = System.getProperty("user.dir") + "/uploads/";
         try {
@@ -99,16 +117,13 @@ public class ChatRoomController {
                 directory.mkdirs();
             }
 
-            String originalFilename = image.getOriginalFilename();
-            String extension = originalFilename != null && originalFilename.contains(".")
-                    ? originalFilename.substring(originalFilename.lastIndexOf("."))
-                    : ".jpg";
             String savedFilename = UUID.randomUUID().toString() + extension;
 
             Path filePath = Paths.get(uploadDir + savedFilename);
             Files.write(filePath, image.getBytes());
 
-            return ResponseEntity.ok(Map.of("url", "http://localhost:8080/uploads/" + savedFilename));
+            String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
+            return ResponseEntity.ok(Map.of("url", baseUrl + "/uploads/" + savedFilename));
         } catch (IOException e) {
             throw new RuntimeException("이미지 업로드 실패: " + e.getMessage());
         }
