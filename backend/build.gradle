@@ -50,6 +50,10 @@ dependencies {
 	// Dotenv (환경변수 관리용)
 	implementation 'io.github.cdimascio:dotenv-java:3.1.0'
 
+	// Web3j (Ethereum Blockchain)
+	implementation 'org.web3j:core:4.10.0'
+	implementation 'com.alibaba:fastjson:2.0.40'
+
 	// macOS Apple Silicon (M시리즈)용 DNS 네티 에러 방지 (필요 시 주석 해제)
 	// runtimeOnly 'io.netty:netty-resolver-dns-native-macos-aarch64:4.1.111.Final'
 

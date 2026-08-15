@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 //아래 import문 삭제
 // import { useParams, Link } from 'react-router-dom';
-import { Clock, Users, BookOpen, ChevronLeft, CheckCircle, Share2, AlertCircle, MessageCircle } from 'lucide-react';
+import { Clock, Users, BookOpen, ChevronLeft, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon, X, Copy } from 'lucide-react';
 import Header from '../../../components/layout/Header';
 //[추가]
 import {useParams, Link, useNavigate } from 'react-router-dom';
@@ -11,7 +11,9 @@ const BuyerProductDetailPage = () => {
   //[추가]
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
+  const [verification, setVerification] = useState(null); // [신규] 블록체인 검증 상태
   const [isJoined, setIsJoined] = useState(false); // 테스트용: 공구 참여 상태 토글
+  const [showReceiptModal, setShowReceiptModal] = useState(false); // [신규] 스마트 영수증 모달 상태
 
   useEffect(() => {
     fetch(`http://localhost:8080/api/products/${id}`)
@@ -52,6 +54,12 @@ const BuyerProductDetailPage = () => {
         console.error("상품 상세 로드 실패:", err);
         alert("상품 정보를 불러오는데 실패했습니다.");
       });
+
+    // [신규] 블록체인 및 알라딘 가격 교차 검증 API 호출
+    fetch(`http://localhost:8080/api/products/${id}/verify`)
+      .then(res => res.json())
+      .then(data => setVerification(data))
+      .catch(err => console.error("검증 정보 로드 실패:", err));
   }, [id]);
 
   // 공구 참여하기 버튼 클릭 핸들러
@@ -105,6 +113,21 @@ const BuyerProductDetailPage = () => {
     }
   };
 
+  // [신규] DB 해킹 시뮬레이션 (시연용)
+  const handleHackSimulation = async () => {
+    if (window.confirm("경고: 진짜로 DB 가격을 조작하시겠습니까? (블록체인 방어 시스템 테스트용)")) {
+      try {
+        const res = await fetch(`http://localhost:8080/api/products/${product.id}/simulate-hack`, { method: 'POST' });
+        if (!res.ok) throw new Error("해킹 시뮬레이션 실패");
+        alert("🚨 DB 데이터가 999,999원으로 위조되었습니다!\n새로고침하여 블록체인이 어떻게 막아내는지 확인하세요!");
+        window.location.reload();
+      } catch (error) {
+        console.error(error);
+        alert("해킹 시뮬레이션 실패");
+      }
+    }
+  };
+
   if (!product) return <div className="p-8 text-center font-bold">도서 정보를 불러오는 중입니다...</div>;
 
   const progressRatio = Math.min(Math.round((product.currentCount / product.targetCount) * 100), 100);
@@ -112,6 +135,54 @@ const BuyerProductDetailPage = () => {
   const isOwnProduct = !!product.sellerEmail && product.sellerEmail === localStorage.getItem('email');
   // [신규] 판매자(본인 상품 아닌 경우) 또는 관리자 계정 — 구매자 행동(참여/문의) 전부 비활성화
   const isRestrictedViewer = ['ROLE_SELLER', 'ROLE_ADMIN'].includes(localStorage.getItem('user_role')) && !isOwnProduct;
+
+  // [신규] 검증 상태에 따른 뱃지 렌더링 함수
+  const renderVerificationBadge = () => {
+    if (!verification) return null;
+    let badgeContent = null;
+    switch (verification.status) {
+      case 'VALID':
+        badgeContent = (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-sm font-bold rounded-full border border-green-200 shadow-sm">
+            <CheckCircle size={16} /> 블록체인 검증 완료
+          </div>
+        );
+        break;
+      case 'GOOD_DEAL':
+        badgeContent = (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-sm font-bold rounded-full border border-blue-200 shadow-sm">
+            <CheckCircle size={16} /> 검증 완료 (착한 가격)
+          </div>
+        );
+        break;
+      case 'ANCHORING_WARNING':
+        badgeContent = (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-orange-700 text-sm font-bold rounded-full border border-orange-200 shadow-sm">
+            <AlertCircle size={16} /> 시세 조작 주의
+          </div>
+        );
+        break;
+      case 'FORGED':
+        badgeContent = (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 text-sm font-bold rounded-full border border-red-200 shadow-sm">
+            <AlertCircle size={16} /> 데이터 위변조 감지됨
+          </div>
+        );
+        break;
+      default:
+        return null;
+    }
+    
+    return (
+      <div 
+        onClick={() => setShowReceiptModal(true)} 
+        className="cursor-pointer hover:opacity-80 transition-opacity inline-block"
+        title="클릭하여 블록체인 스마트 보증서 확인하기"
+      >
+        {badgeContent}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
@@ -180,7 +251,8 @@ const BuyerProductDetailPage = () => {
 
               {/* 제목 및 저자 정보 */}
               <div className="flex flex-col gap-1.5">
-                <h1 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight">
+                {renderVerificationBadge()}
+                <h1 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight mt-2">
                   {product.title}
                 </h1>
                 <span className="text-sm font-bold text-gray-400">
@@ -192,9 +264,16 @@ const BuyerProductDetailPage = () => {
               <div className="bg-gray-50 rounded-2xl p-4 flex justify-between items-center">
                 <div className="flex flex-col">
                   <span className="text-xs text-gray-400 line-through font-bold">정가 {product.originalPrice.toLocaleString()}원</span>
-                  <span className="text-xs text-emerald-600 font-black mt-0.5">
-                    {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% 파괴 할인가
-                  </span>
+                  {(() => {
+                    const diffRatio = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+                    if (diffRatio > 0) {
+                      return <span className="text-xs text-emerald-600 font-black mt-0.5">-{diffRatio}% 파괴 할인가</span>;
+                    } else if (diffRatio < 0) {
+                      return <span className="text-xs text-orange-500 font-black mt-0.5">정가보다 {Math.abs(diffRatio)}% 비쌈</span>;
+                    } else {
+                      return <span className="text-xs text-gray-500 font-black mt-0.5">정가와 동일</span>;
+                    }
+                  })()}
                 </div>
                 <div className="text-right">
                   <span className="text-2xl md:text-3xl font-black text-blue-600">{product.price.toLocaleString()}원</span>
@@ -297,12 +376,184 @@ const BuyerProductDetailPage = () => {
                 </>
               )}
 
+              {/* [신규] DB 해킹 시뮬레이션 버튼 (관리자 전용) */}
+              {localStorage.getItem('user_role') === 'ROLE_ADMIN' && (
+                <button
+                  onClick={handleHackSimulation}
+                  className="w-full mt-2 py-3 rounded-2xl font-bold text-red-50 bg-red-600 border border-red-700 hover:bg-red-700 transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  <span className="text-xl">☠️</span> DB 해킹 시뮬레이션 (시연용)
+                </button>
+              )}
+
             </div>
           </div>
 
         </div>
 
       </main>
+
+      {/* 스마트 영수증 모달 렌더링 */}
+      {showReceiptModal && (
+        <SmartReceiptModal 
+          verification={verification} 
+          onClose={() => setShowReceiptModal(false)} 
+        />
+      )}
+    </div>
+  );
+};
+
+// [신규] 스마트 영수증(보증서) 모달 컴포넌트
+const SmartReceiptModal = ({ verification, onClose }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (verification?.txHash) {
+      navigator.clipboard.writeText(verification.txHash);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const getStatusUI = () => {
+    switch (verification?.status) {
+      case 'FORGED':
+        return {
+          icon: <AlertCircle size={32} />,
+          headerIcon: <AlertCircle size={20} />,
+          colorText: 'text-red-500',
+          bgHeader: 'bg-red-100 text-red-600',
+          bgBox: 'bg-red-50/50 border-red-200',
+          title: '데이터 위변조 감지됨',
+          dbHashText: 'text-red-600 font-bold'
+        };
+      case 'ANCHORING_WARNING':
+        return {
+          icon: <AlertTriangle size={32} />,
+          headerIcon: <AlertTriangle size={20} />,
+          colorText: 'text-orange-500',
+          bgHeader: 'bg-orange-100 text-orange-600',
+          bgBox: 'bg-orange-50/50 border-orange-200',
+          title: '무결성 검증 완료 (시세 조작 주의)',
+          dbHashText: 'text-gray-800'
+        };
+      case 'GOOD_DEAL':
+        return {
+          icon: <CheckCircle size={32} />,
+          headerIcon: <CheckCircle size={20} />,
+          colorText: 'text-blue-500',
+          bgHeader: 'bg-blue-100 text-blue-600',
+          bgBox: 'bg-blue-50/50 border-blue-200',
+          title: '무결성 검증 완료 (착한 가격)',
+          dbHashText: 'text-gray-800'
+        };
+      case 'VALID':
+      default:
+        return {
+          icon: <CheckCircle size={32} />,
+          headerIcon: <CheckCircle size={20} />,
+          colorText: 'text-emerald-500',
+          bgHeader: 'bg-emerald-100 text-emerald-600',
+          bgBox: 'bg-emerald-50/50 border-emerald-200',
+          title: '무결성 검증 완료',
+          dbHashText: 'text-gray-800'
+        };
+    }
+  };
+
+  const ui = getStatusUI();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* 딤 배경 (Blur 효과) */}
+      <div 
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+        onClick={onClose}
+      />
+      
+      {/* 모달 컨텐츠 (Glassmorphism 카드) */}
+      <div className="relative w-full max-w-md bg-white/90 backdrop-blur-md border border-white/40 shadow-[0_0_40px_rgba(59,130,246,0.15)] rounded-3xl overflow-hidden flex flex-col transform transition-all">
+        
+        {/* 헤더 */}
+        <div className="px-6 py-5 border-b border-gray-200/60 flex justify-between items-center bg-white/50">
+          <div className="flex items-center gap-2">
+            <div className={`p-1.5 rounded-full ${ui.bgHeader}`}>
+              {ui.headerIcon}
+            </div>
+            <h2 className="text-lg font-black text-gray-900">블록체인 스마트 보증서</h2>
+          </div>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* 바디 (상세 데이터) */}
+        <div className="p-6 flex flex-col gap-6">
+          
+          {/* 상태 배지 영역 */}
+          <div className="flex flex-col items-center justify-center gap-2 py-2">
+            <div className={`${ui.colorText} font-bold flex flex-col items-center gap-1`}>
+              {ui.icon}
+              <span className="text-lg text-center">{ui.title}</span>
+            </div>
+            <p className="text-xs text-gray-500 text-center font-medium">
+              이 거래의 가격과 정보는 이더리움 블록체인에 영구적으로 기록되어 절대 임의로 조작할 수 없습니다.
+            </p>
+          </div>
+
+          <div className="w-full h-px bg-gray-200/50" />
+
+          {/* 트랜잭션 정보 */}
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-gray-500">트랜잭션 해시 (TxHash)</span>
+              <div className="flex items-center gap-2 bg-gray-100/80 p-3 rounded-xl border border-gray-200/50">
+                <span className="text-xs font-mono text-gray-700 truncate flex-1">
+                  {verification?.txHash || 'Pending...'}
+                </span>
+                <button 
+                  onClick={handleCopy}
+                  className="p-1.5 bg-white rounded-md shadow-sm border border-gray-200 text-gray-500 hover:text-blue-600 transition"
+                  title="해시 복사하기"
+                >
+                  <Copy size={14} />
+                </button>
+              </div>
+              {copied && <span className="text-[10px] text-blue-600 font-bold ml-1">복사되었습니다!</span>}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-gray-500">원본 해시 조합 (ID_ISBN_Price)</span>
+              <div className="bg-gray-100/80 p-3 rounded-xl border border-gray-200/50">
+                <span className="text-xs font-mono text-gray-700 break-all">
+                  {verification?.targetData || '데이터 없음'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-gray-500">블록체인 저장 해시 vs DB 해시</span>
+              <div className={`p-3 rounded-xl border ${ui.bgBox} flex flex-col gap-2`}>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-gray-400">BC Hash (스마트 컨트랙트)</span>
+                  <span className="text-xs font-mono text-gray-800 truncate">
+                    {verification?.blockchainHash || '조회 실패'}
+                  </span>
+                </div>
+                <div className="w-full h-px bg-gray-200/50" />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-gray-400">DB Hash (현재 데이터)</span>
+                  <span className={`text-xs font-mono truncate ${ui.dbHashText}`}>
+                    {verification?.dbHash || '계산 실패'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </div>
     </div>
   );
 };

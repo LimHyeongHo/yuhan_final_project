@@ -25,6 +25,8 @@ const ProductRegisterPage = () => {
       price: data.price || '',
       description: data.description || '',
       category: data.category || '',
+      isbn: data.isbn || '', // [신규] 바코드 검색 결과에서 ISBN 저장
+      originalPrice: data.price || '', // [신규] 원가(정가) 저장
     }));
     if (data.image) {
       setImagePreview(data.image); // 검색된 이미지를 미리보기 화면에 띄움
@@ -95,6 +97,8 @@ const ProductRegisterPage = () => {
     description: '',
     imageUrl: '',     // [신규] 네이버 등에서 가져온 외부 이미지 URL 저장용
     category: '',     // [신규] API에서 추출된 카테고리 정보
+    isbn: '',         // [신규] 알라딘 및 블록체인 검증용 ISBN
+    originalPrice: '', // [신규] 정가
   });
   // 2-1. 이미지 업로드용 함수
   const [imageFile, setImageFile] = useState(null);
@@ -133,6 +137,8 @@ const ProductRegisterPage = () => {
       description: '',
       imageUrl: '',
       category: '',
+      isbn: '',
+      originalPrice: '',
     });
     setImagePreview(null); // 유형 변경 시 이미지 미리보기도 초기화
   };
@@ -153,6 +159,8 @@ const ProductRegisterPage = () => {
     submitData.append('description', formData.description);
     if (formData.imageUrl) submitData.append('imageUrl', formData.imageUrl); // URL 이미지 추가
     if (formData.category) submitData.append('category', formData.category); // 카테고리 추가
+    if (formData.isbn) submitData.append('isbn', formData.isbn); // ISBN 추가
+    if (formData.originalPrice) submitData.append('originalPrice', formData.originalPrice); // 정가 추가
 
     if (productType === 'BOOK') {
       submitData.append('author', formData.author);

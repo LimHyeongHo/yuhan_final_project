@@ -31,6 +31,8 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final ParticipationRepository participationRepository;
     private final UserAccountRepository userAccountRepository;
+    private final VerificationService verificationService;
+    private final BlockchainService blockchainService;
 
     // 로컬 업로드 경로 설정 (프로젝트 실행 위치의 uploads 폴더)
     private final String uploadDir = System.getProperty("user.dir") + "/uploads/";
@@ -72,7 +74,16 @@ public class ProductService {
             }
         }
 
-        return productRepository.save(product);
+        Product savedProduct = productRepository.save(product);
+
+        // [블록체인 연동] 상품 등록 시 비동기로 블록체인에 데이터 해시 기록
+        String dataString = savedProduct.getProductId() + "_" + 
+                           (savedProduct.getIsbn() != null ? savedProduct.getIsbn() : "") + "_" + 
+                           (savedProduct.getPrice() != null ? savedProduct.getPrice().stripTrailingZeros().toPlainString() : "");
+        String dataHash = verificationService.hashString(dataString);
+        blockchainService.recordHashAsync(savedProduct.getProductId(), dataHash);
+
+        return savedProduct;
     }
 
     // 전체 상품 조회 로직
@@ -211,5 +222,13 @@ public class ProductService {
     public void deleteProduct(Long id) {
         Product product = getProductById(id);
         productRepository.delete(product); // CascadeType.ALL 이므로 참여내역도 자동 삭제됨
+    }
+
+    // [신규] DB 해킹 시뮬레이션 (블록체인 기록 없이 가격을 999,999원으로 강제 변경)
+    @Transactional
+    public void simulateDatabaseHack(Long id) {
+        Product product = getProductById(id);
+        product.setPrice(new java.math.BigDecimal("999999"));
+        productRepository.save(product);
     }
 }

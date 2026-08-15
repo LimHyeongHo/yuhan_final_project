@@ -75,6 +75,7 @@ public class AladinSearchService {
                     book.put("image", item.get("cover") != null ? item.get("cover").toString() : "");
                     book.put("description", item.get("description") != null ? item.get("description").toString() : "");
                     book.put("price", item.get("priceStandard") != null ? item.get("priceStandard").toString() : "");
+                    book.put("isbn", item.get("isbn13") != null ? item.get("isbn13").toString() : ""); // [추가] ISBN 정보 반환
                     results.add(book);
                 }
             }

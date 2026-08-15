@@ -115,4 +115,11 @@ public class ProductController {
         productService.deleteProduct(id);
         return ResponseEntity.noContent().build();
     }
+
+    /** [신규] DB 해킹 시뮬레이션 (시연용) */
+    @PostMapping("/{id}/simulate-hack")
+    public ResponseEntity<Void> simulateHack(@PathVariable Long id) {
+        productService.simulateDatabaseHack(id);
+        return ResponseEntity.ok().build();
+    }
 }
