@@ -231,4 +231,10 @@ public class ProductService {
         product.setPrice(new java.math.BigDecimal("999999"));
         productRepository.save(product);
     }
+
+    // [신규] 구매자 마이페이지용 참여 내역 조회
+    @Transactional(readOnly = true)
+    public List<Participation> getMyParticipations(String email) {
+        return participationRepository.findByMember_EmailOrderByJoinDateDesc(email);
+    }
 }

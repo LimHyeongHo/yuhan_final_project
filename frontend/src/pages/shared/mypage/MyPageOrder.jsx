@@ -1,13 +1,58 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Package, ChevronRight, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const MyPageOrders = () => {
-  // 임시 주문 데이터 (스프링 부트, 리눅스 등 전공 관련 도서)
-  const orderList = [
-    { id: 1, title: '컴퓨터 구조 및 설계 6판', date: '2026.05.24', status: '진행중', price: '28,000원', color: 'text-blue-700 bg-blue-100' },
-    { id: 2, title: '리눅스 시스템 관리자 가이드', date: '2026.05.10', status: '수령 대기', price: '32,000원', color: 'text-emerald-700 bg-emerald-100' },
-    { id: 3, title: '스프링 부트 3 백엔드 개발자 되기', date: '2026.03.02', status: '완료', price: '21,000원', color: 'text-gray-600 bg-gray-100' },
-  ];
+  const navigate = useNavigate();
+  const [orderList, setOrderList] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('http://localhost:8080/api/products/participations/me', { credentials: 'include' })
+      .then(res => {
+        if (res.status === 401) {
+          throw new Error('로그인이 필요합니다.');
+        }
+        if (!res.ok) throw new Error('주문 내역을 불러오는데 실패했습니다.');
+        return res.json();
+      })
+      .then(data => {
+        // data는 Participation 객체 배열
+        const formatted = data.map(part => {
+          const product = part.product || {};
+          let statusLabel = '진행중';
+          let colorClass = 'text-blue-700 bg-blue-100 border-blue-200';
+          
+          if (product.status === 'CLOSED_SUCCESS') {
+            statusLabel = '모집 성공(정산 중)';
+            colorClass = 'text-emerald-700 bg-emerald-100 border-emerald-200';
+          } else if (product.status === 'CLOSED_FAIL') {
+            statusLabel = '모집 실패(환불)';
+            colorClass = 'text-red-700 bg-red-100 border-red-200';
+          } else if (product.status === 'OPEN' && product.currentCount >= product.targetCount) {
+            statusLabel = '목표 달성';
+            colorClass = 'text-emerald-700 bg-emerald-100 border-emerald-200';
+          }
+
+          return {
+            id: part.id,
+            productId: product.id,
+            title: product.title || '알 수 없는 상품',
+            date: new Date(part.joinDate).toLocaleDateString('ko-KR'),
+            status: statusLabel,
+            price: (product.price || 0).toLocaleString() + '원',
+            color: colorClass
+          };
+        });
+        setOrderList(formatted);
+      })
+      .catch(err => {
+        console.error(err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   return (
     <div className="bg-white rounded-[32px] p-8 border border-gray-200 shadow-sm flex flex-col gap-6">
@@ -17,8 +62,17 @@ const MyPageOrders = () => {
       </div>
 
       <div className="flex flex-col gap-4">
-        {orderList.map((order) => (
-          <div key={order.id} className="flex items-center justify-between p-5 rounded-2xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition cursor-pointer group">
+        {loading ? (
+          <div className="text-center text-gray-500 py-8 text-sm font-bold">참여 내역을 불러오는 중입니다...</div>
+        ) : orderList.length === 0 ? (
+          <div className="text-center text-gray-400 py-8 text-sm font-bold">아직 참여한 공동구매 내역이 없습니다.</div>
+        ) : (
+          orderList.map((order) => (
+            <div 
+              key={order.id} 
+              onClick={() => navigate(`/buyer/products/${order.productId}`)}
+              className="flex items-center justify-between p-5 rounded-2xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition cursor-pointer group"
+            >
             <div className="flex flex-col gap-2">
               <span className={`text-[11px] font-black w-max px-2.5 py-1 rounded-md ${order.color}`}>
                 {order.status}
@@ -33,7 +87,7 @@ const MyPageOrders = () => {
             </div>
             <ChevronRight className="text-gray-300 group-hover:text-blue-500 transition" size={20} />
           </div>
-        ))}
+        )))}
       </div>
     </div>
   );

@@ -122,4 +122,15 @@ public class ProductController {
         productService.simulateDatabaseHack(id);
         return ResponseEntity.ok().build();
     }
+
+    /** [신규] 구매자 마이페이지용 참여 내역 조회 */
+    @GetMapping("/participations/me")
+    public ResponseEntity<List<Participation>> getMyBuyerParticipations(HttpSession session) {
+        String email = (String) session.getAttribute("userId");
+        if (email == null) {
+            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
+        }
+        List<Participation> participations = productService.getMyParticipations(email);
+        return ResponseEntity.ok(participations);
+    }
 }
