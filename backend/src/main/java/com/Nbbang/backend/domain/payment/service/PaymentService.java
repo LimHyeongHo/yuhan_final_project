@@ -57,6 +57,10 @@ public class PaymentService {
             throw new CustomException(ErrorCode.PURCHASE_FULL);
         }
 
+        if (product.getDeadline() != null && product.getDeadline().isBefore(LocalDateTime.now())) {
+            throw new CustomException(ErrorCode.PURCHASE_DEADLINE_PASSED);
+        }
+
         // 결제 전에 미리 막아야 함 - joinProduct에서만 체크하면 이미 결제(Toss 승인)된 뒤에 거절하게 됨
         if (participationRepository.existsByProduct_ProductIdAndMember_Email(product.getProductId(), userId)) {
             throw new CustomException(ErrorCode.PURCHASE_ALREADY_JOINED);

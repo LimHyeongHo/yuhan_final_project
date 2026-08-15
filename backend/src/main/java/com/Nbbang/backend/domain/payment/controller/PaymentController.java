@@ -2,7 +2,6 @@ package com.Nbbang.backend.domain.payment.controller;
 
 import com.Nbbang.backend.domain.payment.dto.PaymentPrepareRequest;
 import com.Nbbang.backend.domain.payment.dto.PaymentPrepareResponse;
-import com.Nbbang.backend.domain.payment.dto.PaymentRequest;
 import com.Nbbang.backend.domain.payment.dto.PaymentResponse;
 import com.Nbbang.backend.domain.payment.service.PaymentService;
 import com.Nbbang.backend.global.exception.CustomException;
@@ -11,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/payment")
 @RequiredArgsConstructor
@@ -48,14 +49,6 @@ public class PaymentController {
         return (String) session.getAttribute("userId");
     }
 
-    // 토스페이먼츠 결제 승인
-    @PostMapping("/confirm")
-    public ResponseEntity<PaymentResponse> confirmPayment(@RequestBody PaymentRequest request, HttpSession session) {
-        requireLogin(session);
-        PaymentResponse response = paymentService.confirmPayment(request);
-        return ResponseEntity.ok(response);
-    }
-
     // 토스페이먼츠 → 백엔드 콜백 (결제 성공)
     @GetMapping("/success")
     public void paymentSuccess(
@@ -75,9 +68,11 @@ public class PaymentController {
                     + "&method=" + URLEncoder.encode(
                             result.getMethod() != null ? result.getMethod() : "", StandardCharsets.UTF_8));
         } catch (CustomException e) {
+            log.warn("결제 성공 콜백 처리 실패: orderId={}", orderId, e);
             response.sendRedirect(frontendUrl + "/payment/fail?message="
                     + URLEncoder.encode(e.getMessage(), StandardCharsets.UTF_8));
         } catch (Exception e) {
+            log.error("결제 성공 콜백 처리 중 예상치 못한 오류: orderId={}", orderId, e);
             response.sendRedirect(frontendUrl + "/payment/fail?message="
                     + URLEncoder.encode("결제 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요", StandardCharsets.UTF_8));
         }
@@ -93,12 +88,5 @@ public class PaymentController {
         response.sendRedirect(frontendUrl + "/payment/fail"
                 + "?message=" + URLEncoder.encode(message, StandardCharsets.UTF_8)
                 + "&code=" + code);
-    }
-
-    // 세션에 로그인된 회원(userId)이 없으면 401 - 비회원의 결제 API 접근 차단
-    private void requireLogin(HttpSession session) {
-        if (session.getAttribute("userId") == null) {
-            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
-        }
     }
 }

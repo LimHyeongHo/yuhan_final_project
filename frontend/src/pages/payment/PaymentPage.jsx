@@ -4,7 +4,9 @@ import { CreditCard, Image as ImageIcon, Users } from 'lucide-react';
 import Header from '../../components/layout/Header';
 
 //클라이언트키 추가
-const TOSS_CLIENT_KEY = 'test_ck_a27c64c44aac6a79696abfe411bda51075f648cc09b41868a0169864ac7c4620';
+const TOSS_CLIENT_KEY = 'test_ck_6BYq7GWPVvvpYXJq0dbaVNE5vbo1';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
 const PaymentPage = () => {
   const location = useLocation();
@@ -28,10 +30,11 @@ const PaymentPage = () => {
   const handlePayment = async () => {
     try {
       // 결제창을 열기 전에 서버가 실제 가격을 확인하고 PENDING 기록을 남긴다.
-      const prepareRes = await fetch('http://localhost:8080/api/payment/prepare', {
+      const prepareRes = await fetch(`${API_BASE_URL}/api/payment/prepare`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: Number(product.id), buyerName: '유한대학교 학우님' }),
+        credentials: 'include',
+        body: JSON.stringify({ productId: Number(product.id) }),
       });
       if (prepareRes.status === 401) {
         alert('로그인이 필요합니다.');
@@ -50,8 +53,8 @@ const PaymentPage = () => {
         amount,
         orderId,
         orderName: product.title,
-        successUrl: 'http://localhost:8080/api/payment/success',
-        failUrl: 'http://localhost:8080/api/payment/fail',
+        successUrl: `${API_BASE_URL}/api/payment/success`,
+        failUrl: `${API_BASE_URL}/api/payment/fail`,
       });
     } catch (err) {
       if (err.code === 'USER_CANCEL') return;
