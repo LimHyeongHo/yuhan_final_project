@@ -3,7 +3,9 @@ package com.Nbbang.backend.domain.product.service; // 🚨 본인 경로에 맞�
 import com.Nbbang.backend.domain.auth.entity.UserAccount;
 import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
 import com.Nbbang.backend.domain.product.entity.Participation;
+import com.Nbbang.backend.domain.product.entity.Scrap;
 import com.Nbbang.backend.domain.product.repository.ParticipationRepository;
+import com.Nbbang.backend.domain.product.repository.ScrapRepository;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
 import com.Nbbang.backend.global.exception.CustomException;
@@ -30,6 +32,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ParticipationRepository participationRepository;
+    private final ScrapRepository scrapRepository;
     private final UserAccountRepository userAccountRepository;
     private final VerificationService verificationService;
     private final BlockchainService blockchainService;
@@ -234,7 +237,75 @@ public class ProductService {
 
     // [신규] 구매자 마이페이지용 참여 내역 조회
     @Transactional(readOnly = true)
-    public List<Participation> getMyParticipations(String email) {
-        return participationRepository.findByMember_EmailOrderByJoinDateDesc(email);
+    public List<Map<String, Object>> getMyParticipations(String email) {
+        return participationRepository.findByMember_EmailOrderByJoinDateDesc(email).stream()
+            .map(part -> {
+                Map<String, Object> map = new java.util.HashMap<>();
+                map.put("id", part.getId());
+                map.put("joinDate", part.getJoinDate());
+                map.put("buyerName", part.getBuyerName());
+                
+                Product p = part.getProduct();
+                Map<String, Object> productMap = new java.util.HashMap<>();
+                productMap.put("id", p.getProductId()); // 프론트에서 product.id 로 사용함
+                productMap.put("title", p.getTitle());
+                productMap.put("price", p.getPrice());
+                productMap.put("status", p.getStatus());
+                productMap.put("currentCount", p.getCurrentCount());
+                productMap.put("targetCount", p.getTargetCount());
+                
+                map.put("product", productMap);
+                return map;
+            })
+            .collect(java.util.stream.Collectors.toList());
+    }
+
+    // [신규] 스크랩 토글
+    @Transactional
+    public boolean toggleScrap(Long productId, String email) {
+        Product product = getProductById(productId);
+        UserAccount user = userAccountRepository.findById(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_UNAUTHORIZED));
+
+        return scrapRepository.findByProduct_ProductIdAndMember_Email(productId, email)
+                .map(scrap -> {
+                    scrapRepository.delete(scrap);
+                    return false; // 스크랩 취소됨
+                })
+                .orElseGet(() -> {
+                    Scrap newScrap = new Scrap();
+                    newScrap.setProduct(product);
+                    newScrap.setMember(user);
+                    scrapRepository.save(newScrap);
+                    return true; // 스크랩 추가됨
+                });
+    }
+
+    // [신규] 마이페이지 스크랩 목록 조회
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getMyScraps(String email) {
+        return scrapRepository.findByMember_EmailOrderByCreatedAtDesc(email).stream()
+            .map(scrap -> {
+                Map<String, Object> map = new java.util.HashMap<>();
+                map.put("id", scrap.getId());
+                
+                Product p = scrap.getProduct();
+                Map<String, Object> productMap = new java.util.HashMap<>();
+                productMap.put("productId", p.getProductId());
+                productMap.put("title", p.getTitle());
+                productMap.put("author", p.getAuthor());
+                productMap.put("currentCount", p.getCurrentCount());
+                productMap.put("targetCount", p.getTargetCount());
+                
+                map.put("product", productMap);
+                return map;
+            })
+            .collect(java.util.stream.Collectors.toList());
+    }
+
+    // [신규] 특정 상품 스크랩 여부 확인
+    @Transactional(readOnly = true)
+    public boolean checkScrapStatus(Long productId, String email) {
+        return scrapRepository.existsByProduct_ProductIdAndMember_Email(productId, email);
     }
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 //아래 import문 삭제
 // import { useParams, Link } from 'react-router-dom';
-import { Clock, Users, BookOpen, ChevronLeft, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon, X, Copy } from 'lucide-react';
+import { Clock, Users, BookOpen, ChevronLeft, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon, X, Copy, Heart } from 'lucide-react';
 import Header from '../../../components/layout/Header';
 //[추가]
 import {useParams, Link, useNavigate } from 'react-router-dom';
@@ -14,6 +14,7 @@ const BuyerProductDetailPage = () => {
   const [verification, setVerification] = useState(null); // [신규] 블록체인 검증 상태
   const [isJoined, setIsJoined] = useState(false); // 테스트용: 공구 참여 상태 토글
   const [showReceiptModal, setShowReceiptModal] = useState(false); // [신규] 스마트 영수증 모달 상태
+  const [isScrapped, setIsScrapped] = useState(false); // [신규] 스크랩 상태
 
   useEffect(() => {
     fetch(`http://localhost:8080/api/products/${id}`)
@@ -60,6 +61,15 @@ const BuyerProductDetailPage = () => {
       .then(res => res.json())
       .then(data => setVerification(data))
       .catch(err => console.error("검증 정보 로드 실패:", err));
+
+    // [신규] 스크랩 상태 호출
+    fetch(`http://localhost:8080/api/products/${id}/scrap/status`, { credentials: 'include' })
+      .then(res => {
+        if (res.ok) return res.json();
+        return false;
+      })
+      .then(data => setIsScrapped(data))
+      .catch(err => console.error("스크랩 상태 로드 실패:", err));
   }, [id]);
 
   // 공구 참여하기 버튼 클릭 핸들러
@@ -86,6 +96,25 @@ const BuyerProductDetailPage = () => {
     } catch (error) {
       console.error(error);
       alert("서버와 통신하는 중 문제가 발생했습니다.");
+    }
+  };
+
+  // [신규] 스크랩 버튼 클릭 핸들러
+  const handleScrapToggle = async () => {
+    if (!product) return;
+    try {
+      const res = await fetch(`http://localhost:8080/api/products/${product.id}/scrap`, { 
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('로그인이 필요합니다.');
+        throw new Error('스크랩 처리에 실패했습니다.');
+      }
+      const newStatus = await res.json();
+      setIsScrapped(newStatus);
+    } catch (e) {
+      alert(e.message);
     }
   };
 
@@ -196,9 +225,17 @@ const BuyerProductDetailPage = () => {
             <ChevronLeft size={18} />
             목록으로 돌아가기
           </Link>
-          <button className="p-2 text-gray-400 hover:text-gray-600 bg-white border border-gray-200 rounded-xl transition shadow-sm">
-            <Share2 size={16} />
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={handleScrapToggle}
+              className={`p-2 border border-gray-200 rounded-xl transition shadow-sm ${isScrapped ? 'text-red-500 bg-red-50 border-red-200' : 'text-gray-400 hover:text-red-500 bg-white'}`}
+            >
+              <Heart size={16} fill={isScrapped ? 'currentColor' : 'none'} />
+            </button>
+            <button className="p-2 text-gray-400 hover:text-gray-600 bg-white border border-gray-200 rounded-xl transition shadow-sm">
+              <Share2 size={16} />
+            </button>
+          </div>
         </div>
 
         {/* 메인 레이아웃 그리드 (PC 2열 분할) */}

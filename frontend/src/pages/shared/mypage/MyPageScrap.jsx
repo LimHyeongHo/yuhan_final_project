@@ -1,12 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bookmark, ShoppingBag } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const MyPageScrap = () => {
-  // 임시 스크랩 데이터
-  const scrapList = [
-    { id: 1, title: 'Operating System Concepts 10th', author: 'Silberschatz', currentCount: 3, targetCount: 5 },
-    { id: 2, title: '클린 코드 (Clean Code)', author: 'Robert C. Martin', currentCount: 8, targetCount: 10 },
-  ];
+  const [scrapList, setScrapList] = useState([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetch('http://localhost:8080/api/products/scraps/me', { credentials: 'include' })
+      .then(res => {
+        if (!res.ok) throw new Error('스크랩 목록을 불러올 수 없습니다.');
+        return res.json();
+      })
+      .then(data => {
+        const formattedScraps = data.map(scrap => ({
+          id: scrap.product.productId,
+          title: scrap.product.title,
+          author: scrap.product.author || '저자 미상',
+          currentCount: scrap.product.currentCount,
+          targetCount: scrap.product.targetCount
+        }));
+        setScrapList(formattedScraps);
+      })
+      .catch(err => console.error(err));
+  }, []);
 
   return (
     <div className="bg-white rounded-[32px] p-8 border border-gray-200 shadow-sm flex flex-col gap-6">
@@ -40,8 +57,11 @@ const MyPageScrap = () => {
               </div>
             </div>
 
-            <button className="w-full py-2 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 text-gray-600 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 mt-2">
-              <ShoppingBag size={14} /> 공구 참여하기
+            <button 
+              onClick={() => navigate(`/buyer/products/${item.id}`)}
+              className="w-full py-2 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 text-gray-600 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 mt-2"
+            >
+              <ShoppingBag size={14} /> 상세 보기
             </button>
           </div>
         ))}

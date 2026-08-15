@@ -2,6 +2,7 @@ package com.Nbbang.backend.domain.product.controller; // 🚨 본인 경로에 �
 
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.entity.Participation;
+import com.Nbbang.backend.domain.product.entity.Scrap;
 import com.Nbbang.backend.domain.product.service.ProductService;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
@@ -125,12 +126,36 @@ public class ProductController {
 
     /** [신규] 구매자 마이페이지용 참여 내역 조회 */
     @GetMapping("/participations/me")
-    public ResponseEntity<List<Participation>> getMyBuyerParticipations(HttpSession session) {
+    public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getMyBuyerParticipations(HttpSession session) {
         String email = (String) session.getAttribute("userId");
         if (email == null) {
             throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
         }
-        List<Participation> participations = productService.getMyParticipations(email);
+        java.util.List<java.util.Map<String, Object>> participations = productService.getMyParticipations(email);
         return ResponseEntity.ok(participations);
+    }
+
+    /** [신규] 스크랩 토글 (추가/취소) */
+    @PostMapping("/{id}/scrap")
+    public ResponseEntity<Boolean> toggleScrap(@PathVariable Long id, HttpSession session) {
+        String email = getEmail(session);
+        boolean isScrapped = productService.toggleScrap(id, email);
+        return ResponseEntity.ok(isScrapped);
+    }
+
+    /** [신규] 특정 상품 스크랩 여부 조회 */
+    @GetMapping("/{id}/scrap/status")
+    public ResponseEntity<Boolean> checkScrapStatus(@PathVariable Long id, HttpSession session) {
+        String email = getEmail(session);
+        boolean isScrapped = productService.checkScrapStatus(id, email);
+        return ResponseEntity.ok(isScrapped);
+    }
+
+    /** [신규] 마이페이지 전체 스크랩 내역 조회 */
+    @GetMapping("/scraps/me")
+    public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getMyScraps(HttpSession session) {
+        String email = getEmail(session);
+        java.util.List<java.util.Map<String, Object>> scraps = productService.getMyScraps(email);
+        return ResponseEntity.ok(scraps);
     }
 }
