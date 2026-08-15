@@ -157,7 +157,7 @@ const LoginPage = () => {
       const verifyRes = await fetch('http://localhost:8080/api/pki/verify-portone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identityVerificationId: response.identityVerificationId })
+        body: JSON.stringify({ identityVerificationId: response.identityVerificationId, email })
       });
 
       if (!verifyRes.ok) throw new Error("서버 검증 실패");
@@ -171,7 +171,15 @@ const LoginPage = () => {
       const key = await loadPrivateKey(email);
       if (key) setPrivateKey(key);
 
-      alert(`✨ ${result.name}님 본인인증이 완료되었습니다!`);
+      // matchesAccount는 이 이메일 계정에 이미 등록된 기기가 있을 때만 내려온다.
+      // "true" → 계정 소유자 본인 확인, "false" → 다른 사람 정보로 인증됨(로그인은 거부될 것).
+      if (result.matchesAccount === "true") {
+        alert(`✨ ${result.name}님 본인인증이 완료되었습니다! (계정 소유자 본인 확인됨)`);
+      } else if (result.matchesAccount === "false") {
+        alert(`⚠️ ${result.name}님 정보로 본인인증되었지만, 이 계정(${email}) 소유자와 일치하지 않습니다. 로그인할 수 없습니다.`);
+      } else {
+        alert(`✨ ${result.name}님 본인인증이 완료되었습니다!`);
+      }
     } catch (e) {
       alert("본인인증 중 오류 발생: " + e.message);
     } finally {
@@ -211,7 +219,7 @@ const LoginPage = () => {
         headers: { 'Content-Type': 'application/json' },
         // [수정] 로그인 성공 시 서버가 내려주는 세션 쿠키(JSESSIONID)를 저장/전송하기 위해 credentials 추가
         credentials: 'include',
-        body: JSON.stringify({ deviceId, password, signature })
+        body: JSON.stringify({ deviceId, password, signature, ci: regCi })
       });
 
       const result = await verRes.json();

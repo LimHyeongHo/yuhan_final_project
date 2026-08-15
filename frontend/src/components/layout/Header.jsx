@@ -13,6 +13,9 @@ const formatRemaining = (totalSeconds) => {
   return `${m}:${s}`;
 };
 
+// [신규] +버튼으로 늘릴 수 있는 상한 (서버 CertificateSessionService.MAX_VALID_MINUTES와 동일하게 60분)
+const MAX_REMAINING_SECONDS = 60 * 60;
+
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -97,15 +100,7 @@ const Header = () => {
   }, [nickname]);
 
   const handleLogout = async () => {
-    // [수정] 기존엔 localStorage만 지웠는데, 로그아웃 시 서버 인증서도 함께 폐기하도록 요청 추가
-    try {
-      await fetch('http://localhost:8080/api/member/certificate/revoke', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (e) {
-      // 서버 요청이 실패해도 로컬 로그아웃은 그대로 진행
-    }
+    // 인증서 폐기는 탈퇴/타이머 만료 때만 해야 함 - 수동 로그아웃은 로컬 세션 정리만 한다
     localStorage.removeItem('user_nickname');
     localStorage.removeItem('user_role');
     // [신규] 채팅 메시지 판별 email 삭제
@@ -323,8 +318,9 @@ const Header = () => {
                 <button
                   type="button"
                   onClick={() => extend(5)}
-                  className="w-6 h-6 flex items-center justify-center text-sm font-bold text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition"
-                  title="인증서 유효시간 5분 증가"
+                  disabled={remainingSeconds >= MAX_REMAINING_SECONDS}
+                  className="w-6 h-6 flex items-center justify-center text-sm font-bold text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition disabled:opacity-30 disabled:hover:text-gray-500 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                  title={remainingSeconds >= MAX_REMAINING_SECONDS ? '최대 60분까지 늘릴 수 있습니다.' : '인증서 유효시간 5분 증가'}
                 >
                   +
                 </button>
