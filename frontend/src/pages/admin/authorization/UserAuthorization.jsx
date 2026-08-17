@@ -41,6 +41,10 @@ const ApprovalCard = ({ name, id, email, date, onGrant }) => (
 
 const UserAuthorization = () => {
   const [pendingUsers, setPendingUsers] = useState([]);
+  const [stats, setStats] = useState({
+    newUsersToday: 0,
+    activeSellers: 0
+  });
 
   const fetchPendingUsers = () => {
     fetch('http://localhost:8080/api/admin/users/pending', { credentials: 'include' })
@@ -49,8 +53,16 @@ const UserAuthorization = () => {
       .catch(err => console.error("대기열 로드 실패:", err));
   };
 
+  const fetchStats = () => {
+    fetch('http://localhost:8080/api/admin/statistics', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => setStats(data))
+      .catch(err => console.error("통계 로드 실패:", err));
+  };
+
   useEffect(() => {
     fetchPendingUsers();
+    fetchStats();
   }, []);
 
   const handleGrantRole = (email) => {
@@ -99,7 +111,7 @@ const UserAuthorization = () => {
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">판매자 승인 대기</span>
-              <h3 className="text-3xl font-black text-gray-950 mt-1">05 건</h3>
+              <h3 className="text-3xl font-black text-gray-950 mt-1">{pendingUsers.length} 건</h3>
               <span className="text-blue-600 text-xs font-bold mt-1 flex items-center gap-1">
                 <Clock size={14} /> ACTION REQUIRED
               </span>
@@ -113,7 +125,7 @@ const UserAuthorization = () => {
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">일간 신규 가입</span>
-              <h3 className="text-3xl font-black text-gray-950 mt-1">1,284 명</h3>
+              <h3 className="text-3xl font-black text-gray-950 mt-1">{stats.newUsersToday.toLocaleString()} 명</h3>
               <span className="text-emerald-600 text-xs font-bold mt-1">
                 ▲ +12% VS YESTERDAY
               </span>
@@ -127,7 +139,7 @@ const UserAuthorization = () => {
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">누적 활성 판매자</span>
-              <h3 className="text-3xl font-black text-gray-950 mt-1">452 명</h3>
+              <h3 className="text-3xl font-black text-gray-950 mt-1">{stats.activeSellers.toLocaleString()} 명</h3>
               <span className="text-emerald-600 text-xs font-bold mt-1">
                 ▲ +3% VS LAST MONTH
               </span>
@@ -151,7 +163,7 @@ const UserAuthorization = () => {
                 <h3 className="text-xl font-extrabold text-gray-950 tracking-tight">판매자 승인 대기열</h3>
               </div>
               <span className="bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1.5 rounded-lg">
-                5건 대기 중
+                {pendingUsers.length}건 대기 중
               </span>
             </div>
             

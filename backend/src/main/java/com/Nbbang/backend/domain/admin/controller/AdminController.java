@@ -33,4 +33,36 @@ public class AdminController {
         adminService.grantSellerRole(email);
         return ResponseEntity.ok("판매자 권한이 부여되었습니다.");
     }
+
+    // 주간 통계 조회
+    @GetMapping("/weekly-stats")
+    public ResponseEntity<Map<String, List<Long>>> getWeeklyStats() {
+        return ResponseEntity.ok(adminService.getWeeklyStats());
+    }
+
+    // 최근 상품 조회
+    @GetMapping("/products/recent")
+    public ResponseEntity<List<Map<String, Object>>> getRecentProducts() {
+        return ResponseEntity.ok(adminService.getRecentProducts());
+    }
+
+    // 일간 신규 가입자 목록 (필터 지원)
+    @GetMapping("/users/stats-list")
+    public ResponseEntity<List<Map<String, Object>>> getUsersStatsList(
+            @RequestParam(defaultValue = "1") int days) {
+        return ResponseEntity.ok(adminService.getUsersStatsList(days));
+    }
+
+    // 누적 활성 판매자 목록
+    @GetMapping("/sellers/stats-list")
+    public ResponseEntity<List<Map<String, Object>>> getSellersStatsList() {
+        return ResponseEntity.ok(adminService.getSellersStatsList());
+    }
+
+    // [테스트용 임시] 어드민 권한 부여
+    @GetMapping("/make-admin/{email}")
+    public ResponseEntity<String> makeAdminTemp(@PathVariable String email) {
+        adminService.makeAdminTemp(email);
+        return ResponseEntity.ok(email + " is now ADMIN");
+    }
 }

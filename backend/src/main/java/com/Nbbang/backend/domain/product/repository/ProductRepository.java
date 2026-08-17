@@ -15,4 +15,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     
     // [신규] 스케줄러용: 마감일이 지났고 특정 상태인 상품 조회
     List<Product> findByDeadlineBeforeAndStatus(java.time.LocalDateTime time, String status);
+
+    // [신규] 대시보드용 최근 등록된 5개 상품 조회
+    List<Product> findTop5ByOrderByCreatedAtDesc();
 }

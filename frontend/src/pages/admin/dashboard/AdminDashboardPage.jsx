@@ -1,25 +1,41 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, Activity, BarChart3, ShieldAlert, ArrowUpRight, Clock } from 'lucide-react';
 import Header from '../../../components/layout/Header'; // 공통 헤더 연결
 
 const AdminDashboardPage = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     newUsersToday: 0,
     activeSellers: 0,
     totalProducts: 0,
     totalUsers: 0
   });
+  const [weeklyStats, setWeeklyStats] = useState({
+    signupData: [0, 0, 0, 0, 0, 0, 0],
+    sellerData: [0, 0, 0, 0, 0, 0, 0]
+  });
+  const [recentProducts, setRecentProducts] = useState([]);
 
   useEffect(() => {
     fetch('http://localhost:8080/api/admin/statistics', { credentials: 'include' })
       .then(res => res.json())
       .then(data => setStats(data))
       .catch(err => console.error("통계 데이터 로드 실패:", err));
+
+    fetch('http://localhost:8080/api/admin/weekly-stats', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => setWeeklyStats(data))
+      .catch(err => console.error("주간 통계 데이터 로드 실패:", err));
+
+    fetch('http://localhost:8080/api/admin/products/recent', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => setRecentProducts(data))
+      .catch(err => console.error("최근 상품 로드 실패:", err));
   }, []);
 
-  // 가상 주간 트래픽/가입용 통계 데이터 (차트 막대 그리기용)
-  const signupData = [30, 45, 25, 90, 40, 55, 70]; // 오늘(90) 강조용
-  const sellerData = [20, 30, 40, 35, 85, 50, 60]; // 특정일 강조용
+  const signupMax = Math.max(...weeklyStats.signupData, 1);
+  const sellerMax = Math.max(...weeklyStats.sellerData, 1);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
@@ -48,7 +64,10 @@ const AdminDashboardPage = () => {
         {/* 상단 3종 핵심 요약 통계 메트릭 카드 */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* 카드 1: 일간 신규 가입 */}
-          <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
+          <div 
+            onClick={() => navigate('/admin/dashboard/users-stats')}
+            className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center cursor-pointer hover:shadow-md hover:border-blue-300 transition-all"
+          >
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">일간 신규 가입</span>
               <h3 className="text-3xl font-black text-gray-950 mt-1">{stats.newUsersToday.toLocaleString()} 명</h3>
@@ -62,7 +81,10 @@ const AdminDashboardPage = () => {
           </div>
 
           {/* 카드 2: 누적 활성 판매자 */}
-          <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
+          <div 
+            onClick={() => navigate('/admin/dashboard/sellers-stats')}
+            className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center cursor-pointer hover:shadow-md hover:border-blue-300 transition-all"
+          >
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">누적 활성 판매자</span>
               <h3 className="text-3xl font-black text-gray-950 mt-1">{stats.activeSellers.toLocaleString()} 명</h3>
@@ -75,8 +97,11 @@ const AdminDashboardPage = () => {
             </div>
           </div>
 
-          {/* 카드 3: 현재 활성 세션 */}
-          <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
+          {/* 카드 3: 누적 등록 상품 (공동구매) */}
+          <div 
+            onClick={() => navigate('/admin/products')}
+            className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center cursor-pointer hover:shadow-md hover:border-blue-300 transition-all"
+          >
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">누적 등록 상품 (공동구매)</span>
               <h3 className="text-3xl font-black text-gray-950 mt-1">{stats.totalProducts.toLocaleString()} 건</h3>
@@ -110,17 +135,17 @@ const AdminDashboardPage = () => {
                   <span className="text-xs text-blue-600 font-extrabold flex items-center">최고치 달성 <ArrowUpRight size={14} /></span>
                 </span>
                 <div className="h-32 flex items-end gap-2 pt-4 border-b border-gray-100 px-2">
-                  {signupData.map((val, idx) => (
+                  {weeklyStats.signupData.map((val, idx) => (
                     <div key={idx} className="flex-grow flex flex-col items-center gap-1.5 h-full justify-end">
                       <div 
-                        style={{ height: `${val}%` }} 
-                        className={`w-full rounded-t-md transition-all duration-500 ${idx === 3 ? 'bg-blue-600' : 'bg-gray-200'}`}
+                        style={{ height: `${(val / signupMax) * 100}%` }} 
+                        className={`w-full rounded-t-md transition-all duration-500 ${idx === 6 ? 'bg-blue-600' : 'bg-gray-200'}`}
                       ></div>
                     </div>
                   ))}
                 </div>
                 <div className="flex justify-between text-[11px] text-gray-400 font-semibold px-1">
-                  <span>월</span><span>화</span><span>수</span><span className="text-blue-600 font-bold">목(오늘)</span><span>금</span><span>토</span><span>일</span>
+                  <span>D-6</span><span>D-5</span><span>D-4</span><span>D-3</span><span>D-2</span><span>D-1</span><span className="text-blue-600 font-bold">오늘</span>
                 </div>
               </div>
 
@@ -131,17 +156,17 @@ const AdminDashboardPage = () => {
                   <span className="text-xs text-red-600 font-extrabold flex items-center">안정적 우상향</span>
                 </span>
                 <div className="h-32 flex items-end gap-2 pt-4 border-b border-gray-100 px-2">
-                  {sellerData.map((val, idx) => (
+                  {weeklyStats.sellerData.map((val, idx) => (
                     <div key={idx} className="flex-grow flex flex-col items-center gap-1.5 h-full justify-end">
                       <div 
-                        style={{ height: `${val}%` }} 
-                        className={`w-full rounded-t-md transition-all duration-500 ${idx === 4 ? 'bg-red-700' : 'bg-gray-200'}`}
+                        style={{ height: `${(val / sellerMax) * 100}%` }} 
+                        className={`w-full rounded-t-md transition-all duration-500 ${idx === 6 ? 'bg-red-700' : 'bg-gray-200'}`}
                       ></div>
                     </div>
                   ))}
                 </div>
                 <div className="flex justify-between text-[11px] text-gray-400 font-semibold px-1">
-                  <span>월</span><span>화</span><span>수</span><span>목</span><span className="text-red-700 font-bold">금</span><span>토</span><span>일</span>
+                  <span>D-6</span><span>D-5</span><span>D-4</span><span>D-3</span><span>D-2</span><span>D-1</span><span className="text-red-700 font-bold">오늘</span>
                 </div>
               </div>
 
@@ -204,8 +229,48 @@ const AdminDashboardPage = () => {
               <span className="text-blue-600 font-extrabold uppercase">Synchronized</span>
             </div>
           </div>
-
         </section>
+
+        {/* 🚀 최근 등록된 공동구매 리스트 */}
+        <section className="bg-white rounded-[28px] p-6 md:p-8 border border-gray-200 shadow-sm flex flex-col mt-2">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-extrabold text-gray-950 tracking-tight">최근 등록된 공동구매 리스트</h3>
+            <span className="bg-gray-100 text-gray-600 text-xs font-bold px-3 py-1.5 rounded-lg">
+              최근 5건
+            </span>
+          </div>
+          
+          <div className="flex flex-col border-t border-gray-100">
+            {recentProducts.length === 0 ? (
+              <div className="p-8 text-center text-gray-400 font-bold">최근 등록된 상품이 없습니다.</div>
+            ) : (
+              recentProducts.map(product => (
+                <div key={product.id} className="flex justify-between items-center p-4 border-b border-gray-50 hover:bg-gray-50/50 transition">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-bold text-gray-400">{product.category}</span>
+                    <span className="font-bold text-gray-900">{product.title}</span>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="flex flex-col items-end">
+                      <span className="text-xs text-gray-400">목표 인원</span>
+                      <span className="font-bold text-gray-700">{product.targetCount}명</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="text-xs text-gray-400">가격</span>
+                      <span className="font-black text-blue-600">{product.price.toLocaleString()}원</span>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      product.status === 'OPEN' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {product.status}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
       </main>
     </div>
   );
