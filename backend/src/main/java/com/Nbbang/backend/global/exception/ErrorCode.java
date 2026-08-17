@@ -26,6 +26,7 @@ public enum ErrorCode {
     // ========== 회원 (MEMBER) ==========
     MEMBER_DUPLICATE_EMAIL(409, "이미 사용 중인 이메일입니다"),
     MEMBER_DUPLICATE_CI(409, "이미 가입된 계정입니다"),
+    MEMBER_NOT_FOUND(404, "존재하지 않는 회원입니다"),
 
     // ========== 공동구매 (PURCHASE) ==========
     // _LOAD_FAILED 계열은 DB 연결 실패 등 서버 내부 오류로 조회 자체가 불가능할 때만 사용

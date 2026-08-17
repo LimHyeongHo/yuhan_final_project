@@ -1,8 +1,22 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Users, Activity, BarChart3, ShieldAlert, ArrowUpRight, Clock } from 'lucide-react';
 import Header from '../../../components/layout/Header'; // 공통 헤더 연결
 
 const AdminDashboardPage = () => {
+  const [stats, setStats] = useState({
+    newUsersToday: 0,
+    activeSellers: 0,
+    totalProducts: 0,
+    totalUsers: 0
+  });
+
+  useEffect(() => {
+    fetch('http://localhost:8080/api/admin/statistics', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => setStats(data))
+      .catch(err => console.error("통계 데이터 로드 실패:", err));
+  }, []);
+
   // 가상 주간 트래픽/가입용 통계 데이터 (차트 막대 그리기용)
   const signupData = [30, 45, 25, 90, 40, 55, 70]; // 오늘(90) 강조용
   const sellerData = [20, 30, 40, 35, 85, 50, 60]; // 특정일 강조용
@@ -37,7 +51,7 @@ const AdminDashboardPage = () => {
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">일간 신규 가입</span>
-              <h3 className="text-3xl font-black text-gray-950 mt-1">1,284 명</h3>
+              <h3 className="text-3xl font-black text-gray-950 mt-1">{stats.newUsersToday.toLocaleString()} 명</h3>
               <span className="text-emerald-600 text-xs font-bold mt-1 flex items-center gap-0.5">
                 ▲ +12% <span className="text-gray-400 font-normal ml-1">vs 어제</span>
               </span>
@@ -51,7 +65,7 @@ const AdminDashboardPage = () => {
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">누적 활성 판매자</span>
-              <h3 className="text-3xl font-black text-gray-950 mt-1">452 명</h3>
+              <h3 className="text-3xl font-black text-gray-950 mt-1">{stats.activeSellers.toLocaleString()} 명</h3>
               <span className="text-emerald-600 text-xs font-bold mt-1 flex items-center gap-0.5">
                 ▲ +3% <span className="text-gray-400 font-normal ml-1">vs 지난달</span>
               </span>
@@ -64,8 +78,8 @@ const AdminDashboardPage = () => {
           {/* 카드 3: 현재 활성 세션 */}
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">현재 접속 세션</span>
-              <h3 className="text-3xl font-black text-gray-950 mt-1">4,209 건</h3>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">누적 등록 상품 (공동구매)</span>
+              <h3 className="text-3xl font-black text-gray-950 mt-1">{stats.totalProducts.toLocaleString()} 건</h3>
               <span className="text-blue-600 text-xs font-extrabold mt-1 uppercase tracking-tight flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Live Traffic
               </span>
