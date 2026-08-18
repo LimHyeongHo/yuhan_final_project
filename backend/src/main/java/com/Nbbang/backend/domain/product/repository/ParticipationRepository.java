@@ -15,4 +15,7 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
 
     // 같은 사용자가 같은 공동구매에 중복 참여하는 것을 막기 위한 체크
     boolean existsByProduct_ProductIdAndMember_Email(Long productId, String email);
+
+    // [신규] 구매자 이메일로 참여 내역 최신순 조회
+    List<Participation> findByMember_EmailOrderByJoinDateDesc(String email);
 }
