@@ -1,15 +1,15 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, CheckCircle, Clock, ShieldAlert } from 'lucide-react';
 import Header from '../../../components/layout/Header'; // 분리해둔 공통 헤더 불러오기
 
 
 // 1. 판매자 승인 대기열 카드 컴포넌트
-const ApprovalCard = ({ name, id, email, date }) => (
+const ApprovalCard = ({ name, id, email, date, onGrant }) => (
   <div className="flex items-center justify-between p-5 border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition">
     <div className="flex items-center gap-4">
       <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden border border-gray-300 flex-shrink-0">
         <img 
-          src={`https://api.dicebear.com/7.x/notionists/svg?seed=${id}&backgroundColor=e2e8f0`} 
+          src={`https://api.dicebear.com/7.x/notionists/svg?seed=${email}&backgroundColor=e2e8f0`} 
           alt="profile" 
           className="w-full h-full object-cover"
         />
@@ -17,7 +17,6 @@ const ApprovalCard = ({ name, id, email, date }) => (
       <div className="flex flex-col">
         <div className="flex items-center gap-2">
           <span className="font-bold text-gray-900 text-base">{name}</span>
-          <span className="text-xs font-mono text-gray-500">(ID: {id})</span>
         </div>
         <span className="text-sm text-gray-500 mt-0.5">{email}</span>
       </div>
@@ -32,7 +31,7 @@ const ApprovalCard = ({ name, id, email, date }) => (
         <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-100 transition">
           심사
         </button>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-200 hover:bg-blue-700 transition">
+        <button onClick={() => onGrant(email)} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-200 hover:bg-blue-700 transition">
           권한 부여
         </button>
       </div>
@@ -41,6 +40,47 @@ const ApprovalCard = ({ name, id, email, date }) => (
 );
 
 const UserAuthorization = () => {
+  const [pendingUsers, setPendingUsers] = useState([]);
+  const [stats, setStats] = useState({
+    newUsersToday: 0,
+    activeSellers: 0
+  });
+
+  const fetchPendingUsers = () => {
+    fetch('http://localhost:8080/api/admin/users/pending', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => setPendingUsers(data))
+      .catch(err => console.error("대기열 로드 실패:", err));
+  };
+
+  const fetchStats = () => {
+    fetch('http://localhost:8080/api/admin/statistics', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => setStats(data))
+      .catch(err => console.error("통계 로드 실패:", err));
+  };
+
+  useEffect(() => {
+    fetchPendingUsers();
+    fetchStats();
+  }, []);
+
+  const handleGrantRole = (email) => {
+    fetch(`http://localhost:8080/api/admin/users/${email}/grant-seller`, { 
+      method: 'POST', 
+      credentials: 'include' 
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('권한 부여 실패');
+        alert('판매자 권한이 성공적으로 부여되었습니다.');
+        fetchPendingUsers(); // 목록 갱신
+      })
+      .catch(err => {
+        console.error(err);
+        alert(err.message);
+      });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
       
@@ -71,7 +111,7 @@ const UserAuthorization = () => {
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">판매자 승인 대기</span>
-              <h3 className="text-3xl font-black text-gray-950 mt-1">05 건</h3>
+              <h3 className="text-3xl font-black text-gray-950 mt-1">{pendingUsers.length} 건</h3>
               <span className="text-blue-600 text-xs font-bold mt-1 flex items-center gap-1">
                 <Clock size={14} /> ACTION REQUIRED
               </span>
@@ -85,7 +125,7 @@ const UserAuthorization = () => {
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">일간 신규 가입</span>
-              <h3 className="text-3xl font-black text-gray-950 mt-1">1,284 명</h3>
+              <h3 className="text-3xl font-black text-gray-950 mt-1">{stats.newUsersToday.toLocaleString()} 명</h3>
               <span className="text-emerald-600 text-xs font-bold mt-1">
                 ▲ +12% VS YESTERDAY
               </span>
@@ -99,7 +139,7 @@ const UserAuthorization = () => {
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">누적 활성 판매자</span>
-              <h3 className="text-3xl font-black text-gray-950 mt-1">452 명</h3>
+              <h3 className="text-3xl font-black text-gray-950 mt-1">{stats.activeSellers.toLocaleString()} 명</h3>
               <span className="text-emerald-600 text-xs font-bold mt-1">
                 ▲ +3% VS LAST MONTH
               </span>
@@ -123,14 +163,24 @@ const UserAuthorization = () => {
                 <h3 className="text-xl font-extrabold text-gray-950 tracking-tight">판매자 승인 대기열</h3>
               </div>
               <span className="bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1.5 rounded-lg">
-                5건 대기 중
+                {pendingUsers.length}건 대기 중
               </span>
             </div>
             
             <div className="flex flex-col border-t border-gray-100">
-              <ApprovalCard name="김민준" id="curator_mj" email="mj.kim@digital-arch.com" date="2026.05.24 14:30" />
-              <ApprovalCard name="이지은" id="lee_books" email="jieun.lee@yuhan.ac.kr" date="2026.05.24 11:15" />
-              <ApprovalCard name="박성호" id="park_seller" email="sh.park@gmail.com" date="2026.05.23 18:40" />
+              {pendingUsers.length === 0 ? (
+                <div className="p-8 text-center text-gray-400 font-bold">승인 대기 중인 판매자가 없습니다.</div>
+              ) : (
+                pendingUsers.map(user => (
+                  <ApprovalCard 
+                    key={user.email} 
+                    name={user.nickname} 
+                    email={user.email} 
+                    date={user.createdAt} 
+                    onGrant={handleGrantRole}
+                  />
+                ))
+              )}
             </div>
             
             <button className="w-full mt-4 py-3 bg-gray-50 text-gray-600 text-sm font-bold rounded-xl hover:bg-gray-100 transition">
