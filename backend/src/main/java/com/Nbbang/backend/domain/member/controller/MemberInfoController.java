@@ -16,8 +16,11 @@ import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.security.spec.X509EncodedKeySpec;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -61,8 +64,15 @@ public class MemberInfoController {
             body.put("password", user.getPassword());
             body.put("role", user.getRole());
             body.put("createdAt", user.getCreatedAt().format(CREATED_AT_FORMAT));
-            deviceCertRepository.findByUserId(userId)
-                    .ifPresent(cert -> body.put("certificateSerialNumber", cert.getCertificateSerialNumber()));
+            deviceCertRepository.findByUserId(userId).ifPresent(cert -> {
+                body.put("certificateSerialNumber", cert.getCertificateSerialNumber());
+                if (cert.getCertificateIssuedAt() != null) {
+                    body.put("certificateIssuedAt", cert.getCertificateIssuedAt().toString());
+                }
+                if (cert.getCertificateExpiresAt() != null) {
+                    body.put("certificateExpiresAt", cert.getCertificateExpiresAt().toString());
+                }
+            });
 
             return ResponseEntity.ok(body);
         } catch (Exception e) {
@@ -136,16 +146,23 @@ public class MemberInfoController {
             X509Certificate certificate = caService.issueDeviceCertificate(devicePublicKey, deviceId);
             String serialNumber = certificate.getSerialNumber().toString();
 
+            LocalDateTime certIssuedAt = toLocalDateTime(certificate.getNotBefore());
+            LocalDateTime certExpiresAt = toLocalDateTime(certificate.getNotAfter());
+
             cert.setDeviceId(deviceId);
             cert.setPublicKey(publicKey);
             cert.setCertificateSerialNumber(serialNumber);
             cert.setRevoked(false);
+            cert.setCertificateIssuedAt(certIssuedAt);
+            cert.setCertificateExpiresAt(certExpiresAt);
             deviceCertRepository.save(cert);
 
             certificateSessionService.startSession(userId); // 10분 유효 타이머 재시작
 
             Map<String, Object> body = new HashMap<>();
             body.put("certificateSerialNumber", serialNumber);
+            body.put("certificateIssuedAt", certIssuedAt.toString());
+            body.put("certificateExpiresAt", certExpiresAt.toString());
             body.put("message", "인증서가 재발급되었습니다.");
             return ResponseEntity.ok(body);
         } catch (Exception e) {
@@ -176,6 +193,10 @@ public class MemberInfoController {
             error.put("error", e.getMessage());
             return ResponseEntity.internalServerError().body(error);
         }
+    }
+
+    private static LocalDateTime toLocalDateTime(Date date) {
+        return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
     }
 
     private String requireUserId(HttpServletRequest request) {

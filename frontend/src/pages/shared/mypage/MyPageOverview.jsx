@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { User, ShieldCheck, Store, Edit3, KeyRound, RefreshCw, Clock, Eye, EyeOff } from 'lucide-react';
+import { User, ShieldCheck, Store, Edit3, KeyRound, RefreshCw, Clock, Eye, EyeOff, Info, X, Building2, BadgeCheck, ShieldAlert } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCertificateTimer } from '../../../contexts/CertificateTimerContext';
 
@@ -16,6 +16,135 @@ const formatRemaining = (totalSeconds) => {
 // 실제 값 길이만큼 별표로 마스킹 (자릿수 노출도 최소화하고 싶으면 고정 길이로 바꿔도 됨)
 const maskSerial = (serial) => '•'.repeat(String(serial).length);
 
+const formatDateTime = (date) =>
+  date.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+const formatDate = (date) =>
+  date.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+// 서버가 내려준 LocalDateTime 문자열(오프셋 없음, 서버 로컬 시간 기준)을 그대로 로컬 시간으로 파싱
+const parseServerDateTime = (value) => (value ? new Date(value) : null);
+
+const formatDday = (expiresAt) => {
+  const diffDays = Math.ceil((expiresAt - new Date()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return '만료됨';
+  if (diffDays === 0) return 'D-Day';
+  return `D-${diffDays}`;
+};
+
+// [신규] "인증서 상세보기" 팝업: 발급 상태에 따라 상태 배지 색상을 결정
+const getCertStatus = (remainingSeconds) => {
+  if (remainingSeconds === null || remainingSeconds === undefined) {
+    return { label: '세션 정보 없음', className: 'bg-gray-100 text-gray-500' };
+  }
+  if (remainingSeconds <= 0) {
+    return { label: '만료됨', className: 'bg-red-100 text-red-700' };
+  }
+  if (remainingSeconds <= 60) {
+    return { label: '만료 임박', className: 'bg-red-100 text-red-700' };
+  }
+  return { label: '정상 사용 가능', className: 'bg-emerald-100 text-emerald-700' };
+};
+
+// [신규] CA 인증서 상세 정보 팝업
+const CertificateDetailModal = ({ info, remainingSeconds, showSerial, onToggleSerial, onClose }) => {
+  const status = getCertStatus(remainingSeconds);
+  const sessionExpiresAt = remainingSeconds !== null && remainingSeconds !== undefined
+    ? formatDateTime(new Date(Date.now() + remainingSeconds * 1000))
+    : null;
+
+  const certIssuedAt = parseServerDateTime(info?.certificateIssuedAt);
+  const certExpiresAt = parseServerDateTime(info?.certificateExpiresAt);
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-3xl shadow-xl border border-gray-200 w-full max-w-md p-6 flex flex-col gap-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+            <BadgeCheck size={20} className="text-purple-600" /> 인증서 정보 상세
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition" aria-label="닫기">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex flex-col divide-y divide-gray-100 border border-gray-100 rounded-2xl overflow-hidden">
+          {[
+            ['구분', '개인 (PKI 기기 인증서)'],
+            ['발급자 (Issuer)', 'N빵 자체인증기관 (Nbbang CA)'],
+            ['가입자 (Subject)', `${info?.nickname ?? '-'} (${info?.email ?? '-'})`],
+            ['용도', '로그인 인증, 전자서명 검증'],
+          ].map(([label, value]) => (
+            <div key={label} className="flex items-start justify-between gap-4 px-4 py-3">
+              <span className="text-xs font-bold text-gray-400 shrink-0 pt-0.5">{label}</span>
+              <span className="text-sm font-semibold text-gray-900 text-right">{value}</span>
+            </div>
+          ))}
+
+          <div className="flex items-start justify-between gap-4 px-4 py-3">
+            <span className="text-xs font-bold text-gray-400 shrink-0 pt-0.5">유효기간 (인증서)</span>
+            <span className="text-sm font-semibold text-gray-900 text-right">
+              {certIssuedAt && certExpiresAt ? (
+                <>
+                  {formatDate(certIssuedAt)} ~ {formatDate(certExpiresAt)}
+                  <span className="text-gray-500 font-bold"> ({formatDday(certExpiresAt)} 남음)</span>
+                </>
+              ) : '-'}
+            </span>
+          </div>
+
+          <div className="flex items-start justify-between gap-4 px-4 py-3">
+            <span className="text-xs font-bold text-gray-400 shrink-0 pt-0.5">로그인 세션</span>
+            <span className="text-sm font-semibold text-gray-900 text-right">
+              {sessionExpiresAt ? (
+                <>
+                  {sessionExpiresAt}까지
+                  <span className={remainingSeconds <= 60 ? 'text-red-600 font-bold' : 'text-amber-700 font-bold'}>
+                    {' '}({formatRemaining(remainingSeconds)} 남음)
+                  </span>
+                </>
+              ) : '-'}
+            </span>
+          </div>
+
+          <div className="flex items-start justify-between gap-4 px-4 py-3">
+            <span className="text-xs font-bold text-gray-400 shrink-0 pt-0.5">일련번호 (Serial)</span>
+            <span className="text-sm font-mono font-semibold text-gray-900 text-right break-all flex items-center gap-2 justify-end">
+              {info?.certificateSerialNumber
+                ? (showSerial ? info.certificateSerialNumber : maskSerial(info.certificateSerialNumber))
+                : '-'}
+              {info?.certificateSerialNumber && (
+                <button type="button" onClick={onToggleSerial} className="text-gray-400 hover:text-gray-600 transition" aria-label={showSerial ? '시리얼 번호 숨기기' : '시리얼 번호 표시'}>
+                  {showSerial ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              )}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 px-4 py-3">
+            <span className="text-xs font-bold text-gray-400 shrink-0">상태</span>
+            <span className={`text-xs font-black px-2.5 py-1 rounded-md flex items-center gap-1 ${status.className}`}>
+              {(remainingSeconds !== null && remainingSeconds !== undefined && remainingSeconds <= 60)
+                ? <ShieldAlert size={12} /> : <Building2 size={12} />}
+              {status.label}
+            </span>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-gray-400 flex items-center gap-1.5">
+          <Info size={12} /> 인증서 자체는 발급일로부터 1년간 유효하며, 보안을 위해 로그인 세션은 10분(기본)마다 별도로 만료됩니다.
+        </p>
+      </div>
+    </div>
+  );
+};
+
 const MyPageOverview = ({ userRole = 'BUYER' }) => {
   const navigate = useNavigate();
   const [info, setInfo] = useState(null);
@@ -23,6 +152,7 @@ const MyPageOverview = ({ userRole = 'BUYER' }) => {
   const [isReissuing, setIsReissuing] = useState(false);
   const [showSerial, setShowSerial] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showCertModal, setShowCertModal] = useState(false);
   // [신규] CA 인증서 옆에 남은 유효시간(mm:ss)을 보여주기 위한 전역 타이머 상태
   const { remainingSeconds, syncStatus } = useCertificateTimer();
 
@@ -94,6 +224,7 @@ const MyPageOverview = ({ userRole = 'BUYER' }) => {
   // [신규] 본인인증 재실행 없이, 로그인된 상태 그대로 새 키쌍을 만들어 인증서를 즉시 재발급
   const handleReissue = async () => {
     if (!info?.email) return;
+    if (!window.confirm('인증서를 재발급하시겠습니까? 기존 인증서는 폐기되고 로그인 세션이 새로 시작됩니다.')) return;
 
     setIsReissuing(true);
     try {
@@ -229,15 +360,34 @@ const MyPageOverview = ({ userRole = 'BUYER' }) => {
               </span>
             )}
           </div>
-          <button
-            onClick={handleReissue}
-            disabled={isReissuing}
-            className="px-4 py-2 bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold rounded-xl hover:bg-purple-100 transition flex items-center gap-1.5 disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={isReissuing ? 'animate-spin' : ''} /> {isReissuing ? '재발급 중...' : '인증서 재발급'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCertModal(true)}
+              disabled={!info?.certificateSerialNumber}
+              className="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-xs font-bold rounded-xl hover:bg-gray-50 transition flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Info size={14} /> 상세보기
+            </button>
+            <button
+              onClick={handleReissue}
+              disabled={isReissuing}
+              className="px-4 py-2 bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold rounded-xl hover:bg-purple-100 transition flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={isReissuing ? 'animate-spin' : ''} /> {isReissuing ? '재발급 중...' : '인증서 재발급'}
+            </button>
+          </div>
         </div>
       </div>
+
+      {showCertModal && (
+        <CertificateDetailModal
+          info={info}
+          remainingSeconds={remainingSeconds}
+          showSerial={showSerial}
+          onToggleSerial={() => setShowSerial((prev) => !prev)}
+          onClose={() => setShowCertModal(false)}
+        />
+      )}
 
       {/* 회원 탈퇴 */}
       <div className="flex justify-end px-2 pt-4 border-t border-gray-100">

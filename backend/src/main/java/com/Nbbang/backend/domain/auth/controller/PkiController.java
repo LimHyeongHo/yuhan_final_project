@@ -18,6 +18,9 @@ import java.math.BigInteger;
 import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -233,6 +236,8 @@ public class PkiController {
             cert.setCertificateSerialNumber(serialNumber);
             cert.setPassword(password);
             cert.setRevoked(false);
+            cert.setCertificateIssuedAt(toLocalDateTime(certificate.getNotBefore()));
+            cert.setCertificateExpiresAt(toLocalDateTime(certificate.getNotAfter()));
             deviceCertRepository.saveAndFlush(cert);
 
             System.out.println("Successfully updated policy in DB: " + email + " (Active Device: " + deviceId + ")");
@@ -389,5 +394,9 @@ public class PkiController {
             error.put("error", e.getMessage());
             return ResponseEntity.internalServerError().body(error);
         }
+    }
+
+    private static LocalDateTime toLocalDateTime(Date date) {
+        return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
     }
 }
