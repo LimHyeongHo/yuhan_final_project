@@ -169,7 +169,7 @@ public class AdminService {
 
     @Transactional
     public void makeAdminTemp(String email) {
-        userAccountRepository.findByEmail(email).ifPresent(user -> {
+        userAccountRepository.findById(email).ifPresent(user -> {
             user.setRole("ROLE_ADMIN");
         });
     }
