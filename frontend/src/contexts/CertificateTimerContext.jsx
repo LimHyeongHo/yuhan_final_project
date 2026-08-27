@@ -47,12 +47,17 @@ export const CertificateTimerProvider = ({ children }) => {
       });
 
       if (res.status === 401) {
-        // 서버(CertificateExpirationFilter)가 이미 만료로 판단해 요청을 막은 경우
+        const errorData = await res.json().catch(() => null);
+        if (errorData?.code === 'AUTH_SESSION_EXPIRED') {
+          // 인증서 세션 자체가 없는 계정(예: 관리자 로그인 화면의 테스트 계정)은 조용히 무시
+          setRemainingSeconds(null);
+          return;
+        }
+        // 그 외 401(CertificateExpirationFilter가 진짜 만료로 판단해 막은 경우)만 강제 로그아웃
         await forceExpireLogout();
         return;
       }
       if (!res.ok) {
-        // 인증서 세션 자체가 없는 계정(예: 관리자 로그인)은 조용히 무시
         return;
       }
 

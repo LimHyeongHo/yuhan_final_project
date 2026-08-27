@@ -58,11 +58,4 @@ public class AdminController {
     public ResponseEntity<List<Map<String, Object>>> getSellersStatsList() {
         return ResponseEntity.ok(adminService.getSellersStatsList());
     }
-
-    // [테스트용 임시] 어드민 권한 부여
-    @GetMapping("/make-admin/{email}")
-    public ResponseEntity<String> makeAdminTemp(@PathVariable String email) {
-        adminService.makeAdminTemp(email);
-        return ResponseEntity.ok(email + " is now ADMIN");
-    }
 }
