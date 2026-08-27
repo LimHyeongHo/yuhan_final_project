@@ -33,9 +33,6 @@ public class DeviceCert {
     @Column
     private boolean revoked = false;
 
-    @Column
-    private String password;
-
     // CAService가 발급하는 X.509 기기 인증서의 실제 유효기간(발급 시점 ~ +1년)
     @Column(name = "certificate_issued_at")
     private LocalDateTime certificateIssuedAt;

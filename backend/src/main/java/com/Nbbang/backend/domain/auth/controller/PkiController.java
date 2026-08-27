@@ -9,6 +9,7 @@ import com.Nbbang.backend.domain.auth.service.PkiService;
 import com.Nbbang.backend.domain.member.service.CertificateSessionService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,6 +35,7 @@ public class PkiController {
     private final DeviceCertRepository deviceCertRepository;
     private final CAService caService;
     private final CertificateSessionService certificateSessionService;
+    private final PasswordEncoder passwordEncoder;
 
     @Value("${portone.api-secret}")
     private String portoneApiSecret;
@@ -46,12 +48,14 @@ public class PkiController {
                          UserAccountRepository userAccountRepository,
                          DeviceCertRepository deviceCertRepository,
                          CAService caService,
-                         CertificateSessionService certificateSessionService) {
+                         CertificateSessionService certificateSessionService,
+                         PasswordEncoder passwordEncoder) {
         this.pkiService = pkiService;
         this.userAccountRepository = userAccountRepository;
         this.deviceCertRepository = deviceCertRepository;
         this.caService = caService;
         this.certificateSessionService = certificateSessionService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     /**
@@ -184,7 +188,7 @@ public class PkiController {
                 }
                 userAccount = new UserAccount();
                 userAccount.setEmail(email);
-                userAccount.setPassword(password);
+                userAccount.setPassword(passwordEncoder.encode(password));
                 userAccount.setNickname(nickname);
                 if (request.get("role") != null && !request.get("role").trim().isEmpty()) {
                     userAccount.setRole(role);
@@ -197,7 +201,7 @@ public class PkiController {
                 // 재발급/기기 재등록: 닉네임 없이 기존 계정에 대한 요청.
                 // 기존 비밀번호와 일치하는지 반드시 확인해야 함 - 확인 없이 통과시키면
                 // 이메일만 알아도 아무 비밀번호로 계정을 탈취할 수 있는 심각한 취약점이 됨.
-                if (password == null || !userAccount.getPassword().equals(password)) {
+                if (password == null || !passwordEncoder.matches(password, userAccount.getPassword())) {
                     throw new RuntimeException("비밀번호가 일치하지 않습니다.");
                 }
                 // 검증 용도로만 사용하고, 재발급 과정에서 비밀번호 자체는 변경하지 않음.
@@ -234,7 +238,6 @@ public class PkiController {
             cert.setPublicKey(publicKey);
             cert.setCiHash(ciHash);
             cert.setCertificateSerialNumber(serialNumber);
-            cert.setPassword(password);
             cert.setRevoked(false);
             cert.setCertificateIssuedAt(toLocalDateTime(certificate.getNotBefore()));
             cert.setCertificateExpiresAt(toLocalDateTime(certificate.getNotAfter()));
@@ -271,7 +274,7 @@ public class PkiController {
                 throw new RuntimeException("테스트 전용 계정만 이 방식으로 로그인할 수 있습니다.");
             }
 
-            if (!user.getPassword().equals(password)) {
+            if (!passwordEncoder.matches(password, user.getPassword())) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
                 response.put("message", "비밀번호가 일치하지 않습니다.");
@@ -323,7 +326,7 @@ public class PkiController {
             UserAccount user = userAccountRepository.findById(cert.getUserId())
                     .orElseThrow(() -> new RuntimeException("등록되지 않은 사용자입니다."));
 
-            if (!user.getPassword().equals(password)) {
+            if (!passwordEncoder.matches(password, user.getPassword())) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
                 response.put("message", "비밀번호가 일치하지 않습니다.");

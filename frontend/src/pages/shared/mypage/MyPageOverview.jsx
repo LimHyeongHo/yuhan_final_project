@@ -151,7 +151,6 @@ const MyPageOverview = ({ userRole = 'BUYER' }) => {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [isReissuing, setIsReissuing] = useState(false);
   const [showSerial, setShowSerial] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [showCertModal, setShowCertModal] = useState(false);
   // [신규] CA 인증서 옆에 남은 유효시간(mm:ss)을 보여주기 위한 전역 타이머 상태
   const { remainingSeconds, syncStatus } = useCertificateTimer();
@@ -317,16 +316,8 @@ const MyPageOverview = ({ userRole = 'BUYER' }) => {
         <div className="flex flex-col gap-1.5"><span className="text-xs font-bold text-gray-400 uppercase tracking-wider">비밀번호</span>
           <div className="flex items-center gap-3">
             <p className="text-lg tracking-[0.2em] font-black text-gray-700 mt-1">
-              {showPassword ? (info?.password ?? '-') : '********'}
+              ********
             </p>
-            <button
-              type="button"
-              onClick={() => setShowPassword((prev) => !prev)}
-              className="text-gray-400 hover:text-gray-600 transition"
-              aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
-            >
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
             <button onClick={() => navigate('../settings')} className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 transition">변경</button>
           </div>
         </div>

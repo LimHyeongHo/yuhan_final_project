@@ -9,6 +9,7 @@ import com.Nbbang.backend.domain.member.service.CertificateSessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -39,15 +40,18 @@ public class MemberInfoController {
     private final DeviceCertRepository deviceCertRepository;
     private final CertificateSessionService certificateSessionService;
     private final CAService caService;
+    private final PasswordEncoder passwordEncoder;
 
     public MemberInfoController(UserAccountRepository userAccountRepository,
                                  DeviceCertRepository deviceCertRepository,
                                  CertificateSessionService certificateSessionService,
-                                 CAService caService) {
+                                 CAService caService,
+                                 PasswordEncoder passwordEncoder) {
         this.userAccountRepository = userAccountRepository;
         this.deviceCertRepository = deviceCertRepository;
         this.certificateSessionService = certificateSessionService;
         this.caService = caService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     // 마이페이지 "회원 정보 개요"에 표시할 실제 계정 정보 + CA 인증서 시리얼 번호 조회
@@ -61,7 +65,6 @@ public class MemberInfoController {
             Map<String, Object> body = new HashMap<>();
             body.put("email", user.getEmail());
             body.put("nickname", user.getNickname());
-            body.put("password", user.getPassword());
             body.put("role", user.getRole());
             body.put("createdAt", user.getCreatedAt().format(CREATED_AT_FORMAT));
             deviceCertRepository.findByUserId(userId).ifPresent(cert -> {
@@ -101,14 +104,7 @@ public class MemberInfoController {
                 if (newPassword.length() < 8 || !PASSWORD_COMPOSITION_REGEX.matcher(newPassword).matches()) {
                     throw new RuntimeException("비밀번호는 8자 이상, 영문/숫자/특수문자를 모두 포함해야 합니다.");
                 }
-                user.setPassword(newPassword);
-                // user_account뿐 아니라 pki_table(DeviceCert)에도 같은 비밀번호가 중복 저장되어 있어서
-                // 여기서 같이 갱신하지 않으면 두 테이블 값이 어긋남.
-                deviceCertRepository.findByUserId(userId)
-                        .ifPresent(cert -> {
-                            cert.setPassword(newPassword);
-                            deviceCertRepository.save(cert);
-                        });
+                user.setPassword(passwordEncoder.encode(newPassword));
             }
 
             userAccountRepository.save(user);
