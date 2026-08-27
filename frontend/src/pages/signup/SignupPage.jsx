@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Header from '../../components/layout/Header';
 import { validatePassword, validatePasswordConfirm } from '../../utils/passwordValidation';
@@ -58,6 +58,10 @@ const SignupPage = () => {
   const [regCi, setRegCi] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({ name: '', email: '', department: '', password: '', passwordConfirm: '' });
+  // 이메일 실시간 중복확인 상태: idle | checking | available | duplicate
+  const [emailCheckStatus, setEmailCheckStatus] = useState('idle');
+  const emailCheckTimerRef = useRef(null);
+  const latestEmailRef = useRef('');
 
   const getDeviceId = () => {
     let deviceId = localStorage.getItem('pki_device_id');
@@ -115,22 +119,51 @@ const SignupPage = () => {
     setErrors((prev) => ({ ...prev, name: validateName(e.target.value) }));
   };
 
+  // 디바운스 이후 실제로 실행되는 중복확인 (change/blur 공용)
+  const runEmailDuplicateCheck = async (value) => {
+    setEmailCheckStatus('checking');
+    const duplicateError = await checkEmailAvailability(value.trim());
+    // 확인하는 사이 사용자가 이메일을 더 수정했으면, 이 응답은 최신 상태가 아니므로 버림
+    if (latestEmailRef.current !== value) return;
+    if (duplicateError) {
+      setErrors((prev) => ({ ...prev, email: duplicateError }));
+      setEmailCheckStatus('duplicate');
+    } else {
+      setErrors((prev) => ({ ...prev, email: '' }));
+      setEmailCheckStatus('available');
+    }
+  };
+
   const handleEmailChange = (e) => {
     const value = e.target.value;
     setEmail(value);
-    if (errors.email) {
-      setErrors((prev) => ({ ...prev, email: validateEmail(value) }));
+    latestEmailRef.current = value;
+
+    if (emailCheckTimerRef.current) clearTimeout(emailCheckTimerRef.current);
+
+    const formatError = validateEmail(value);
+    if (formatError) {
+      setErrors((prev) => ({ ...prev, email: formatError }));
+      setEmailCheckStatus('idle');
+      return;
     }
+
+    setErrors((prev) => ({ ...prev, email: '' }));
+    emailCheckTimerRef.current = setTimeout(() => {
+      runEmailDuplicateCheck(value);
+    }, 500);
   };
+
   const handleEmailBlur = async (e) => {
     const value = e.target.value;
     const formatError = validateEmail(value);
     if (formatError) {
       setErrors((prev) => ({ ...prev, email: formatError }));
+      setEmailCheckStatus('idle');
       return;
     }
-    const duplicateError = await checkEmailAvailability(value.trim());
-    setErrors((prev) => ({ ...prev, email: duplicateError }));
+    if (emailCheckTimerRef.current) clearTimeout(emailCheckTimerRef.current);
+    await runEmailDuplicateCheck(value);
   };
 
   const handleDepartmentChange = (e) => {
@@ -319,9 +352,15 @@ const SignupPage = () => {
                 onBlur={handleEmailBlur}
                 placeholder="name@example.com"
                 disabled={isVerified}
-                className={`w-full p-3.5 rounded-xl border ${errors.email ? 'border-red-400' : 'border-gray-200'} bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base`}
+                className={`w-full p-3.5 rounded-xl border ${errors.email ? 'border-red-400' : emailCheckStatus === 'available' ? 'border-green-400' : 'border-gray-200'} bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base`}
               />
-              {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
+              {errors.email ? (
+                <p className="text-sm text-red-500">{errors.email}</p>
+              ) : emailCheckStatus === 'checking' ? (
+                <p className="text-sm text-gray-400">이메일 확인 중...</p>
+              ) : emailCheckStatus === 'available' ? (
+                <p className="text-sm text-green-600">사용 가능한 이메일입니다.</p>
+              ) : null}
             </div>
 
             <div className="flex flex-col gap-1.5">
