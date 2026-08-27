@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <!-- [+] XSS 방지 및 결제 모듈 연동을 위한 CSP(Content Security Policy) 메타 태그 추가 -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' http://localhost:8080 ws://localhost:3000 https://checkout-service.prod.iamport.co https://*.tosspayments.com; img-src 'self' data: blob: https://image.aladin.co.kr https://*.pstatic.net; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.portone.io https://js.tosspayments.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-src 'self' https://*.tosspayments.com https://*.portone.io;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' http://localhost:8080 ws://localhost:8080 ws://localhost:3000 https://checkout-service.prod.iamport.co https://*.tosspayments.com; img-src 'self' data: blob: http://localhost:8080 https://image.aladin.co.kr https://*.pstatic.net; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.portone.io https://js.tosspayments.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-src 'self' https://*.tosspayments.com https://*.portone.io;" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
