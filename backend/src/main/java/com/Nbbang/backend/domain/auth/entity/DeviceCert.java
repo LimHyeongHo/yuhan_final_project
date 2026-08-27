@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "pki_table")
 @Getter
@@ -31,6 +33,10 @@ public class DeviceCert {
     @Column
     private boolean revoked = false;
 
-    @Column
-    private String password; 
+    // CAService가 발급하는 X.509 기기 인증서의 실제 유효기간(발급 시점 ~ +1년)
+    @Column(name = "certificate_issued_at")
+    private LocalDateTime certificateIssuedAt;
+
+    @Column(name = "certificate_expires_at")
+    private LocalDateTime certificateExpiresAt;
 }
