@@ -9,9 +9,9 @@ const SecurityLogPage = () => {
   const [logs, setLogs] = useState([]);
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/admin/logs?type=SECURITY')
+    fetch('http://localhost:8080/api/admin/logs?type=SECURITY', { credentials: 'include' })
       .then(res => res.json())
-      .then(data => setLogs(data))
+      .then(data => setLogs(Array.isArray(data) ? data : []))
       .catch(error => console.error("보안 로그를 가져오는데 실패했습니다:", error));
   }, []);
 

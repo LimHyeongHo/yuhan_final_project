@@ -166,11 +166,4 @@ public class AdminService {
             })
             .collect(Collectors.toList());
     }
-
-    @Transactional
-    public void makeAdminTemp(String email) {
-        userAccountRepository.findById(email).ifPresent(user -> {
-            user.setRole("ROLE_ADMIN");
-        });
-    }
 }

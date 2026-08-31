@@ -1,6 +1,8 @@
 package com.Nbbang.backend.global.config;
 
+import com.Nbbang.backend.domain.admin.interceptor.AdminAuthInterceptor;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -15,5 +17,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
         String uploadPath = Paths.get(System.getProperty("user.dir"), "uploads").toUri().toString();
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations(uploadPath);
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(new AdminAuthInterceptor())
+                .addPathPatterns("/api/admin/**");
     }
 }
