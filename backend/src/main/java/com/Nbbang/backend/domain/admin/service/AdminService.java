@@ -166,4 +166,44 @@ public class AdminService {
             })
             .collect(Collectors.toList());
     }
+
+    // 어드민용 전체 상품 리스트 조회
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getAllProductsForAdmin() {
+        return productRepository.findAll().stream()
+            .sorted(java.util.Comparator.comparing(Product::getCreatedAt).reversed())
+            .map(product -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", product.getProductId());
+                map.put("title", product.getTitle());
+                map.put("category", product.getCategory() != null ? product.getCategory() : "기타");
+                map.put("price", product.getPrice());
+                map.put("targetCount", product.getTargetCount());
+                map.put("currentCount", product.getCurrentCount());
+                map.put("status", product.getStatus());
+                map.put("seller", product.getSellerEmail() != null ? product.getSellerEmail() : "알 수 없음");
+                map.put("date", product.getCreatedAt().toLocalDate().toString());
+                
+                int ratio = 0;
+                if (product.getTargetCount() != null && product.getTargetCount() > 0) {
+                    ratio = (int) (((double) product.getCurrentCount() / product.getTargetCount()) * 100);
+                }
+                map.put("ratio", ratio);
+                
+                // 프론트의 suspicious(이상 거래 의심) 모의 로직
+                boolean isSuspicious = product.getPrice() != null && product.getPrice().intValue() > 500000;
+                map.put("suspicious", isSuspicious);
+                
+                return map;
+            })
+            .collect(Collectors.toList());
+    }
+
+    // 어드민 전용 상품 강제 삭제
+    @Transactional
+    public void deleteProductByAdmin(Long productId) {
+        Product product = productRepository.findById(productId)
+            .orElseThrow(() -> new CustomException(ErrorCode.VALIDATION_FAILED));
+        productRepository.delete(product);
+    }
 }

@@ -1,18 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BookOpen, Layers, AlertTriangle, CheckCircle, Clock, Filter, Trash2, ShieldAlert, History, Info } from 'lucide-react';
 import Header from '../../../components/layout/Header'; // 공통 헤더 연결
 
-// 가상 공동구매 등록 서적 데이터 원장
-const mockProducts = [
-  { id: '21674', status: '승인 대기', title: '사피엔스: 유인원에서 사이보그까지 (특별 한정판)', seller: 'YUAN_ONLINE', price: 42000, ratio: 95, suspicious: false },
-  { id: '21673', status: '가짜 의심', title: '레어 에디션: 세계 명화 도록 (인쇄 무결성 경고)', seller: 'FH_ONLINE', price: 89000, ratio: 75, suspicious: true },
-  { id: '21672', status: '정상 거래', title: '세계 문학 전집: 러시아 문학 컬렉션', seller: 'YUAN_ONLINE', price: 56000, ratio: 100, suspicious: false },
-  { id: '21671', status: '승인 대기', title: '창의력 쑥쑥 어린이 도서 전집 20종', seller: 'JIN_ONLINE', price: 159000, ratio: 45, suspicious: false },
-];
-
 const GroupManagementPage = () => {
-  const [products] = useState(mockProducts);
+  const navigate = useNavigate();
+  const [products, setProducts] = useState([]);
   const [activeTab, setActiveTab] = useState('전체 거래');
+  const [showOnlyOpen, setShowOnlyOpen] = useState(false);
+
+  const filteredProducts = products.filter(item => {
+    if (showOnlyOpen && item.status !== 'OPEN') return false;
+    
+    if (activeTab === '승인 대기' && item.status !== '승인 대기') return false;
+    
+    // 신고를 받아 이상 상태인 경우 (suspicious = true)
+    if (activeTab === '신고/이상 상태') {
+      if (!item.suspicious) return false;
+    }
+    
+    // 인원이 부족해서 실패한 경우 (CLOSED_FAIL 이면서 suspicious가 아님)
+    if (activeTab === '모집 실패') {
+      if (item.status !== 'CLOSED_FAIL' || item.suspicious) return false;
+    }
+    
+    return true;
+  });
+
+  const fetchProducts = () => {
+    fetch('http://localhost:8080/api/admin/products', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => setProducts(data))
+      .catch(err => console.error("상품 데이터 로드 실패:", err));
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const handleDelete = (id) => {
+    if (!window.confirm(`ID #${id} 상품을 정말 거절(강제 삭제)하시겠습니까?`)) return;
+    fetch(`http://localhost:8080/api/admin/products/${id}`, { 
+      method: 'DELETE', 
+      credentials: 'include' 
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('상품 삭제 실패');
+        alert('상품이 성공적으로 삭제되었습니다.');
+        fetchProducts();
+      })
+      .catch(err => {
+        console.error(err);
+        alert(err.message);
+      });
+  };
+
+  const totalProducts = products.length;
+  const activeProducts = products.filter(p => p.status === 'OPEN').length;
+  const suspiciousProducts = products.filter(p => p.suspicious).length;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
@@ -44,7 +89,7 @@ const GroupManagementPage = () => {
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">전체 공동구매 목록</span>
-              <h3 className="text-3xl font-black text-gray-950 mt-1">1,284 건</h3>
+              <h3 className="text-3xl font-black text-gray-950 mt-1">{totalProducts} 건</h3>
               <span className="text-blue-600 text-xs font-bold mt-1 flex items-center gap-1">
                 <Layers size={14} /> LIVE PROJECTS
               </span>
@@ -58,7 +103,7 @@ const GroupManagementPage = () => {
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">현재 체결 진행 건수</span>
-              <h3 className="text-3xl font-black text-gray-950 mt-1">842 건</h3>
+              <h3 className="text-3xl font-black text-gray-950 mt-1">{activeProducts} 건</h3>
               <span className="text-emerald-600 text-xs font-bold mt-1 flex items-center gap-1">
                 <Clock size={14} /> ACTIVE TRADING
               </span>
@@ -72,7 +117,7 @@ const GroupManagementPage = () => {
           <div className="bg-white rounded-[24px] p-6 border-2 border-red-100 shadow-sm bg-red-50/10 flex justify-between items-center">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-red-400 uppercase tracking-wider">위변조 및 허위 의심</span>
-              <h3 className="text-3xl font-black text-red-600 mt-1">12 건</h3>
+              <h3 className="text-3xl font-black text-red-600 mt-1">{suspiciousProducts} 건</h3>
               <span className="text-red-500 text-xs font-extrabold mt-1 uppercase tracking-tight flex items-center gap-1 animate-pulse">
                 <AlertTriangle size={14} /> HIGH RISK DETECTED
               </span>
@@ -92,7 +137,7 @@ const GroupManagementPage = () => {
             {/* 필터 세션 탭 라인 */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border border-gray-200 shadow-sm mb-2">
               <div className="flex gap-2 bg-gray-100 p-1 rounded-xl">
-                {['전체 거래', '승인 대기', '신고/이상 상태'].map((tab) => (
+                {['전체 거래', '승인 대기', '신고/이상 상태', '모집 실패'].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -106,14 +151,19 @@ const GroupManagementPage = () => {
                   </button>
                 ))}
               </div>
-              <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl text-xs font-bold text-gray-600 bg-white hover:bg-gray-50 transition">
-                <Filter size={14} /> 필터 상세 설정
+              <button 
+                onClick={() => setShowOnlyOpen(!showOnlyOpen)}
+                className={`flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl text-xs font-bold transition ${
+                  showOnlyOpen ? 'bg-blue-50 text-blue-600' : 'text-gray-600 bg-white hover:bg-gray-50'
+                }`}
+              >
+                <Filter size={14} /> 진행중인 상품
               </button>
             </div>
 
             {/* 메인 도서 등록 리스트 피드 */}
             <div className="flex flex-col gap-4">
-              {products.map((item) => (
+              {filteredProducts.map((item) => (
                 <div 
                   key={item.id} 
                   className={`bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-6 transition-all hover:shadow-md ${
@@ -130,7 +180,9 @@ const GroupManagementPage = () => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-[10px] font-mono font-bold text-gray-400">ID: #{item.id}</span>
                       <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-md uppercase ${
-                        item.status === '정상 거래' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-blue-50 text-blue-700 border border-blue-100'
+                        item.status === 'CLOSED_FAIL' ? 'bg-red-50 text-red-700 border border-red-100' :
+                        item.status === 'CLOSED_SUCCESS' ? 'bg-green-50 text-green-700 border border-green-100' : 
+                        'bg-blue-50 text-blue-700 border border-blue-100'
                       }`}>
                         {item.status}
                       </span>
@@ -140,7 +192,7 @@ const GroupManagementPage = () => {
                         </span>
                       )}
                     </div>
-                    <h4 className="text-base font-extrabold text-gray-950 mt-1 tracking-tight">{item.title}</h4>
+                    <h4 className="text-base font-extrabold text-gray-950 mt-1 tracking-tight">{item.title.split('-')[0].trim()}</h4>
                     <p className="text-xs text-gray-500 font-mono mt-0.5">
                       SELLER: <span className="font-semibold text-gray-700">{item.seller}</span> | PRICE: <span className="font-semibold text-gray-900">₩{item.price.toLocaleString()}</span>
                     </p>
@@ -160,11 +212,10 @@ const GroupManagementPage = () => {
                   {/* 액션 제어 버튼 패널 영역 */}
                   <div className="flex sm:flex-col items-end gap-3 justify-between w-full sm:w-auto self-stretch pt-4 sm:pt-0 border-t sm:border-t-0 border-gray-100">
                     <div className="flex items-center gap-2">
-                      <button className="p-2 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100 transition" title="히스토리"><History size={16} /></button>
-                      <button className="p-2 text-gray-400 hover:text-red-500 bg-gray-50 rounded-lg hover:bg-gray-100 transition" title="이상 감지"><Info size={16} /></button>
+                      <button onClick={() => navigate(`/buyer/products/${item.id}`)} className="p-2 text-gray-400 hover:text-blue-500 bg-gray-50 rounded-lg hover:bg-gray-100 transition" title="상품 상세페이지 이동"><Info size={16} /></button>
                     </div>
                     <div className="flex gap-2">
-                      <button className="p-2 px-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl hover:bg-red-100 transition flex items-center gap-1">
+                      <button onClick={() => handleDelete(item.id)} className="p-2 px-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl hover:bg-red-100 transition flex items-center gap-1">
                         <Trash2 size={14} /> 거절
                       </button>
                       <button className="p-2 px-3 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 shadow-md shadow-blue-100 transition">

@@ -58,4 +58,17 @@ public class AdminController {
     public ResponseEntity<List<Map<String, Object>>> getSellersStatsList() {
         return ResponseEntity.ok(adminService.getSellersStatsList());
     }
+
+    // [신규] 어드민용 전체 상품 리스트 조회
+    @GetMapping("/products")
+    public ResponseEntity<List<Map<String, Object>>> getAllProductsForAdmin() {
+        return ResponseEntity.ok(adminService.getAllProductsForAdmin());
+    }
+
+    // [신규] 어드민 전용 상품 삭제
+    @DeleteMapping("/products/{id}")
+    public ResponseEntity<String> deleteProductByAdmin(@PathVariable Long id) {
+        adminService.deleteProductByAdmin(id);
+        return ResponseEntity.ok("상품이 삭제되었습니다.");
+    }
 }
