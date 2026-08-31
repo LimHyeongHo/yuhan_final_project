@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Search, SlidersHorizontal, BookOpen, Users, ChevronDown, Filter, Clock, Image as ImageIcon, LayoutGrid, List } from 'lucide-react';
 import Header from '../../../components/layout/Header';
 
+
 const BuyerProductsPage = () => {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -260,7 +261,16 @@ const BuyerProductsPage = () => {
                     <h4 className={`font-extrabold text-gray-900 group-hover:text-blue-600 transition leading-snug ${
                       viewMode === 'GRID' ? 'text-base line-clamp-2' : 'text-lg line-clamp-1'
                     }`}>
-                      {item.title}
+                      {item.title.includes('-') ? (
+                        <>
+                          <span>{item.title.split('-')[0].trim()}</span>
+                          <span className="text-[12px] text-gray-500 font-bold ml-1">
+                            - {item.title.substring(item.title.indexOf('-') + 1).trim()}
+                          </span>
+                        </>
+                      ) : (
+                        item.title
+                      )}
                     </h4>
                     <span className="text-xs text-gray-400 font-semibold">{item.author}</span>
                   </div>

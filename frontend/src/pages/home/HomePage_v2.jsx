@@ -18,8 +18,15 @@ const HomePage = () => {
         }
         const data = await response.json();
 
+        // [신규] 마감된 게시글(기간이 지났거나 상태가 OPEN이 아닌 경우) 제외 필터링
+        const activeData = data.filter(item => {
+          const deadlineDate = new Date(item.deadline);
+          const now = new Date();
+          return item.status === 'OPEN' && (deadlineDate - now) >= 0;
+        });
+
         // 데이터 매핑
-        const mappedData = data.map(item => {
+        const mappedData = activeData.map(item => {
           // 진행률 계산
           const target = item.targetCount || 1; // 0으로 나누기 방지
           const progress = Math.min((item.currentCount / target) * 100, 100);
@@ -123,7 +130,18 @@ const HomePage = () => {
                   </div>
                   <div className="p-5 flex flex-col gap-4 flex-grow">
                     <div className="flex flex-col gap-1">
-                      <h4 className="text-base font-extrabold text-gray-900 group-hover:text-blue-600 transition line-clamp-2 leading-snug">{item.title}</h4>
+                      <h4 className="text-base font-extrabold text-gray-900 group-hover:text-blue-600 transition line-clamp-2 leading-snug">
+                        {item.title.includes('-') ? (
+                          <>
+                            <span>{item.title.split('-')[0].trim()}</span>
+                            <span className="text-[12px] text-gray-500 font-semibold block mt-0.5">
+                              - {item.title.substring(item.title.indexOf('-') + 1).trim()}
+                            </span>
+                          </>
+                        ) : (
+                          item.title
+                        )}
+                      </h4>
                       <span className="text-xs text-gray-400 font-semibold">{item.author}</span>
                     </div>
                     <div className="flex flex-col gap-2 mt-auto pt-4 border-t border-gray-50">
@@ -175,7 +193,18 @@ const HomePage = () => {
                   </div>
                   <div className="p-5 flex flex-col gap-4 flex-grow">
                     <div className="flex flex-col gap-1">
-                      <h4 className="text-base font-extrabold text-gray-900 group-hover:text-blue-600 transition line-clamp-2 leading-snug">{item.title}</h4>
+                      <h4 className="text-base font-extrabold text-gray-900 group-hover:text-blue-600 transition line-clamp-2 leading-snug">
+                        {item.title.includes('-') ? (
+                          <>
+                            <span>{item.title.split('-')[0].trim()}</span>
+                            <span className="text-[12px] text-gray-500 font-semibold block mt-0.5">
+                              - {item.title.substring(item.title.indexOf('-') + 1).trim()}
+                            </span>
+                          </>
+                        ) : (
+                          item.title
+                        )}
+                      </h4>
                       <span className="text-xs text-gray-400 font-semibold">{item.author}</span>
                     </div>
                     <div className="flex flex-col gap-2 mt-auto pt-4 border-t border-gray-50">
