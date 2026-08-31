@@ -106,7 +106,13 @@ public enum ErrorCode {
     MYPAGE_SETTLEMENT_LOAD_FAILED(500, "정산 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
     MYPAGE_SETTLEMENT_NO_ACCOUNT(400, "출금을 위한 정산 계좌가 등록되어 있지 않습니다"),
     MYPAGE_SETTLEMENT_WITHDRAW_FAILED(500, "출금 신청에 실패했습니다. 잠시 후 다시 시도해주세요"),
-    MYPAGE_SETTLEMENT_ACCOUNT_UPDATE_FAILED(500, "계좌 변경에 실패했습니다. 잠시 후 다시 시도해주세요");
+    MYPAGE_SETTLEMENT_ACCOUNT_UPDATE_FAILED(500, "계좌 변경에 실패했습니다. 잠시 후 다시 시도해주세요"),
+
+    // ========== 거래 후기 (REVIEW) ==========
+    REVIEW_NOT_ELIGIBLE(403, "정상 종료되고 결제 완료된 공동구매만 후기를 작성할 수 있습니다"),
+    REVIEW_ALREADY_WRITTEN(409, "이미 이 공동구매에 후기를 작성했습니다"),
+    REVIEW_NOT_OWNER(403, "본인이 작성한 후기만 수정하거나 삭제할 수 있습니다"),
+    REVIEW_NOT_FOUND(404, "존재하지 않는 후기입니다");
 
     private final int status;
     private final String message;
