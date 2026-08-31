@@ -6,7 +6,23 @@ import Header from '../../../components/layout/Header'; // 공통 헤더
 const SellerDashboardPage = () => {
   const [listings, setListings] = useState([]);
   const [participations, setParticipations] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [selectedNotification, setSelectedNotification] = useState(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+  const deleteNotification = (id) => {
+    if (!window.confirm('이 알림을 삭제하시겠습니까?')) return;
+    fetch(`http://localhost:8080/api/seller/notifications/${id}`, { 
+      method: 'DELETE', 
+      credentials: 'include' 
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('알림 삭제 실패');
+        setNotifications(prev => prev.filter(n => n.id !== id));
+        setSelectedNotification(null); // 모달 닫기
+      })
+      .catch(err => alert(err.message));
+  };
 
   // [수정] 하드코딩된 "+₩77,000 이번 주" → 최근 7일 이내 참여 건의 실제 가격 합산
   const weeklyRevenue = participations.reduce((sum, part) => {
@@ -63,6 +79,17 @@ const SellerDashboardPage = () => {
       })
       .then(data => {
         setParticipations(data);
+      })
+      .catch(err => console.error(err));
+
+    // 3. 시스템 알림(거절 사유 등) 불러오기
+    fetch('http://localhost:8080/api/seller/notifications', { credentials: 'include' })
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch notifications');
+        return res.json();
+      })
+      .then(data => {
+        setNotifications(data);
       })
       .catch(err => console.error(err));
   }, []);
@@ -210,11 +237,27 @@ const SellerDashboardPage = () => {
 
               <div className="flex flex-col gap-4">
 
+                {notifications.length > 0 && notifications.slice(0, 3).map((notif, index) => (
+                  <div 
+                    key={`notif-${notif.id || index}`} 
+                    className="flex items-start gap-3 p-3 bg-red-50/50 rounded-xl border border-red-100 cursor-pointer hover:bg-red-100 transition"
+                    onClick={() => setSelectedNotification(notif)}
+                  >
+                    <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 flex-shrink-0"></div>
+                    <div className="flex flex-col gap-1">
+                      <p className="text-sm font-bold text-red-700 leading-tight line-clamp-2">
+                        {notif.message}
+                      </p>
+                      <span className="text-xs text-red-400 font-medium"><Clock size={10} className="inline mr-1" />{notif.createdAt?.substring(0, 10)}</span>
+                    </div>
+                  </div>
+                ))}
+
                 {participations.length > 0 ? (
                   participations.slice(0, 3).map((part, index) => {
                     const timeDiffStr = "방금 전"; // 실제로는 part.joinDate 시간 계산 로직 필요
                     return (
-                      <div key={part.id || index} className="flex items-start gap-3">
+                      <div key={`part-${part.id || index}`} className="flex items-start gap-3">
                         <div className="w-2 h-2 rounded-full bg-orange-500 mt-1.5 flex-shrink-0"></div>
                         <div className="flex flex-col gap-0.5">
                           <p className="text-sm font-bold text-gray-800 leading-tight">
@@ -226,7 +269,7 @@ const SellerDashboardPage = () => {
                     );
                   })
                 ) : (
-                  <div className="text-sm text-gray-400 text-center py-4 font-bold">새로운 알림이 없습니다.</div>
+                  notifications.length === 0 && <div className="text-sm text-gray-400 text-center py-4 font-bold">새로운 알림이 없습니다.</div>
                 )}
 
               </div>
@@ -244,6 +287,39 @@ const SellerDashboardPage = () => {
 
         </section>
       </main>
+
+      {/* 알림 상세 모달 */}
+      {selectedNotification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-[24px] p-6 max-w-md w-full shadow-xl flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-red-600 border-b border-gray-100 pb-4">
+              <Bell size={20} />
+              <h3 className="text-lg font-bold">시스템 알림 상세</h3>
+            </div>
+            <div className="flex flex-col gap-2 py-4">
+              <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
+                {selectedNotification.message}
+              </p>
+              <span className="text-xs text-gray-400 mt-2">수신일: {selectedNotification.createdAt?.replace('T', ' ')}</span>
+            </div>
+            <div className="flex justify-end gap-2 mt-2 pt-4 border-t border-gray-100">
+              <button 
+                onClick={() => setSelectedNotification(null)}
+                className="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+              >
+                닫기
+              </button>
+              <button 
+                onClick={() => deleteNotification(selectedNotification.id)}
+                className="px-4 py-2 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-md shadow-red-200 transition flex items-center gap-1.5"
+              >
+                삭제하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

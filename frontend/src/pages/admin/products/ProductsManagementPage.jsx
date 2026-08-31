@@ -38,15 +38,40 @@ const GroupManagementPage = () => {
     fetchProducts();
   }, []);
 
-  const handleDelete = (id) => {
-    if (!window.confirm(`ID #${id} 상품을 정말 거절(강제 삭제)하시겠습니까?`)) return;
-    fetch(`http://localhost:8080/api/admin/products/${id}`, { 
-      method: 'DELETE', 
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectingProductId, setRejectingProductId] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const openRejectModal = (id) => {
+    setRejectingProductId(id);
+    setRejectReason("");
+    setIsRejectModalOpen(true);
+  };
+
+  const closeRejectModal = () => {
+    setIsRejectModalOpen(false);
+    setRejectingProductId(null);
+    setRejectReason("");
+  };
+
+  const submitReject = () => {
+    if (!rejectReason.trim()) {
+      alert("거절 사유를 입력해주세요.");
+      return;
+    }
+    
+    fetch(`http://localhost:8080/api/admin/products/${rejectingProductId}/reject`, { 
+      method: 'POST', 
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ reason: rejectReason }),
       credentials: 'include' 
     })
       .then(res => {
-        if (!res.ok) throw new Error('상품 삭제 실패');
-        alert('상품이 성공적으로 삭제되었습니다.');
+        if (!res.ok) throw new Error('상품 거절/삭제 실패');
+        alert('상품이 성공적으로 거절(삭제)되었으며 판매자에게 사유가 전송되었습니다.');
+        closeRejectModal();
         fetchProducts();
       })
       .catch(err => {
@@ -215,7 +240,7 @@ const GroupManagementPage = () => {
                       <button onClick={() => navigate(`/buyer/products/${item.id}`)} className="p-2 text-gray-400 hover:text-blue-500 bg-gray-50 rounded-lg hover:bg-gray-100 transition" title="상품 상세페이지 이동"><Info size={16} /></button>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => handleDelete(item.id)} className="p-2 px-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl hover:bg-red-100 transition flex items-center gap-1">
+                      <button onClick={() => openRejectModal(item.id)} className="p-2 px-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl hover:bg-red-100 transition flex items-center gap-1">
                         <Trash2 size={14} /> 거절
                       </button>
                       <button className="p-2 px-3 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 shadow-md shadow-blue-100 transition">
@@ -268,6 +293,42 @@ const GroupManagementPage = () => {
 
         </section>
       </main>
+
+      {/* 거절 사유 입력 모달 */}
+      {isRejectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-[24px] p-6 max-w-md w-full shadow-xl flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-red-600 border-b border-gray-100 pb-4">
+              <ShieldAlert size={20} />
+              <h3 className="text-lg font-bold">상품 강제 거절(삭제)</h3>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-bold text-gray-700">거절 사유 입력 (판매자에게 전송됩니다)</label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="허위 매물, 가품 의심, 규정 위반 등 명확한 사유를 기재해 주세요."
+                className="w-full h-32 p-3 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition"
+              ></textarea>
+            </div>
+            <div className="flex justify-end gap-2 mt-2 pt-4 border-t border-gray-100">
+              <button 
+                onClick={closeRejectModal}
+                className="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+              >
+                취소
+              </button>
+              <button 
+                onClick={submitReject}
+                className="px-4 py-2 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-md shadow-red-200 transition flex items-center gap-1.5"
+              >
+                <Trash2 size={16} /> 거절 확인 및 사유 전송
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

@@ -2,6 +2,8 @@ package com.Nbbang.backend.domain.admin.service;
 
 import com.Nbbang.backend.domain.auth.entity.UserAccount;
 import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
+import com.Nbbang.backend.domain.notification.entity.Notification;
+import com.Nbbang.backend.domain.notification.repository.NotificationRepository;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
 import com.Nbbang.backend.global.exception.CustomException;
@@ -22,6 +24,7 @@ public class AdminService {
 
     private final UserAccountRepository userAccountRepository;
     private final ProductRepository productRepository;
+    private final NotificationRepository notificationRepository;
 
     @Transactional(readOnly = true)
     public Map<String, Object> getDashboardStatistics() {
@@ -204,6 +207,26 @@ public class AdminService {
     public void deleteProductByAdmin(Long productId) {
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new CustomException(ErrorCode.VALIDATION_FAILED));
+        productRepository.delete(product);
+    }
+
+    // 어드민 전용 상품 거절 (사유 포함)
+    @Transactional
+    public void rejectProductByAdmin(Long productId, String reason) {
+        Product product = productRepository.findById(productId)
+            .orElseThrow(() -> new CustomException(ErrorCode.VALIDATION_FAILED));
+        
+        if (product.getSellerEmail() != null) {
+            String shortTitle = product.getTitle();
+            if (shortTitle != null && shortTitle.contains("-")) {
+                shortTitle = shortTitle.split("-")[0].trim();
+            }
+            String message = String.format("등록하신 상품(ID: %d, 제목: %s)이 관리자에 의해 거절/삭제되었습니다. \n사유: %s", 
+                product.getProductId(), shortTitle, reason);
+            Notification notif = new Notification(product.getSellerEmail(), message);
+            notificationRepository.save(notif);
+        }
+        
         productRepository.delete(product);
     }
 }

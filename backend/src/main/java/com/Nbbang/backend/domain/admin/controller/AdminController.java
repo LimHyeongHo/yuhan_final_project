@@ -71,4 +71,12 @@ public class AdminController {
         adminService.deleteProductByAdmin(id);
         return ResponseEntity.ok("상품이 삭제되었습니다.");
     }
+
+    // [신규] 어드민 전용 상품 거절 (사유 포함)
+    @PostMapping("/products/{id}/reject")
+    public ResponseEntity<String> rejectProductByAdmin(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
+        String reason = body.get("reason");
+        adminService.rejectProductByAdmin(id, reason);
+        return ResponseEntity.ok("상품이 성공적으로 거절(삭제)되었으며, 판매자에게 알림이 발송되었습니다.");
+    }
 }
