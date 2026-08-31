@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 //아래 import문 삭제
 // import { useParams, Link } from 'react-router-dom';
-import { Clock, Users, BookOpen, ChevronLeft, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon, X, Copy, Heart } from 'lucide-react';
+import { Clock, Users, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon, X, Copy, Heart, Info } from 'lucide-react';
 import Header from '../../../components/layout/Header';
 //[추가]
 import {useParams, Link, useNavigate } from 'react-router-dom';
@@ -15,6 +15,8 @@ const BuyerProductDetailPage = () => {
   const [isJoined, setIsJoined] = useState(false); // 테스트용: 공구 참여 상태 토글
   const [showReceiptModal, setShowReceiptModal] = useState(false); // [신규] 스마트 영수증 모달 상태
   const [isScrapped, setIsScrapped] = useState(false); // [신규] 스크랩 상태
+  const [seller, setSeller] = useState(null); // [신규] 판매자 프로필 요약 (닉네임/거래 만족도/후기 수)
+  const [showSellerSatInfo, setShowSellerSatInfo] = useState(false); // [신규] 거래 만족도 설명 박스 토글
 
   useEffect(() => {
     fetch(`http://localhost:8080/api/products/${id}`)
@@ -50,6 +52,14 @@ const BuyerProductDetailPage = () => {
           description: data.description,
           sellerEmail: data.sellerEmail // [신규] 문의하기 버튼에서 채팅방 생성 API 호출용
         });
+
+        // [신규] 판매자 프로필 요약 조회 (닉네임 / 거래 만족도 % / 후기 수)
+        if (data.sellerEmail) {
+          fetch(`http://localhost:8080/api/sellers/${encodeURIComponent(data.sellerEmail)}/profile`)
+            .then(r => (r.ok ? r.json() : null))
+            .then(p => p && setSeller(p))
+            .catch(() => {});
+        }
       })
       .catch(err => {
         console.error("상품 상세 로드 실패:", err);
@@ -295,6 +305,60 @@ const BuyerProductDetailPage = () => {
                 <span className="text-sm font-bold text-gray-400">
                   {product.author} | {product.publisher}
                 </span>
+                {/* [신규] 판매자 프로필 카드 — 프로필 이미지 + 닉네임 + 거래 만족도 % (클릭 시 프로필/거래 후기 페이지) */}
+                {product.sellerEmail && (
+                  <div className="mt-2 flex flex-col gap-2">
+                    <div
+                      onClick={() => navigate(`/sellers/${encodeURIComponent(product.sellerEmail)}`)}
+                      className="flex items-center gap-3 p-3 rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition w-full text-left group cursor-pointer"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-black shrink-0">
+                        {(seller?.nickname || '판').charAt(0)}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-extrabold text-gray-900 group-hover:text-blue-600 transition truncate">
+                          {seller?.nickname || '판매자'}
+                        </span>
+                        <span className="text-xs font-bold text-gray-400 flex items-center gap-1">
+                          {seller?.totalReviews > 0 ? (
+                            <>
+                              거래 만족도 {seller.satisfactionRate}% · 후기 {seller.totalReviews}
+                              <button
+                                type="button"
+                                aria-label="거래 만족도 설명"
+                                onClick={(e) => { e.stopPropagation(); setShowSellerSatInfo((v) => !v); }}
+                                className="text-gray-300 hover:text-blue-500 transition"
+                              >
+                                <Info size={12} />
+                              </button>
+                            </>
+                          ) : (
+                            '거래 후기 보기'
+                          )}
+                        </span>
+                      </div>
+                      <ChevronRight size={16} className="text-gray-300 group-hover:text-blue-500 transition ml-auto shrink-0" />
+                    </div>
+
+                    {showSellerSatInfo && (
+                      <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-3 text-[11px] font-medium text-blue-900 leading-relaxed flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <Info size={13} className="text-blue-500 shrink-0 mt-0.5" />
+                          <span>
+                            거래 만족도는 해당 공동구매 참여자로부터 받은 <b className="font-extrabold">좋아요·보통이에요·싫어요</b>로 구분된 평가와 후기를 포함해 계산한 신뢰 지표입니다.
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowSellerSatInfo(false)}
+                          className="self-end text-[11px] font-bold text-blue-600 hover:text-blue-700 px-2 py-1"
+                        >
+                          확인
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* 가격 정보 (정가 대비 할인가 구조 적용) */}
