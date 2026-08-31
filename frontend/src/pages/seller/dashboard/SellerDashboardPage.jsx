@@ -190,9 +190,14 @@ const SellerDashboardPage = () => {
               })}
             </div>
 
-            <button className="text-sm font-bold text-gray-500 flex items-center justify-center gap-1 mt-2 hover:text-blue-600 transition">
-              전체 게시글 보기 <ArrowRight size={16} />
-            </button>
+            <div className="flex flex-col md:flex-row gap-2 mt-4 border-t border-gray-100 pt-4">
+              <Link to="/seller/status" className="flex-1 text-sm font-bold text-gray-600 bg-gray-50 hover:bg-gray-100 py-3 rounded-xl flex items-center justify-center gap-2 transition">
+                전체 게시글 보기 <ArrowRight size={16} />
+              </Link>
+              <Link to="/seller/orders" className="flex-1 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 py-3 rounded-xl flex items-center justify-center gap-2 transition">
+                주문 / 구매자 명단 확인 <ArrowRight size={16} />
+              </Link>
+            </div>
           </div>
 
           {/* 우측 패널: 알림 및 퀵 액션 (1/3) */}
