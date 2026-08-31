@@ -4,6 +4,7 @@ import com.Nbbang.backend.domain.payment.entity.Payment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -13,4 +14,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     // 거래 후기 작성 자격 검증용: 특정 공동구매(productId)에 대한 본인(memberEmail) 결제가 특정 상태(status)로 존재하는지
     boolean existsByProductIdAndMember_EmailAndStatus(Long productId, String memberEmail, String status);
+
+    // 정산(출금 가능액 계산)용: 특정 상품들(productId) 중 특정 상태(status)로 완료된 결제건 조회
+    List<Payment> findByProductIdInAndStatus(List<Long> productIds, String status);
 }

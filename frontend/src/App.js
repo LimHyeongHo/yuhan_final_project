@@ -16,6 +16,9 @@ import SecurityLogPage from './pages/admin/security/SecurityLogPage';
 import UserAuthorization from './pages/admin/authorization/UserAuthorization';
 import AdminDashboardPage from './pages/admin/dashboard/AdminDashboardPage';
 import ProductsManagementPage from './pages/admin/products/ProductsManagementPage';
+// ===== 26.08.31 건우 추가내용 시작 =====
+import AdminSettlementPage from './pages/admin/settlement/AdminSettlementPage';
+// ===== 26.08.31 건우 추가내용 끝 =====
 
 /// [*] 판매자용 페이지 import
 import SellerDashboardPage from './pages/seller/dashboard/SellerDashboardPage';
@@ -78,6 +81,10 @@ function App() {
           <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />
           { /* 상품관리 페이지 접속 화면 */}
           <Route path="/admin/products" element={<AdminRoute><ProductsManagementPage /></AdminRoute>} />
+          {/* ===== 26.08.31 건우 추가내용 시작 ===== */}
+          { /* 출금 신청 승인 관리 화면 접속 화면 */}
+          <Route path="/admin/settlements" element={<AdminRoute><AdminSettlementPage /></AdminRoute>} />
+          {/* ===== 26.08.31 건우 추가내용 끝 ===== */}
           { /* ---------------------------------------------*/}
 
           { /* ----------------판매자 페이지-----------------*/}
