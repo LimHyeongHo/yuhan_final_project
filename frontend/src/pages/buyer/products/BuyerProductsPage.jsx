@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 // 🛠️ LayoutGrid, List 아이콘이 추가되었습니다.
-import { Search, SlidersHorizontal, BookOpen, Users, ChevronDown, Filter, Clock, Image as ImageIcon, LayoutGrid, List } from 'lucide-react';
+import { Search, SlidersHorizontal, BookOpen, Users, ChevronDown, Filter, Clock, Image as ImageIcon, LayoutGrid, List, CheckCircle } from 'lucide-react';
 import Header from '../../../components/layout/Header';
+
 
 const BuyerProductsPage = () => {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -13,6 +14,10 @@ const BuyerProductsPage = () => {
   
   // 🛠️ 뷰 모드 상태 관리 (GRID: 바둑판형, LIST: 목록형)
   const [viewMode, setViewMode] = useState('GRID');
+  // 🌟 정렬 상태 관리
+  const [sortFilter, setSortFilter] = useState('LATEST');
+  // 🌟 마감된 상품 표시 토글
+  const [showClosed, setShowClosed] = useState(false);
 
   const [productList, setProductList] = useState([]);
 
@@ -42,7 +47,12 @@ const BuyerProductsPage = () => {
 
   // 🌟 프론트엔드 검색 및 필터링 로직
   const filteredList = React.useMemo(() => {
-    return productList.filter(item => {
+    const filtered = productList.filter(item => {
+      // 0. 마감된 상품 숨기기 (showClosed가 false일 때 마감된 상품 제외)
+      if (!showClosed && item.status === '마감됨') {
+        return false;
+      }
+
       // 1. 상품 종류 필터 (전체, 전공도서, 학과물품)
       if (typeFilter !== 'ALL' && item.type !== typeFilter) {
         return false;
@@ -68,7 +78,23 @@ const BuyerProductsPage = () => {
       
       return true;
     });
-  }, [productList, searchQuery, searchTarget, typeFilter, categoryFilter]);
+
+    // 🌟 정렬 로직 적용
+    return filtered.sort((a, b) => {
+      if (sortFilter === 'LATEST') {
+        return b.id - a.id; // 최신순: ID 내림차순
+      } else if (sortFilter === 'DEADLINE') {
+        if (a.deadline === '기한 없음') return 1;
+        if (b.deadline === '기한 없음') return -1;
+        return new Date(a.deadline) - new Date(b.deadline); // 마감임박순: 오름차순
+      } else if (sortFilter === 'PRICE_LOW') {
+        const priceA = parseInt(a.price.replace(/[^0-9]/g, ''), 10) || 0;
+        const priceB = parseInt(b.price.replace(/[^0-9]/g, ''), 10) || 0;
+        return priceA - priceB; // 가격낮은순: 오름차순
+      }
+      return 0;
+    });
+  }, [productList, searchQuery, searchTarget, typeFilter, categoryFilter, sortFilter, showClosed]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
@@ -121,7 +147,7 @@ const BuyerProductsPage = () => {
 
           {/* 세부 검색 토글 영역 */}
           {isAdvancedOpen && (
-            <div className="pt-6 mt-2 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-top-2 fade-in duration-200">
+            <div className="pt-6 mt-2 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in slide-in-from-top-2 fade-in duration-200">
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5"><Filter size={14} /> 검색 대상</label>
                 <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-200">
@@ -171,10 +197,17 @@ const BuyerProductsPage = () => {
                   <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16} />
                 </div>
               </div>
-              <div className="flex flex-col justify-end pb-1">
-                <label className="flex items-center gap-2 cursor-pointer group">
-                  <input type="checkbox" className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer" />
-                  <span className="text-sm font-semibold text-gray-600 group-hover:text-gray-900 transition">모집 중인 공구만 보기</span>
+              
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5"><CheckCircle size={14} /> 상품 상태</label>
+                <label className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer group transition-all hover:border-blue-300">
+                  <span className="text-sm font-bold text-gray-600 group-hover:text-gray-900 transition">마감된 상품 포함</span>
+                  <input 
+                    type="checkbox" 
+                    checked={showClosed}
+                    onChange={(e) => setShowClosed(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded-full border-gray-300 focus:ring-blue-500 cursor-pointer" 
+                  />
                 </label>
               </div>
             </div>
@@ -205,10 +238,14 @@ const BuyerProductsPage = () => {
                 </button>
               </div>
 
-              <select className="text-sm font-bold text-gray-600 bg-transparent outline-none cursor-pointer hover:text-gray-900 transition">
-                <option>최신 등록순</option>
-                <option>마감 임박순</option>
-                <option>낮은 가격순</option>
+              <select 
+                value={sortFilter}
+                onChange={(e) => setSortFilter(e.target.value)}
+                className="text-sm font-bold text-gray-600 bg-transparent outline-none cursor-pointer hover:text-gray-900 transition"
+              >
+                <option value="LATEST">최신 등록순</option>
+                <option value="DEADLINE">마감 임박순</option>
+                <option value="PRICE_LOW">낮은 가격순</option>
               </select>
             </div>
           </div>
@@ -260,7 +297,11 @@ const BuyerProductsPage = () => {
                     <h4 className={`font-extrabold text-gray-900 group-hover:text-blue-600 transition leading-snug ${
                       viewMode === 'GRID' ? 'text-base line-clamp-2' : 'text-lg line-clamp-1'
                     }`}>
-                      {item.title}
+                      {item.title.includes('-') ? (
+                        <span>{item.title.split('-')[0].trim()}</span>
+                      ) : (
+                        item.title
+                      )}
                     </h4>
                     <span className="text-xs text-gray-400 font-semibold">{item.author}</span>
                   </div>

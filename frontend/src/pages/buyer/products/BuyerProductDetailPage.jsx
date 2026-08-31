@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Users, BookOpen, ChevronLeft, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon, X, Copy, Heart } from 'lucide-react';
 import Header from '../../../components/layout/Header';
 //[추가]
-import {useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 const BuyerProductDetailPage = () => {
   // 1. 주소창에서 상품 고유 ID 추출 (예: /buyer/products/1 -> id = "1")
   const { id } = useParams();
@@ -26,11 +26,11 @@ const BuyerProductDetailPage = () => {
         // D-Day 계산 로직
         let dDayText = '기한 없음';
         if (data.deadline) {
-            const deadlineDate = new Date(data.deadline);
-            const today = new Date();
-            const diffTime = deadlineDate - today;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            dDayText = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? 'D-Day' : '마감');
+          const deadlineDate = new Date(data.deadline);
+          const today = new Date();
+          const diffTime = deadlineDate - today;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          dDayText = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? 'D-Day' : '마감');
         }
 
         setProduct({
@@ -75,7 +75,7 @@ const BuyerProductDetailPage = () => {
   // 공구 참여하기 버튼 클릭 핸들러
   const handleJoinToggle = async () => {
     if (!product) return;
-    
+
     try {
       if (!isJoined) {
         //[추가] 참여 처리는 결제 성공 후 백엔드가 대신 해줌 — 여기선 결제 페이지로 이동만
@@ -87,7 +87,7 @@ const BuyerProductDetailPage = () => {
         const res = await fetch(`http://localhost:8080/api/products/${product.id}/cancel`, { method: 'POST' });
         if (!res.ok) throw new Error("참여 취소 실패");
         const updatedProduct = await res.json();
-        
+
         // 서버에서 받은 최신 인원으로 화면 업데이트
         setProduct(prev => ({ ...prev, currentCount: updatedProduct.currentCount }));
         setIsJoined(false);
@@ -103,7 +103,7 @@ const BuyerProductDetailPage = () => {
   const handleScrapToggle = async () => {
     if (!product) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/products/${product.id}/scrap`, { 
+      const res = await fetch(`http://localhost:8080/api/products/${product.id}/scrap`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -201,10 +201,10 @@ const BuyerProductDetailPage = () => {
       default:
         return null;
     }
-    
+
     return (
-      <div 
-        onClick={() => setShowReceiptModal(true)} 
+      <div
+        onClick={() => setShowReceiptModal(true)}
         className="cursor-pointer hover:opacity-80 transition-opacity inline-block"
         title="클릭하여 블록체인 스마트 보증서 확인하기"
       >
@@ -218,7 +218,7 @@ const BuyerProductDetailPage = () => {
       <Header />
 
       <main className="flex-grow max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col gap-6">
-        
+
         {/* 뒤로가기 네비게이션 */}
         <div className="flex items-center justify-between">
           <Link to="/buyer/products" className="flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-gray-900 transition">
@@ -226,7 +226,7 @@ const BuyerProductDetailPage = () => {
             목록으로 돌아가기
           </Link>
           <div className="flex gap-2">
-            <button 
+            <button
               onClick={handleScrapToggle}
               className={`p-2 border border-gray-200 rounded-xl transition shadow-sm ${isScrapped ? 'text-red-500 bg-red-50 border-red-200' : 'text-gray-400 hover:text-red-500 bg-white'}`}
             >
@@ -240,7 +240,7 @@ const BuyerProductDetailPage = () => {
 
         {/* 메인 레이아웃 그리드 (PC 2열 분할) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
+
           {/* 좌측 컬럼: 이미지 및 도서 상세 설명 */}
           <div className="lg:col-span-7 flex flex-col gap-6">
             {/* 큰 이미지 박스 */}
@@ -274,7 +274,7 @@ const BuyerProductDetailPage = () => {
           {/* 우측 컬럼: 구매 및 공구 현황 컨트롤 패널 (스티키 고정 효과 추가) */}
           <div className="lg:col-span-5 flex flex-col gap-6 lg:sticky lg:top-24">
             <div className="bg-white rounded-[32px] p-6 md:p-8 border border-gray-200 shadow-sm flex flex-col gap-6">
-              
+
               {/* 태그 & 학과 */}
               <div className="flex justify-between items-center">
                 <span className="text-xs font-black text-blue-600 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded">
@@ -289,8 +289,18 @@ const BuyerProductDetailPage = () => {
               {/* 제목 및 저자 정보 */}
               <div className="flex flex-col gap-1.5">
                 {renderVerificationBadge()}
-                <h1 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight mt-2">
-                  {product.title}
+                {/* 폰트 수정 하려면 아래 className을 수정하면 됨 */}
+                <h1 className="text-xl md:text-2xl font-black text-gray-900 leading-tight mt-2">
+                  {product.title.includes('-') ? (
+                    <>
+                      <span>{product.title.split('-')[0].trim()}</span>
+                      <span className="text-sm md:text-sm text-gray-500 font-bold block mt-1 hidden" >
+                        - {product.title.substring(product.title.indexOf('-') + 1).trim()}
+                      </span>
+                    </>
+                  ) : (
+                    product.title
+                  )}
                 </h1>
                 <span className="text-sm font-bold text-gray-400">
                   {product.author} | {product.publisher}
@@ -329,11 +339,11 @@ const BuyerProductDetailPage = () => {
                     <span className="font-black text-gray-900">{product.currentCount}</span> / {product.targetCount} 명
                   </span>
                 </div>
-                
+
                 {/* 진행 게이지 */}
                 <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-500 ${isJoined ? 'bg-emerald-500' : 'bg-blue-600'}`} 
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${isJoined ? 'bg-emerald-500' : 'bg-blue-600'}`}
                     style={{ width: `${progressRatio}%` }}
                   ></div>
                 </div>
@@ -386,11 +396,10 @@ const BuyerProductDetailPage = () => {
                   {/* 🌟 구매자 최종 액션 버튼 (참여 여부에 따른 조건부 UI) */}
                   <button
                     onClick={handleJoinToggle}
-                    className={`w-full py-4 rounded-2xl font-black text-base md:text-lg transition-all shadow-md flex items-center justify-center gap-2 ${
-                      isJoined
-                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100'
-                        : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-500/20'
-                    }`}
+                    className={`w-full py-4 rounded-2xl font-black text-base md:text-lg transition-all shadow-md flex items-center justify-center gap-2 ${isJoined
+                      ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100'
+                      : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-500/20'
+                      }`}
                   >
                     {isJoined ? (
                       <>
@@ -432,9 +441,9 @@ const BuyerProductDetailPage = () => {
 
       {/* 스마트 영수증 모달 렌더링 */}
       {showReceiptModal && (
-        <SmartReceiptModal 
-          verification={verification} 
-          onClose={() => setShowReceiptModal(false)} 
+        <SmartReceiptModal
+          verification={verification}
+          onClose={() => setShowReceiptModal(false)}
         />
       )}
     </div>
@@ -504,14 +513,14 @@ const SmartReceiptModal = ({ verification, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* 딤 배경 (Blur 효과) */}
-      <div 
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
-      
+
       {/* 모달 컨텐츠 (Glassmorphism 카드) */}
       <div className="relative w-full max-w-md bg-white/90 backdrop-blur-md border border-white/40 shadow-[0_0_40px_rgba(59,130,246,0.15)] rounded-3xl overflow-hidden flex flex-col transform transition-all">
-        
+
         {/* 헤더 */}
         <div className="px-6 py-5 border-b border-gray-200/60 flex justify-between items-center bg-white/50">
           <div className="flex items-center gap-2">
@@ -527,7 +536,7 @@ const SmartReceiptModal = ({ verification, onClose }) => {
 
         {/* 바디 (상세 데이터) */}
         <div className="p-6 flex flex-col gap-6">
-          
+
           {/* 상태 배지 영역 */}
           <div className="flex flex-col items-center justify-center gap-2 py-2">
             <div className={`${ui.colorText} font-bold flex flex-col items-center gap-1`}>
@@ -549,7 +558,7 @@ const SmartReceiptModal = ({ verification, onClose }) => {
                 <span className="text-xs font-mono text-gray-700 truncate flex-1">
                   {verification?.txHash || 'Pending...'}
                 </span>
-                <button 
+                <button
                   onClick={handleCopy}
                   className="p-1.5 bg-white rounded-md shadow-sm border border-gray-200 text-gray-500 hover:text-blue-600 transition"
                   title="해시 복사하기"
@@ -588,7 +597,7 @@ const SmartReceiptModal = ({ verification, onClose }) => {
               </div>
             </div>
           </div>
-          
+
         </div>
       </div>
     </div>

@@ -181,7 +181,13 @@ const SellerProductsPage = () => {
                         <span className="text-[10px] font-mono font-bold text-gray-400">#{item.id}</span>
                         <span className="text-[10px] text-gray-400 font-medium ml-1">{item.date} 개설</span>
                       </div>
-                      <h4 className="text-lg font-extrabold text-gray-900 tracking-tight leading-tight mt-0.5 truncate">{item.title}</h4>
+                      <h4 className="text-lg font-extrabold text-gray-900 tracking-tight leading-tight mt-0.5 truncate">
+                        {item.title.includes('-') ? (
+                          <span>{item.title.split('-')[0].trim()}</span>
+                        ) : (
+                          item.title
+                        )}
+                      </h4>
                       <p className="text-sm font-bold text-gray-600 mt-1">₩{item.price.toLocaleString()}</p>
                     </div>
                   </div>
