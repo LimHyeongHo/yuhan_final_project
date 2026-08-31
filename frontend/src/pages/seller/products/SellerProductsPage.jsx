@@ -183,12 +183,7 @@ const SellerProductsPage = () => {
                       </div>
                       <h4 className="text-lg font-extrabold text-gray-900 tracking-tight leading-tight mt-0.5 truncate">
                         {item.title.includes('-') ? (
-                          <>
-                            <span>{item.title.split('-')[0].trim()}</span>
-                            <span className="text-sm text-gray-500 font-bold ml-2">
-                              - {item.title.substring(item.title.indexOf('-') + 1).trim()}
-                            </span>
-                          </>
+                          <span>{item.title.split('-')[0].trim()}</span>
                         ) : (
                           item.title
                         )}

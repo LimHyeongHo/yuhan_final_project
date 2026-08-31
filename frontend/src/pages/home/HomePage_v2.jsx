@@ -132,12 +132,7 @@ const HomePage = () => {
                     <div className="flex flex-col gap-1">
                       <h4 className="text-base font-extrabold text-gray-900 group-hover:text-blue-600 transition line-clamp-2 leading-snug">
                         {item.title.includes('-') ? (
-                          <>
-                            <span>{item.title.split('-')[0].trim()}</span>
-                            <span className="text-[12px] text-gray-500 font-semibold block mt-0.5">
-                              - {item.title.substring(item.title.indexOf('-') + 1).trim()}
-                            </span>
-                          </>
+                          <span>{item.title.split('-')[0].trim()}</span>
                         ) : (
                           item.title
                         )}
@@ -195,12 +190,7 @@ const HomePage = () => {
                     <div className="flex flex-col gap-1">
                       <h4 className="text-base font-extrabold text-gray-900 group-hover:text-blue-600 transition line-clamp-2 leading-snug">
                         {item.title.includes('-') ? (
-                          <>
-                            <span>{item.title.split('-')[0].trim()}</span>
-                            <span className="text-[12px] text-gray-500 font-semibold block mt-0.5">
-                              - {item.title.substring(item.title.indexOf('-') + 1).trim()}
-                            </span>
-                          </>
+                          <span>{item.title.split('-')[0].trim()}</span>
                         ) : (
                           item.title
                         )}

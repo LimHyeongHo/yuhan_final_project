@@ -294,7 +294,7 @@ const BuyerProductDetailPage = () => {
                   {product.title.includes('-') ? (
                     <>
                       <span>{product.title.split('-')[0].trim()}</span>
-                      <span className="text-sm md:text-sm text-gray-500 font-bold block mt-1">
+                      <span className="text-sm md:text-sm text-gray-500 font-bold block mt-1 hidden" >
                         - {product.title.substring(product.title.indexOf('-') + 1).trim()}
                       </span>
                     </>
