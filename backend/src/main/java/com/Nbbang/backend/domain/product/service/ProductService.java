@@ -308,4 +308,25 @@ public class ProductService {
     public boolean checkScrapStatus(Long productId, String email) {
         return scrapRepository.existsByProduct_ProductIdAndMember_Email(productId, email);
     }
+
+// [신규] 판매자 주문 관리(명단 확인) 용 내역 조회
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getSellerOrders(String sellerEmail) {
+        List<Participation> participations = participationRepository.findByProduct_SellerEmailOrderByJoinDateDesc(sellerEmail);
+        return participations.stream().map(p -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("participationId", p.getId());
+            map.put("buyerEmail", p.getMember().getEmail());
+            map.put("buyerNickname", p.getBuyerName());
+            map.put("joinDate", p.getJoinDate());
+            
+            Product product = p.getProduct();
+            map.put("productId", product.getProductId());
+            map.put("productTitle", product.getTitle());
+            map.put("productPrice", product.getPrice());
+            map.put("productStatus", product.getStatus());
+            
+            return map;
+        }).collect(java.util.stream.Collectors.toList());
+    }
 }

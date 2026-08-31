@@ -158,4 +158,11 @@ public class ProductController {
         java.util.List<java.util.Map<String, Object>> scraps = productService.getMyScraps(email);
         return ResponseEntity.ok(scraps);
     }
+    /** [신규] 판매자 주문 관리(명단 확인) 용 내역 조회 */
+    @GetMapping("/seller/orders")
+    public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getSellerOrders(HttpSession session) {
+        String email = getEmail(session);
+        java.util.List<java.util.Map<String, Object>> orders = productService.getSellerOrders(email);
+        return ResponseEntity.ok(orders);
+    }
 }
