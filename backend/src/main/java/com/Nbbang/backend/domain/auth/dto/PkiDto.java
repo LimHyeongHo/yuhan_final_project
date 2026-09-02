@@ -30,7 +30,7 @@ public class PkiDto {
     public static class LoginRequest {
         private String userId;
         private String password;
-        private String signature; // Signed challenge
+        private String answer; // 기기 개인키로 챌린지(RSA-OAEP 암호문)를 복호화한 평문 nonce
     }
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor

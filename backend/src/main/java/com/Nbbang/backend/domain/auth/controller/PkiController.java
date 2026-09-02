@@ -302,9 +302,18 @@ public class PkiController {
 
     @GetMapping("/login/challenge")
     public ResponseEntity<Map<String, String>> getChallenge(@RequestParam String deviceId) {
-        String challenge = pkiService.createChallenge(deviceId);
+        String normalizedDeviceId = deviceId != null ? deviceId.replaceAll("\\s", "") : "";
+        // 기기 공개키로 암호화된 챌린지를 내려준다. 클라이언트가 개인키로 복호화해 되돌려줘야 로그인 성립.
+        String encryptedChallenge = pkiService.createEncryptedChallenge(normalizedDeviceId);
+
+        if (encryptedChallenge == null) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "기기 인증 정보가 없습니다.");
+            return ResponseEntity.status(404).body(error);
+        }
+
         Map<String, String> response = new HashMap<>();
-        response.put("challenge", challenge);
+        response.put("challenge", encryptedChallenge);
         return ResponseEntity.ok(response);
     }
 
@@ -312,7 +321,8 @@ public class PkiController {
     public ResponseEntity<Map<String, Object>> verify(@RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
         String deviceId = request.get("deviceId") != null ? request.get("deviceId").replaceAll("\\s", "") : "";
         String password = request.get("password");
-        String signature = request.get("signature");
+        // [변경] 서명(signature) 대신, 기기 개인키로 챌린지를 복호화한 평문 nonce
+        String answer = request.get("answer");
         String ci = request.get("ci");
 
         System.out.println("Login verification attempt for device: [" + deviceId + "]");
@@ -345,8 +355,8 @@ public class PkiController {
                 return ResponseEntity.status(401).body(response);
             }
 
-            // 3. PKI 서명 검증 (기기 인증)
-            boolean isValid = pkiService.validateChallenge(deviceId, signature);
+            // 3. PKI 챌린지 복호화 결과 검증 (기기 인증)
+            boolean isValid = pkiService.validateChallenge(deviceId, answer);
 
             Map<String, Object> response = new HashMap<>();
             if (isValid) {
@@ -365,7 +375,7 @@ public class PkiController {
                 return ResponseEntity.ok(response);
             } else {
                 response.put("success", false);
-                response.put("message", "기기 인증 실패: 폐기된 인증서이거나 서명이 올바르지 않습니다.");
+                response.put("message", "기기 인증 실패: 폐기된 인증서이거나 챌린지 응답이 올바르지 않습니다.");
                 return ResponseEntity.status(401).body(response);
             }
         } catch (Exception e) {

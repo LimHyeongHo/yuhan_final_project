@@ -97,9 +97,11 @@ const SignupPage = () => {
   };
 
   const generateKeyPair = async () => {
+    // [변경] 서명용(RSASSA-PKCS1-v1_5) → 공개키 암호화용(RSA-OAEP).
+    // 로그인 시 서버가 공개키로 암호화한 챌린지를 개인키로 복호화해 본인임을 증명한다.
     return await window.crypto.subtle.generateKey(
-      { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
-      true, ["sign", "verify"]
+      { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+      true, ["encrypt", "decrypt"]
     );
   };
 
