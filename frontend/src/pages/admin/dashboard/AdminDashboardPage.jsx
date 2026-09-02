@@ -240,33 +240,47 @@ const AdminDashboardPage = () => {
             </span>
           </div>
           
-          <div className="flex flex-col border-t border-gray-100">
+          <div className="overflow-x-auto border-t border-gray-100 mt-2">
             {recentProducts.length === 0 ? (
               <div className="p-8 text-center text-gray-400 font-bold">최근 등록된 상품이 없습니다.</div>
             ) : (
-              recentProducts.map(product => (
-                <div key={product.id} className="flex justify-between items-center p-4 border-b border-gray-50 hover:bg-gray-50/50 transition">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-bold text-gray-400">{product.category}</span>
-                    <span className="font-bold text-gray-900">{product.title}</span>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <div className="flex flex-col items-end">
-                      <span className="text-xs text-gray-400">목표 인원</span>
-                      <span className="font-bold text-gray-700">{product.targetCount}명</span>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <span className="text-xs text-gray-400">가격</span>
-                      <span className="font-black text-blue-600">{product.price.toLocaleString()}원</span>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      product.status === 'OPEN' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      {product.status}
-                    </span>
-                  </div>
-                </div>
-              ))
+              <table className="w-full text-left whitespace-nowrap">
+                <thead>
+                  <tr className="bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider font-bold">
+                    <th className="px-6 py-4 border-b border-gray-100 font-bold w-1/2">책 제목</th>
+                    <th className="px-6 py-4 border-b border-gray-100 text-right">목표 인원</th>
+                    <th className="px-6 py-4 border-b border-gray-100 text-right">가격</th>
+                    <th className="px-6 py-4 border-b border-gray-100 text-center">모집 상태</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {recentProducts.map(product => (
+                    <tr key={product.id} className="hover:bg-gray-50/50 transition">
+                      <td className="px-6 py-4 whitespace-normal">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase">{product.category}</span>
+                          <span className="font-bold text-gray-900 text-sm leading-tight">
+                            {product.title.split('-')[0].trim()}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right font-bold text-gray-700 text-sm">
+                        {product.targetCount}명
+                      </td>
+                      <td className="px-6 py-4 text-right font-black text-blue-600 text-sm">
+                        {product.price.toLocaleString()}원
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold inline-block ${
+                          product.status === 'OPEN' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {product.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         </section>

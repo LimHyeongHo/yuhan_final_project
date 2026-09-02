@@ -27,6 +27,7 @@ const Header = () => {
   // [신규] 헤더 알림 배지 + 미리보기 드롭다운용 상태 (채팅 + 판매자 참여 알림 통합)
   const [chatRooms, setChatRooms] = useState([]);
   const [participationAlerts, setParticipationAlerts] = useState([]);
+  const [systemNotifications, setSystemNotifications] = useState([]);
   const [isChatPreviewOpen, setIsChatPreviewOpen] = useState(false);
   // [신규] 참여 알림 "읽음" 기준 시각 (로컬 저장)
   const [lastSeenParticipationAt, setLastSeenParticipationAt] = useState(
@@ -80,7 +81,7 @@ const Header = () => {
         .then(setChatRooms)
         .catch(err => console.error('헤더 채팅 알림 로드 실패', err));
 
-      // [신규] 참여 알림은 판매자 계정에만 의미 있는 이벤트라 seller일 때만 조회
+      // [신규] 참여 알림 및 시스템 알림은 판매자 계정에만 의미 있는 이벤트라 seller일 때만 조회
       if (localStorage.getItem('user_role') === 'ROLE_SELLER') {
         fetch(`http://${window.location.hostname}:8080/api/products/seller/me/participations`, { credentials: 'include' })
           .then(res => {
@@ -89,8 +90,17 @@ const Header = () => {
           })
           .then(setParticipationAlerts)
           .catch(err => console.error('헤더 참여 알림 로드 실패', err));
+
+        fetch(`http://${window.location.hostname}:8080/api/seller/notifications`, { credentials: 'include' })
+          .then(res => {
+            if (!res.ok) throw new Error('Failed to fetch system notifications');
+            return res.json();
+          })
+          .then(setSystemNotifications)
+          .catch(err => console.error('헤더 시스템 알림 로드 실패', err));
       } else {
         setParticipationAlerts([]);
+        setSystemNotifications([]);
       }
     };
 
@@ -148,11 +158,22 @@ const Header = () => {
       time: p.joinDate,
     }));
 
-  const notificationItems = [...unreadChatItems, ...newParticipationItems]
+  const newSystemNotificationItems = systemNotifications
+    .filter(n => new Date(n.createdAt) > new Date(lastSeenParticipationAt))
+    .map(n => ({
+      type: 'SYSTEM',
+      key: `system-${n.id}`,
+      title: '시스템 알림 (상품 상태 변경)',
+      subtitle: n.message,
+      preview: null,
+      time: n.createdAt,
+    }));
+
+  const notificationItems = [...unreadChatItems, ...newParticipationItems, ...newSystemNotificationItems]
     .sort((a, b) => new Date(b.time) - new Date(a.time))
     .slice(0, 6);
 
-  const totalUnreadCount = unreadChatItems.reduce((sum, item) => sum + item.badge, 0) + newParticipationItems.length;
+  const totalUnreadCount = unreadChatItems.reduce((sum, item) => sum + item.badge, 0) + newParticipationItems.length + newSystemNotificationItems.length;
 
   // [신규] 닫히는 모든 경로(벨 재클릭/항목 클릭/전체보기 클릭)에서 공통으로 호출
   const markNotificationsSeen = () => {
@@ -166,12 +187,14 @@ const Header = () => {
     setIsChatPreviewOpen(!isChatPreviewOpen);
   };
 
-  // [신규] 항목 클릭 시 이동 — 채팅은 해당 방, 참여 알림은 판매 현황
+  // [신규] 항목 클릭 시 이동 — 채팅은 해당 방, 참여 알림은 판매 현황, 시스템 알림은 대시보드
   const handleNotificationItemClick = (item) => {
     markNotificationsSeen();
     setIsChatPreviewOpen(false);
     if (item.type === 'CHAT') {
       navigate(`${chatBasePath}?roomId=${item.roomId}`);
+    } else if (item.type === 'SYSTEM') {
+      navigate('/seller/dashboard');
     } else {
       navigate('/seller/status');
     }
