@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -78,5 +79,20 @@ public class AdminController {
         String reason = body.get("reason");
         adminService.rejectProductByAdmin(id, reason);
         return ResponseEntity.ok("상품이 성공적으로 거절(삭제)되었으며, 판매자에게 알림이 발송되었습니다.");
+    }
+
+    // [신규] 보안 검증 시뮬레이터: 해킹 시뮬레이션
+    @PostMapping("/security/simulate-hack")
+    public ResponseEntity<Map<String, Object>> simulateHack() {
+        Map<String, Object> result = adminService.simulateHack();
+        result.put("message", "해킹 시뮬레이션 성공. (가격 조작 완료)");
+        return ResponseEntity.ok(result);
+    }
+
+    // [신규] 보안 검증 시뮬레이터: 원상 복구
+    @PostMapping("/security/restore/{id}")
+    public ResponseEntity<String> restoreHack(@PathVariable Long id) {
+        adminService.restoreHack(id);
+        return ResponseEntity.ok("정상적으로 복구되었습니다.");
     }
 }

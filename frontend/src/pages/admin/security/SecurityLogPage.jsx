@@ -21,16 +21,22 @@ const SecurityLogPage = () => {
     <Header />
       {/* 2. 상단 묵직한 다크 보안 배너 (메인 홈 배너 디자인 계승 + 다크 테마 변환) */}
       <section className="bg-slate-900 text-white py-12 px-6 shadow-md">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2">
-          <span className="bg-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-max border border-blue-500/30">
-            Security Operations Hub
-          </span>
-          <h2 className="text-4xl font-extrabold tracking-tight">
-            시스템 보안 및 감사 로그
-          </h2>
-          <p className="text-slate-400 font-medium text-base max-w-2xl">
-            블록체인 고유 해시 기반 실시간 검증 엔진이 가동 중입니다. 플랫폼 내의 모든 공동구매 계약 데이터 무결성을 실시간으로 보호하고 모니터링합니다.
-          </p>
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex flex-col gap-2">
+            <span className="bg-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-max border border-blue-500/30">
+              Security Operations Hub
+            </span>
+            <h2 className="text-4xl font-extrabold tracking-tight">
+              시스템 보안 및 감사 로그
+            </h2>
+            <p className="text-slate-400 font-medium text-base max-w-2xl">
+              블록체인 고유 해시 기반 실시간 검증 엔진이 가동 중입니다. 플랫폼 내의 모든 공동구매 계약 데이터 무결성을 실시간으로 보호하고 모니터링합니다.
+            </p>
+          </div>
+          <Link to="/admin/simulator" className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg flex items-center gap-2 whitespace-nowrap">
+            <AlertTriangle size={20} />
+            보안 검증 시뮬레이터 실행
+          </Link>
         </div>
       </section>
 

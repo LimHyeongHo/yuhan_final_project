@@ -229,4 +229,72 @@ public class AdminService {
         
         productRepository.delete(product);
     }
+
+    // [신규] 보안 검증 시뮬레이터: 해킹 시뮬레이션
+    @Transactional
+    public java.util.Map<String, Object> simulateHack() {
+        // 블록체인에 등록된(txHash가 있는) 상품 중 랜덤으로 하나 선택
+        java.util.List<Product> validProducts = productRepository.findAll().stream()
+                .filter(p -> p.getTxHash() != null && !p.getTxHash().isEmpty())
+                .collect(Collectors.toList());
+
+        if (validProducts.isEmpty()) {
+            throw new CustomException(ErrorCode.VALIDATION_FAILED);
+        }
+
+        Product product = validProducts.get(new java.util.Random().nextInt(validProducts.size()));
+
+        java.math.BigDecimal currentPrice = product.getPrice() != null ? product.getPrice() : java.math.BigDecimal.ZERO;
+        String isbn = product.getIsbn() != null ? product.getIsbn() : "";
+        
+        // 원본 해시 계산
+        String originalData = product.getProductId() + "-" + isbn + "-" + currentPrice.toString();
+        String originalHash = calculateHash(originalData);
+
+        // 고의로 가격을 10,000원 증가시켜 DB에 저장 (블록체인 우회)
+        java.math.BigDecimal newPrice = currentPrice.add(new java.math.BigDecimal("10000"));
+        product.setPrice(newPrice);
+        productRepository.save(product);
+
+        // 변조된 해시 계산
+        String newData = product.getProductId() + "-" + isbn + "-" + newPrice.toString();
+        String newHash = calculateHash(newData);
+
+        java.util.Map<String, Object> result = new HashMap<>();
+        result.put("productId", product.getProductId());
+        result.put("originalPrice", currentPrice);
+        result.put("newPrice", newPrice);
+        result.put("originalHash", originalHash);
+        result.put("newHash", newHash);
+
+        return result;
+    }
+
+    private String calculateHash(String input) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hashBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (Exception e) {
+            return "ERROR";
+        }
+    }
+
+    // [신규] 보안 검증 시뮬레이터: 정상 복구
+    @Transactional
+    public void restoreHack(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new CustomException(ErrorCode.VALIDATION_FAILED));
+        
+        // 조작된 가격 10,000원 원상복구
+        java.math.BigDecimal currentPrice = product.getPrice() != null ? product.getPrice() : java.math.BigDecimal.ZERO;
+        product.setPrice(currentPrice.subtract(new java.math.BigDecimal("10000")));
+        productRepository.save(product);
+    }
 }
