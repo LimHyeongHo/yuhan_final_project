@@ -71,11 +71,11 @@ const AdminSimulatorPage = () => {
       setVerifyResult(data);
 
       if (data.status === 'PENDING') {
-        // 가나슈가 꺼져있을 때
+        // 노드가 꺼져있거나 조회가 안될 때
         setGanacheError(true);
-        addLog("❌ [치명적 오류] 가나슈(Ganache) 로컬 블록체인 노드 응답 없음!");
-        addLog("   - 원인: 로컬 네트워크(127.0.0.1:7545) 연결 끊김.");
-        addLog("   - 조치: 가나슈를 실행하거나 스마트 컨트랙트 재배포가 필요합니다.");
+        addLog("❌ [치명적 오류] 블록체인 네트워크(Sepolia/로컬) 응답 없음 또는 데이터 없음!");
+        addLog("   - 원인: 노드 연결 끊김 또는 해당 상품이 스마트 컨트랙트에 없습니다.");
+        addLog("   - 조치: 새 상품을 등록하여 트랜잭션을 발생시킨 후 다시 시도해주세요.");
         shouldRestore = true;
       } else {
         // 가나슈가 켜져있어 검증 성공 시
@@ -217,15 +217,14 @@ const AdminSimulatorPage = () => {
               )}
             </div>
 
-            {/* 검증 결과 (가나슈 꺼짐) */}
             {ganacheError && (
               <div className="mt-8 bg-red-950/50 border border-red-800 rounded-xl p-6 flex items-start gap-4 text-red-200">
                 <ServerCrash className="text-red-500 flex-shrink-0" size={32} />
                 <div className="flex flex-col gap-2">
-                  <h5 className="font-bold text-red-400 text-lg">가나슈(Ganache) 연결 실패</h5>
+                  <h5 className="font-bold text-red-400 text-lg">블록체인 노드 연결 실패 / 데이터 없음</h5>
                   <p className="text-sm leading-relaxed">
-                    블록체인 노드가 응답하지 않아 무결성 검증을 완료할 수 없습니다.<br />
-                    시연을 정상적으로 진행하시려면 가나슈를 켜고 트랜잭션이 등록된 상품이 있어야 합니다.
+                    블록체인 노드가 응답하지 않거나 해당 상품의 기록이 없어 무결성 검증을 완료할 수 없습니다.<br />
+                    새로운 환경(Sepolia 등)에 연결하셨다면, 새로운 상품을 1개 이상 추가 등록하신 뒤 시도해 주세요.
                   </p>
                 </div>
               </div>

@@ -233,16 +233,11 @@ public class AdminService {
     // [신규] 보안 검증 시뮬레이터: 해킹 시뮬레이션
     @Transactional
     public java.util.Map<String, Object> simulateHack() {
-        // 블록체인에 등록된(txHash가 있는) 상품 중 랜덤으로 하나 선택
-        java.util.List<Product> validProducts = productRepository.findAll().stream()
+        // 블록체인에 등록된(txHash가 있는) 상품 중 가장 최근에 등록된 상품을 선택
+        Product product = productRepository.findAll().stream()
                 .filter(p -> p.getTxHash() != null && !p.getTxHash().isEmpty())
-                .collect(Collectors.toList());
-
-        if (validProducts.isEmpty()) {
-            throw new CustomException(ErrorCode.VALIDATION_FAILED);
-        }
-
-        Product product = validProducts.get(new java.util.Random().nextInt(validProducts.size()));
+                .max(java.util.Comparator.comparing(Product::getProductId))
+                .orElseThrow(() -> new CustomException(ErrorCode.VALIDATION_FAILED));
 
         java.math.BigDecimal currentPrice = product.getPrice() != null ? product.getPrice() : java.math.BigDecimal.ZERO;
         String isbn = product.getIsbn() != null ? product.getIsbn() : "";
