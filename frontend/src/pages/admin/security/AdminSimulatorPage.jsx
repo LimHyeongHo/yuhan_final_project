@@ -179,6 +179,7 @@ const AdminSimulatorPage = () => {
         const alreadySynced = data.alreadySyncedCount ?? 0;
         const remediated = data.remediatedCount ?? 0;
         const mismatched = data.mismatchCount ?? 0;
+        const pending = data.pendingCount ?? 0;
 
         addLog(`✅ [검사 완료] 확정 ${confirmed}개(구형 규격 교정 ${remediated}개) / 기존 정상 ${alreadySynced}개 / 실패 ${failed}개 / 해시 불일치 ${mismatched}개`);
 
@@ -191,9 +192,15 @@ const AdminSimulatorPage = () => {
         if (failed > 0) {
           addLog(`❌ [일부 실패] ${failed}개 상품의 트랜잭션 확정을 완료하지 못했습니다.`);
         }
+        if (pending > 0) {
+          addLog(`⏳ [확정 대기] ${pending}개 트랜잭션은 새로 전송하지 않고 현재 상태만 확인했습니다.`);
+        }
+        if (data.stoppedEarly) {
+          addLog(`⛔ [전송 중단] 대기열 보호를 위해 후속 트랜잭션 제출을 중단했습니다. 잠시 후 다시 실행해주세요.`);
+        }
 
         (data.items || [])
-          .filter(item => item.status !== 'CONFIRMED')
+          .filter(item => !['CONFIRMED', 'REMEDIATED'].includes(item.status))
           .forEach(item => addLog(
             `   - 상품 ${item.productId}: ${item.status} / ${item.message}`
           ));

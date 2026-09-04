@@ -339,6 +339,8 @@ public class AdminService {
         int alreadySyncedCount = 0;
         int remediatedCount = 0;
         int mismatchCount = 0;
+        int pendingCount = 0;
+        boolean stoppedEarly = false;
 
         notifyMigrationProgress(progressListener, totalCount, processedCount,
                 confirmedCount, failedCount, alreadySyncedCount,
@@ -369,6 +371,10 @@ public class AdminService {
             if (hashOnChain != null && !hashOnChain.isEmpty()) {
                 if (productHashService.matches(expectedHash, hashOnChain)) {
                     alreadySyncedCount++;
+                    processedCount++;
+                    notifyMigrationProgress(progressListener, totalCount, processedCount,
+                            confirmedCount, failedCount, alreadySyncedCount,
+                            remediatedCount, mismatchCount, product.getProductId());
                     continue;
                 }
 
@@ -381,8 +387,16 @@ public class AdminService {
                         remediatedCount++;
                         items.add(migrationItem(product.getProductId(), "REMEDIATED",
                                 remediationResult.txHash(), "구형 해시 규격을 현재 규격으로 재기록했습니다."));
+                    } else if ("TIMEOUT".equals(remediationResult.code())) {
+                        pendingCount++;
+                        stoppedEarly = true;
+                        items.add(migrationItem(product.getProductId(), "PENDING",
+                                remediationResult.txHash(), remediationResult.message()));
                     } else {
                         failedCount++;
+                        if ("TXPOOL_FULL".equals(remediationResult.code())) {
+                            stoppedEarly = true;
+                        }
                         items.add(migrationItem(product.getProductId(), "FAILED",
                                 remediationResult.txHash(), remediationResult.message()));
                     }
@@ -395,6 +409,9 @@ public class AdminService {
                 notifyMigrationProgress(progressListener, totalCount, processedCount,
                         confirmedCount, failedCount, alreadySyncedCount,
                         remediatedCount, mismatchCount, product.getProductId());
+                if (stoppedEarly) {
+                    break;
+                }
                 continue;
             }
 
@@ -403,17 +420,6 @@ public class AdminService {
             if (product.getTxHash() != null && !product.getTxHash().isBlank()) {
                 writeResult = blockchainService.confirmExistingTransaction(
                         product.getProductId(), expectedHash, product.getTxHash());
-
-                if (!writeResult.success()) {
-                    BlockchainService.BlockchainReadResult confirmedRead =
-                            blockchainService.readHash(product.getProductId());
-                    String confirmedHash = confirmedRead.success() ? confirmedRead.hash() : null;
-                    String legacyHash = productHashService.calculateLegacyMigrationHash(product);
-                    if (productHashService.matches(legacyHash, confirmedHash)) {
-                        writeResult = blockchainService.recordHashAndConfirm(product.getProductId(), expectedHash);
-                        remediated = writeResult.success();
-                    }
-                }
             } else {
                 writeResult = blockchainService.recordHashAndConfirm(product.getProductId(), expectedHash);
             }
@@ -427,6 +433,11 @@ public class AdminService {
                         writeResult.txHash(), remediated
                                 ? "구형 해시 규격을 현재 규격으로 재기록했습니다."
                                 : writeResult.message()));
+            } else if ("PENDING".equals(writeResult.code()) || "TIMEOUT".equals(writeResult.code())) {
+                pendingCount++;
+                stoppedEarly = true;
+                items.add(migrationItem(product.getProductId(), "PENDING",
+                        writeResult.txHash(), writeResult.message()));
             } else {
                 failedCount++;
                 items.add(migrationItem(product.getProductId(), "FAILED",
@@ -437,11 +448,19 @@ public class AdminService {
             notifyMigrationProgress(progressListener, totalCount, processedCount,
                     confirmedCount, failedCount, alreadySyncedCount,
                     remediatedCount, mismatchCount, product.getProductId());
+
+            if ("PENDING".equals(writeResult.code())
+                    || "TIMEOUT".equals(writeResult.code())
+                    || "TXPOOL_FULL".equals(writeResult.code())) {
+                stoppedEarly = true;
+                break;
+            }
         }
 
-        String status = failedCount == 0 && mismatchCount == 0
+        String status = failedCount == 0 && mismatchCount == 0 && pendingCount == 0 && !stoppedEarly
                 ? "SUCCESS"
-                : (confirmedCount > 0 || alreadySyncedCount > 0 ? "PARTIAL_SUCCESS" : "FAILED");
+                : (confirmedCount > 0 || alreadySyncedCount > 0 || pendingCount > 0
+                        ? "PARTIAL_SUCCESS" : "FAILED");
 
         result.put("status", status);
         result.put("message", "블록체인 확정 확인이 완료되었습니다.");
@@ -453,6 +472,9 @@ public class AdminService {
         result.put("alreadySyncedCount", alreadySyncedCount);
         result.put("remediatedCount", remediatedCount);
         result.put("mismatchCount", mismatchCount);
+        result.put("pendingCount", pendingCount);
+        result.put("stoppedEarly", stoppedEarly);
+        result.put("remainingCount", Math.max(0, totalCount - processedCount));
         result.put("items", items);
         return result;
     }

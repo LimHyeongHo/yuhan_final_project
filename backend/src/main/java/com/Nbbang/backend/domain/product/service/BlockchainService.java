@@ -9,6 +9,7 @@ import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.methods.request.Transaction;
 import org.web3j.protocol.core.methods.response.EthCall;
 import org.web3j.protocol.core.methods.response.EthSendTransaction;
+import org.web3j.protocol.core.methods.response.EthGetTransactionReceipt;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.protocol.http.HttpService;
 import org.web3j.abi.FunctionEncoder;
@@ -105,8 +106,11 @@ public class BlockchainService {
             EthSendTransaction ethSendTransaction = web3j.ethSendRawTransaction(hexValue).send();
             
             if (ethSendTransaction.hasError()) {
-                return BlockchainWriteResult.failure(null,
-                        "트랜잭션 전송 오류: " + ethSendTransaction.getError().getMessage());
+                String errorMessage = ethSendTransaction.getError().getMessage();
+                if (errorMessage != null && errorMessage.toLowerCase().contains("txpool is full")) {
+                    return BlockchainWriteResult.txPoolFull(errorMessage);
+                }
+                return BlockchainWriteResult.failure(null, "트랜잭션 전송 오류: " + errorMessage);
             }
             
             submittedTxHash = ethSendTransaction.getTransactionHash();
@@ -115,6 +119,9 @@ public class BlockchainService {
             saveTransactionHash(productId, submittedTxHash);
             return waitForConfirmation(web3j, productId, dataHash, submittedTxHash);
         } catch (Exception e) {
+            if (e.getMessage() != null && e.getMessage().contains("was not generated after")) {
+                return BlockchainWriteResult.timeout(submittedTxHash, e.getMessage());
+            }
             return BlockchainWriteResult.failure(submittedTxHash,
                     e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
         } finally {
@@ -125,7 +132,8 @@ public class BlockchainService {
     }
 
     /**
-     * 과거 실행에서 이미 전송된 트랜잭션의 확정 여부를 기다리고 온체인 값을 검증합니다.
+     * 과거 실행에서 이미 전송된 트랜잭션의 현재 상태를 한 번만 조회합니다.
+     * 아직 채굴되지 않은 거래는 기다리지 않고 PENDING으로 반환합니다.
      */
     public synchronized BlockchainWriteResult confirmExistingTransaction(
             Long productId, String dataHash, String txHash) {
@@ -136,7 +144,16 @@ public class BlockchainService {
         Web3j web3j = null;
         try {
             web3j = Web3j.build(new HttpService(blockchainUrl));
-            return waitForConfirmation(web3j, productId, dataHash, txHash);
+            EthGetTransactionReceipt response = web3j.ethGetTransactionReceipt(txHash).send();
+            if (response.hasError()) {
+                return BlockchainWriteResult.failure(txHash,
+                        "트랜잭션 영수증 조회 오류: " + response.getError().getMessage());
+            }
+            if (response.getTransactionReceipt().isEmpty()) {
+                return BlockchainWriteResult.pending(txHash);
+            }
+            return validateReceipt(web3j, productId, dataHash,
+                    txHash, response.getTransactionReceipt().get());
         } catch (Exception e) {
             return BlockchainWriteResult.failure(txHash,
                     e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
@@ -153,6 +170,13 @@ public class BlockchainService {
                 new PollingTransactionReceiptProcessor(
                         web3j, RECEIPT_POLL_INTERVAL_MILLIS, RECEIPT_POLL_ATTEMPTS);
         TransactionReceipt receipt = receiptProcessor.waitForTransactionReceipt(txHash);
+
+        return validateReceipt(web3j, productId, dataHash, txHash, receipt);
+    }
+
+    private BlockchainWriteResult validateReceipt(
+            Web3j web3j, Long productId, String dataHash,
+            String txHash, TransactionReceipt receipt) throws Exception {
 
         if (!receipt.isStatusOK()) {
             return BlockchainWriteResult.failure(txHash,
@@ -252,14 +276,30 @@ public class BlockchainService {
                 .replaceAll("[^a-f0-9]", "");
     }
 
-    public record BlockchainWriteResult(boolean success, String txHash, String message) {
+    public record BlockchainWriteResult(
+            boolean success, String txHash, String message, String code) {
 
         public static BlockchainWriteResult success(String txHash) {
-            return new BlockchainWriteResult(true, txHash, "블록체인 기록이 확정되었습니다.");
+            return new BlockchainWriteResult(
+                    true, txHash, "블록체인 기록이 확정되었습니다.", "SUCCESS");
         }
 
         public static BlockchainWriteResult failure(String txHash, String message) {
-            return new BlockchainWriteResult(false, txHash, message);
+            return new BlockchainWriteResult(false, txHash, message, "FAILED");
+        }
+
+        public static BlockchainWriteResult pending(String txHash) {
+            return new BlockchainWriteResult(false, txHash,
+                    "아직 채굴되지 않은 트랜잭션입니다. 잠시 후 다시 확인해주세요.", "PENDING");
+        }
+
+        public static BlockchainWriteResult timeout(String txHash, String message) {
+            return new BlockchainWriteResult(false, txHash, message, "TIMEOUT");
+        }
+
+        public static BlockchainWriteResult txPoolFull(String message) {
+            return new BlockchainWriteResult(false, null,
+                    "트랜잭션 전송 오류: " + message, "TXPOOL_FULL");
         }
     }
 
