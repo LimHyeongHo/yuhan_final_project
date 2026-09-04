@@ -54,9 +54,15 @@ import MyPageSettlement from './pages/shared/mypage/MyPageSettlement';
 
 
 
+// 로컬 개발 서버(npm start)는 루트("/")에서 그대로 열리지만, GitHub Pages 배포본은
+// "/yuhan_final_project" 하위 경로에서 열리기 때문에 basename이 필요하다.
+// 개발 모드에서까지 이 접두사를 강제하면 localhost:3000/ 이 라우터와 안 맞아 백지 화면이 된다
+// (결제 완료 후 백엔드 리다이렉트도 이 접두사 없이 오기 때문에 동일하게 백지화됨).
+const routerBasename = process.env.NODE_ENV === 'production' ? process.env.PUBLIC_URL : '';
+
 function App() {
   return (
-    <BrowserRouter basename={process.env.PUBLIC_URL}>
+    <BrowserRouter basename={routerBasename}>
       {/* [신규] 인증서 타이머 Provider로 전체 라우트를 감싸 어느 페이지에서도 남은 시간을 공유 */}
       <CertificateTimerProvider>
         <Routes>
