@@ -159,6 +159,10 @@ public class ProductService {
 
         product.incrementCurrentCount();
 
+        if (product.getCurrentCount() != null && product.getCurrentCount() >= product.getTargetCount()) {
+            product.setStatus("CLOSED_SUCCESS");
+        }
+
         Participation participation = new Participation();
         participation.setProduct(product);
         participation.setMember(member);

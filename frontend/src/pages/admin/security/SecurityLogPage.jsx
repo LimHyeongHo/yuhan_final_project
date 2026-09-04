@@ -145,11 +145,7 @@ const SecurityLogPage = () => {
               </h3>
               <p className="text-xs text-gray-400">모든 거래 데이터의 해시 실시간 검증 결과 목록입니다.</p>
             </div>
-            <div className="flex gap-2">
-              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 rounded-xl text-sm font-semibold text-white hover:bg-blue-700 transition shadow-md shadow-blue-100">
-                <Download size={16} /> 실시간 로그 내보내기
-              </button>
-            </div>
+
           </div>
 
           <div className="overflow-x-auto">

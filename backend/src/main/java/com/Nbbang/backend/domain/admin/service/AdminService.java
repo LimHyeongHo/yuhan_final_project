@@ -99,7 +99,17 @@ public class AdminService {
                 map.put("category", product.getCategory());
                 map.put("price", product.getPrice());
                 map.put("targetCount", product.getTargetCount());
-                map.put("status", product.getStatus());
+                String currentStatus = product.getStatus();
+                if (product.getCurrentCount() != null && product.getTargetCount() != null && product.getCurrentCount() >= product.getTargetCount()) {
+                    if ("OPEN".equals(currentStatus)) {
+                        currentStatus = "CLOSED_SUCCESS";
+                    }
+                }
+                boolean isSuspicious = product.getPrice() != null && product.getPrice().intValue() > 500000;
+                if (isSuspicious) {
+                    currentStatus = "TAMPERED";
+                }
+                map.put("status", currentStatus);
                 map.put("date", product.getCreatedAt().toLocalDate().toString());
                 return map;
             })
@@ -183,7 +193,15 @@ public class AdminService {
                 map.put("price", product.getPrice());
                 map.put("targetCount", product.getTargetCount());
                 map.put("currentCount", product.getCurrentCount());
-                map.put("status", product.getStatus());
+                String currentStatus = product.getStatus();
+                if (product.getCurrentCount() != null && product.getTargetCount() != null && product.getCurrentCount() >= product.getTargetCount()) {
+                    if ("OPEN".equals(currentStatus)) {
+                        currentStatus = "CLOSED_SUCCESS";
+                        // DB에도 동기화 업데이트 (선택 사항이지만 일치시키는 것이 좋음)
+                        product.setStatus("CLOSED_SUCCESS");
+                    }
+                }
+                
                 map.put("seller", product.getSellerEmail() != null ? product.getSellerEmail() : "알 수 없음");
                 map.put("date", product.getCreatedAt().toLocalDate().toString());
                 
@@ -193,8 +211,12 @@ public class AdminService {
                 }
                 map.put("ratio", ratio);
                 
-                // 프론트의 suspicious(이상 거래 의심) 모의 로직
                 boolean isSuspicious = product.getPrice() != null && product.getPrice().intValue() > 500000;
+                if (isSuspicious) {
+                    currentStatus = "TAMPERED";
+                }
+                
+                map.put("status", currentStatus);
                 map.put("suspicious", isSuspicious);
                 
                 return map;

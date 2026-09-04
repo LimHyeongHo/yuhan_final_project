@@ -180,7 +180,7 @@ const GroupManagementPage = () => {
             {/* 필터 세션 탭 라인 */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border border-gray-200 shadow-sm mb-2">
               <div className="flex gap-2 bg-gray-100 p-1 rounded-xl">
-                {['전체 거래', '승인 대기', '신고/이상 상태', '모집 실패'].map((tab) => (
+                {['전체 거래', '신고/이상 상태', '모집 실패'].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -194,14 +194,6 @@ const GroupManagementPage = () => {
                   </button>
                 ))}
               </div>
-              <button 
-                onClick={() => setShowOnlyOpen(!showOnlyOpen)}
-                className={`flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl text-xs font-bold transition ${
-                  showOnlyOpen ? 'bg-blue-50 text-blue-600' : 'text-gray-600 bg-white hover:bg-gray-50'
-                }`}
-              >
-                <Filter size={14} /> 진행중인 상품
-              </button>
             </div>
 
             {/* 메인 도서 등록 리스트 피드 */}
@@ -230,6 +222,7 @@ const GroupManagementPage = () => {
                       <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-md uppercase ${
                         item.status === 'CLOSED_FAIL' ? 'bg-red-50 text-red-700 border border-red-100' :
                         item.status === 'CLOSED_SUCCESS' ? 'bg-green-50 text-green-700 border border-green-100' : 
+                        item.status === 'TAMPERED' ? 'bg-purple-50 text-purple-700 border border-purple-100' : 
                         'bg-blue-50 text-blue-700 border border-blue-100'
                       }`}>
                         {item.status}
@@ -258,16 +251,10 @@ const GroupManagementPage = () => {
                   </div>
 
                   {/* 액션 제어 버튼 패널 영역 */}
-                  <div className="flex sm:flex-col items-end gap-3 justify-between w-full sm:w-auto self-stretch pt-4 sm:pt-0 border-t sm:border-t-0 border-gray-100">
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => navigate(`/buyer/products/${item.id}`)} className="p-2 text-gray-400 hover:text-blue-500 bg-gray-50 rounded-lg hover:bg-gray-100 transition" title="상품 상세페이지 이동"><Info size={16} /></button>
-                    </div>
+                  <div className="flex sm:flex-col items-end justify-center gap-3 w-full sm:w-auto self-stretch pt-4 sm:pt-0 border-t sm:border-t-0 border-gray-100">
                     <div className="flex gap-2">
                       <button onClick={() => openRejectModal(item.id)} className="p-2 px-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl hover:bg-red-100 transition flex items-center gap-1">
                         <Trash2 size={14} /> 거절
-                      </button>
-                      <button className="p-2 px-3 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 shadow-md shadow-blue-100 transition">
-                        거래 승인
                       </button>
                     </div>
                   </div>
