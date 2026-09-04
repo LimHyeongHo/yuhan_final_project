@@ -6,6 +6,8 @@ import com.Nbbang.backend.domain.notification.entity.Notification;
 import com.Nbbang.backend.domain.notification.repository.NotificationRepository;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
+import com.Nbbang.backend.domain.product.service.BlockchainService;
+import com.Nbbang.backend.domain.product.service.ProductHashService;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -13,9 +15,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,6 +30,9 @@ public class AdminService {
     private final UserAccountRepository userAccountRepository;
     private final ProductRepository productRepository;
     private final NotificationRepository notificationRepository;
+    private final BlockchainService blockchainService;
+    private final ProductHashService productHashService;
+    private final Map<Long, java.math.BigDecimal> hackPriceSnapshots = new ConcurrentHashMap<>();
 
     @Transactional(readOnly = true)
     public Map<String, Object> getDashboardStatistics() {
@@ -255,27 +263,39 @@ public class AdminService {
     // [신규] 보안 검증 시뮬레이터: 해킹 시뮬레이션
     @Transactional
     public java.util.Map<String, Object> simulateHack() {
-        // 블록체인에 등록된(txHash가 있는) 상품 중 가장 최근에 등록된 상품을 선택
-        Product product = productRepository.findAll().stream()
-                .filter(p -> p.getTxHash() != null && !p.getTxHash().isEmpty())
-                .max(java.util.Comparator.comparing(Product::getProductId))
-                .orElseThrow(() -> new CustomException(ErrorCode.VALIDATION_FAILED));
+        // 온체인 기록이 존재하고 현재 DB 해시와 일치하는 상품 중 무작위로 1개를 선택
+        java.util.List<Product> validProducts = productRepository.findAll().stream()
+                .filter(p -> {
+                    BlockchainService.BlockchainReadResult readResult =
+                            blockchainService.readHash(p.getProductId());
+                    return readResult.success()
+                            && readResult.hash() != null
+                            && !readResult.hash().isEmpty()
+                            && productHashService.matches(
+                                    productHashService.calculateHash(p), readResult.hash());
+                })
+                .collect(Collectors.toList());
+                
+        if (validProducts.isEmpty()) {
+            throw new CustomException(ErrorCode.VALIDATION_FAILED);
+        }
+        
+        Product product = validProducts.get(new java.util.Random().nextInt(validProducts.size()));
 
         java.math.BigDecimal currentPrice = product.getPrice() != null ? product.getPrice() : java.math.BigDecimal.ZERO;
-        String isbn = product.getIsbn() != null ? product.getIsbn() : "";
-        
-        // 원본 해시 계산
-        String originalData = product.getProductId() + "-" + isbn + "-" + currentPrice.toString();
-        String originalHash = calculateHash(originalData);
+        String isbn = product.getIsbn();
+        String originalHash = productHashService.calculateHash(product);
 
-        // 고의로 가격을 10,000원 증가시켜 DB에 저장 (블록체인 우회)
-        java.math.BigDecimal newPrice = currentPrice.add(new java.math.BigDecimal("10000"));
+        // 복구 시 정가가 아닌 변조 직전의 실제 공동구매 가격을 사용한다.
+        hackPriceSnapshots.putIfAbsent(product.getProductId(), currentPrice);
+
+        // 고의로 가격을 999,999원으로 변조하여 DB에 저장 (블록체인 우회)
+        java.math.BigDecimal newPrice = new java.math.BigDecimal("999999");
         product.setPrice(newPrice);
         productRepository.save(product);
 
         // 변조된 해시 계산
-        String newData = product.getProductId() + "-" + isbn + "-" + newPrice.toString();
-        String newHash = calculateHash(newData);
+        String newHash = productHashService.calculateHash(product.getProductId(), isbn, newPrice);
 
         java.util.Map<String, Object> result = new HashMap<>();
         result.put("productId", product.getProductId());
@@ -287,31 +307,195 @@ public class AdminService {
         return result;
     }
 
-    private String calculateHash(String input) {
-        try {
-            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] hashBytes = digest.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hashBytes) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
-                hexString.append(hex);
-            }
-            return hexString.toString();
-        } catch (Exception e) {
-            return "ERROR";
-        }
-    }
-
     // [신규] 보안 검증 시뮬레이터: 정상 복구
     @Transactional
     public void restoreHack(Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CustomException(ErrorCode.VALIDATION_FAILED));
         
-        // 조작된 가격 10,000원 원상복구
-        java.math.BigDecimal currentPrice = product.getPrice() != null ? product.getPrice() : java.math.BigDecimal.ZERO;
-        product.setPrice(currentPrice.subtract(new java.math.BigDecimal("10000")));
+        java.math.BigDecimal origPrice = hackPriceSnapshots.get(productId);
+        if (origPrice == null) {
+            throw new CustomException(ErrorCode.VALIDATION_FAILED);
+        }
+
+        product.setPrice(origPrice);
         productRepository.save(product);
+        hackPriceSnapshots.remove(productId, origPrice);
+    }
+
+    // [신규] 레거시 데이터 블록체인 마이그레이션
+    public java.util.Map<String, Object> migrateLegacyData() {
+        return migrateLegacyData(progress -> { });
+    }
+
+    public java.util.Map<String, Object> migrateLegacyData(Consumer<MigrationProgress> progressListener) {
+        java.util.Map<String, Object> result = new HashMap<>();
+        List<Map<String, Object>> items = new ArrayList<>();
+        List<Product> products = productRepository.findAll();
+        int totalCount = products.size();
+        int processedCount = 0;
+        int confirmedCount = 0;
+        int failedCount = 0;
+        int alreadySyncedCount = 0;
+        int remediatedCount = 0;
+        int mismatchCount = 0;
+
+        notifyMigrationProgress(progressListener, totalCount, processedCount,
+                confirmedCount, failedCount, alreadySyncedCount,
+                remediatedCount, mismatchCount, null);
+
+        for (Product product : products) {
+            notifyMigrationProgress(progressListener, totalCount, processedCount,
+                    confirmedCount, failedCount, alreadySyncedCount,
+                    remediatedCount, mismatchCount, product.getProductId());
+
+            String expectedHash = productHashService.calculateHash(product);
+            BlockchainService.BlockchainReadResult readResult =
+                    blockchainService.readHash(product.getProductId());
+
+            if (!readResult.success()) {
+                failedCount++;
+                items.add(migrationItem(product.getProductId(), "RPC_ERROR",
+                        product.getTxHash(), readResult.message()));
+                processedCount++;
+                notifyMigrationProgress(progressListener, totalCount, processedCount,
+                        confirmedCount, failedCount, alreadySyncedCount,
+                        remediatedCount, mismatchCount, product.getProductId());
+                continue;
+            }
+
+            String hashOnChain = readResult.hash();
+
+            if (hashOnChain != null && !hashOnChain.isEmpty()) {
+                if (productHashService.matches(expectedHash, hashOnChain)) {
+                    alreadySyncedCount++;
+                    continue;
+                }
+
+                String legacyHash = productHashService.calculateLegacyMigrationHash(product);
+                if (productHashService.matches(legacyHash, hashOnChain)) {
+                    BlockchainService.BlockchainWriteResult remediationResult =
+                            blockchainService.recordHashAndConfirm(product.getProductId(), expectedHash);
+                    if (remediationResult.success()) {
+                        confirmedCount++;
+                        remediatedCount++;
+                        items.add(migrationItem(product.getProductId(), "REMEDIATED",
+                                remediationResult.txHash(), "구형 해시 규격을 현재 규격으로 재기록했습니다."));
+                    } else {
+                        failedCount++;
+                        items.add(migrationItem(product.getProductId(), "FAILED",
+                                remediationResult.txHash(), remediationResult.message()));
+                    }
+                } else {
+                    mismatchCount++;
+                    items.add(migrationItem(product.getProductId(), "HASH_MISMATCH",
+                            product.getTxHash(), "기존 온체인 해시와 현재 DB 해시가 달라 자동 덮어쓰기를 중단했습니다."));
+                }
+                processedCount++;
+                notifyMigrationProgress(progressListener, totalCount, processedCount,
+                        confirmedCount, failedCount, alreadySyncedCount,
+                        remediatedCount, mismatchCount, product.getProductId());
+                continue;
+            }
+
+            BlockchainService.BlockchainWriteResult writeResult;
+            boolean remediated = false;
+            if (product.getTxHash() != null && !product.getTxHash().isBlank()) {
+                writeResult = blockchainService.confirmExistingTransaction(
+                        product.getProductId(), expectedHash, product.getTxHash());
+
+                if (!writeResult.success()) {
+                    BlockchainService.BlockchainReadResult confirmedRead =
+                            blockchainService.readHash(product.getProductId());
+                    String confirmedHash = confirmedRead.success() ? confirmedRead.hash() : null;
+                    String legacyHash = productHashService.calculateLegacyMigrationHash(product);
+                    if (productHashService.matches(legacyHash, confirmedHash)) {
+                        writeResult = blockchainService.recordHashAndConfirm(product.getProductId(), expectedHash);
+                        remediated = writeResult.success();
+                    }
+                }
+            } else {
+                writeResult = blockchainService.recordHashAndConfirm(product.getProductId(), expectedHash);
+            }
+
+            if (writeResult.success()) {
+                confirmedCount++;
+                if (remediated) {
+                    remediatedCount++;
+                }
+                items.add(migrationItem(product.getProductId(), remediated ? "REMEDIATED" : "CONFIRMED",
+                        writeResult.txHash(), remediated
+                                ? "구형 해시 규격을 현재 규격으로 재기록했습니다."
+                                : writeResult.message()));
+            } else {
+                failedCount++;
+                items.add(migrationItem(product.getProductId(), "FAILED",
+                        writeResult.txHash(), writeResult.message()));
+            }
+
+            processedCount++;
+            notifyMigrationProgress(progressListener, totalCount, processedCount,
+                    confirmedCount, failedCount, alreadySyncedCount,
+                    remediatedCount, mismatchCount, product.getProductId());
+        }
+
+        String status = failedCount == 0 && mismatchCount == 0
+                ? "SUCCESS"
+                : (confirmedCount > 0 || alreadySyncedCount > 0 ? "PARTIAL_SUCCESS" : "FAILED");
+
+        result.put("status", status);
+        result.put("message", "블록체인 확정 확인이 완료되었습니다.");
+        result.put("totalCount", totalCount);
+        result.put("processedCount", processedCount);
+        result.put("count", confirmedCount);
+        result.put("confirmedCount", confirmedCount);
+        result.put("failedCount", failedCount);
+        result.put("alreadySyncedCount", alreadySyncedCount);
+        result.put("remediatedCount", remediatedCount);
+        result.put("mismatchCount", mismatchCount);
+        result.put("items", items);
+        return result;
+    }
+
+    private void notifyMigrationProgress(
+            Consumer<MigrationProgress> listener,
+            int totalCount,
+            int processedCount,
+            int confirmedCount,
+            int failedCount,
+            int alreadySyncedCount,
+            int remediatedCount,
+            int mismatchCount,
+            Long currentProductId) {
+        listener.accept(new MigrationProgress(
+                totalCount,
+                processedCount,
+                confirmedCount,
+                failedCount,
+                alreadySyncedCount,
+                remediatedCount,
+                mismatchCount,
+                currentProductId));
+    }
+
+    private Map<String, Object> migrationItem(
+            Long productId, String status, String txHash, String message) {
+        Map<String, Object> item = new HashMap<>();
+        item.put("productId", productId);
+        item.put("status", status);
+        item.put("txHash", txHash);
+        item.put("message", message);
+        return item;
+    }
+
+    public record MigrationProgress(
+            int totalCount,
+            int processedCount,
+            int confirmedCount,
+            int failedCount,
+            int alreadySyncedCount,
+            int remediatedCount,
+            int mismatchCount,
+            Long currentProductId) {
     }
 }

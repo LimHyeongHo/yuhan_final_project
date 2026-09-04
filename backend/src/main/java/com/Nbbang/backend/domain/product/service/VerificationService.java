@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -20,6 +19,7 @@ public class VerificationService {
 
     private final ProductRepository productRepository;
     private final BlockchainService blockchainService;
+    private final ProductHashService productHashService;
     private final AladdinApiService aladdinApiService;
     private final SystemLogRepository systemLogRepository;
 
@@ -47,10 +47,8 @@ public class VerificationService {
         }
 
         // 2. 현재 DB 데이터를 기반으로 해시 생성 (ProductID + ISBN + Price)
-        String currentDataString = productId + "_" + 
-                                   (product.getIsbn() != null ? product.getIsbn() : "") + "_" + 
-                                   (product.getPrice() != null ? product.getPrice().stripTrailingZeros().toPlainString() : "");
-        String currentHash = hashString(currentDataString);
+        String currentDataString = productHashService.buildDataString(product);
+        String currentHash = productHashService.calculateHash(product);
 
         // 스마트 영수증(보증서)용 상세 데이터 추가
         result.put("txHash", product.getTxHash() != null ? product.getTxHash() : "Pending...");
@@ -128,25 +126,4 @@ public class VerificationService {
         return result;
     }
 
-    /**
-     * SHA-256 해시 생성 헬퍼 메서드
-     */
-    public String hashString(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes("UTF-8"));
-            StringBuilder hexString = new StringBuilder();
-
-            for (byte b : hash) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) {
-                    hexString.append('0');
-                }
-                hexString.append(hex);
-            }
-            return hexString.toString();
-        } catch (Exception ex) {
-            throw new RuntimeException("해시 생성 중 오류 발생", ex);
-        }
-    }
 }
