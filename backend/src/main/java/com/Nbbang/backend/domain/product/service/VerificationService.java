@@ -9,6 +9,10 @@ import java.math.BigDecimal;
 import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+
+import com.Nbbang.backend.domain.log.entity.SystemLog;
+import com.Nbbang.backend.domain.log.repository.SystemLogRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +21,7 @@ public class VerificationService {
     private final ProductRepository productRepository;
     private final BlockchainService blockchainService;
     private final AladdinApiService aladdinApiService;
+    private final SystemLogRepository systemLogRepository;
 
     /**
      * 상품 교차 검증 수행
@@ -60,6 +65,16 @@ public class VerificationService {
         if (!cleanCurrent.equals(cleanBc)) {
             result.put("status", "FORGED");
             result.put("message", "데이터 위변조가 감지되었습니다. (DB: " + cleanCurrent.substring(0,6) + " != BC: " + cleanBc.substring(0, Math.min(6, cleanBc.length())) + ")");
+            
+            // 보안 로그 기록 (TAMPERED)
+            systemLogRepository.save(SystemLog.builder()
+                    .displayId("TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
+                    .type("SECURITY")
+                    .status("TAMPERED")
+                    .diff("Diff: DB Hash Mismatch")
+                    .detail("위변조 추적")
+                    .build());
+            
             return result;
         }
 
@@ -100,6 +115,16 @@ public class VerificationService {
         // 해시가 일치하고 가격이 범위 내에 있으면 정상
         result.put("status", "VALID");
         result.put("message", "정상적으로 검증되었습니다.");
+        
+        // 보안 로그 기록 (SUCCESS)
+        systemLogRepository.save(SystemLog.builder()
+                .displayId("TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
+                .type("SECURITY")
+                .status("SUCCESS")
+                .diff("0x0000...0000")
+                .detail("상세 정보")
+                .build());
+                
         return result;
     }
 

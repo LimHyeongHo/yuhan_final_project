@@ -8,6 +8,9 @@ const GroupManagementPage = () => {
   const [products, setProducts] = useState([]);
   const [activeTab, setActiveTab] = useState('전체 거래');
   const [showOnlyOpen, setShowOnlyOpen] = useState(false);
+  const [syncLogs, setSyncLogs] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const filteredProducts = products.filter(item => {
     if (showOnlyOpen && item.status !== 'OPEN') return false;
@@ -27,16 +30,31 @@ const GroupManagementPage = () => {
     return true;
   });
 
-  const fetchProducts = () => {
+  const fetchProductsAndLogs = () => {
     fetch('http://localhost:8080/api/admin/products', { credentials: 'include' })
       .then(res => res.json())
       .then(data => setProducts(data))
       .catch(err => console.error("상품 데이터 로드 실패:", err));
+
+    fetch('http://localhost:8080/api/admin/logs?type=SECURITY', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setSyncLogs(data.slice(0, 5));
+        }
+      })
+      .catch(error => console.error("로그 로딩 실패:", error));
   };
 
   useEffect(() => {
-    fetchProducts();
+    fetchProductsAndLogs();
+    const interval = setInterval(fetchProductsAndLogs, 3000);
+    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, showOnlyOpen]);
 
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectingProductId, setRejectingProductId] = useState(null);
@@ -72,7 +90,7 @@ const GroupManagementPage = () => {
         if (!res.ok) throw new Error('상품 거절/삭제 실패');
         alert('상품이 성공적으로 거절(삭제)되었으며 판매자에게 사유가 전송되었습니다.');
         closeRejectModal();
-        fetchProducts();
+        fetchProductsAndLogs();
       })
       .catch(err => {
         console.error(err);
@@ -188,9 +206,14 @@ const GroupManagementPage = () => {
 
             {/* 메인 도서 등록 리스트 피드 */}
             <div className="flex flex-col gap-4">
-              {filteredProducts.map((item) => (
-                <div 
-                  key={item.id} 
+              {(() => {
+                const indexOfLastItem = currentPage * itemsPerPage;
+                const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+                const currentProducts = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
+                
+                return currentProducts.map((item) => (
+                  <div 
+                    key={item.id} 
                   className={`bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-6 transition-all hover:shadow-md ${
                     item.suspicious ? 'border-red-200 ring-2 ring-red-50/50' : ''
                   }`}
@@ -250,7 +273,31 @@ const GroupManagementPage = () => {
                   </div>
 
                 </div>
-              ))}
+                ));
+              })()}
+              
+              {/* 페이지네이션 컨트롤 */}
+              {Math.ceil(filteredProducts.length / itemsPerPage) > 1 && (
+                <div className="flex justify-center items-center gap-2 mt-4 pb-2">
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-gray-200 rounded-md text-sm disabled:opacity-50 hover:bg-gray-50 bg-white"
+                  >
+                    이전
+                  </button>
+                  <span className="text-sm text-gray-600 font-medium px-2">
+                    {currentPage} / {Math.ceil(filteredProducts.length / itemsPerPage)}
+                  </span>
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredProducts.length / itemsPerPage)))}
+                    disabled={currentPage === Math.ceil(filteredProducts.length / itemsPerPage)}
+                    className="px-3 py-1 border border-gray-200 rounded-md text-sm disabled:opacity-50 hover:bg-gray-50 bg-white"
+                  >
+                    다음
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -263,25 +310,25 @@ const GroupManagementPage = () => {
               </div>
 
               <div className="flex flex-col gap-4 border-t border-gray-100 pt-4">
-                <div className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded-xl transition">
-                  <div className="mt-0.5 text-blue-600"><CheckCircle size={16} /></div>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1 font-mono"><Clock size={10} /> 12:00:03</span>
-                    <p className="text-xs font-medium text-gray-700 leading-relaxed">
-                      서적 ID #21672 판매 승인 완료 및 고유 블록 해시 API 연동 처리 완료 (TXN=210940)
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded-xl transition">
-                  <div className="mt-0.5 text-gray-400"><Clock size={16} /></div>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1 font-mono"><Clock size={10} /> 12:00:01</span>
-                    <p className="text-xs font-medium text-gray-500 leading-relaxed">
-                      시스템 전체 등록 도서 인덱스 해시 정기 무결성 체크 스캔 완료 (Daily Automated Check)
-                    </p>
-                  </div>
-                </div>
+                {syncLogs.length === 0 ? (
+                  <div className="text-center text-xs text-gray-400 py-4">동기화 로그가 없습니다.</div>
+                ) : (
+                  syncLogs.map((log) => (
+                    <div key={log.id} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded-xl transition">
+                      <div className={`mt-0.5 ${log.status === 'SUCCESS' || log.status === 'VALID' ? 'text-blue-600' : 'text-red-600 animate-pulse'}`}>
+                        {log.status === 'SUCCESS' || log.status === 'VALID' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1 font-mono">
+                          <Clock size={10} /> {log.timestamp.split(' ')[1] || log.timestamp}
+                        </span>
+                        <p className={`text-xs font-medium leading-relaxed ${log.status === 'SUCCESS' || log.status === 'VALID' ? 'text-gray-700' : 'text-red-600'}`}>
+                          {log.displayId} 검증 {(log.status === 'SUCCESS' || log.status === 'VALID') ? '통과 및 동기화 완료' : '불일치 (위변조 감지)'}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
