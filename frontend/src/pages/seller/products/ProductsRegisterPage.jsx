@@ -127,6 +127,11 @@ const ProductRegisterPage = () => {
 
   // 3. 유형 변경 시 입력 폼 초기화 및 상태값 변경 함수
   const handleTypeChange = (type) => {
+    if (type === 'ITEM') {
+      window.alert('네이버 상품 검색 API 문제를 해결하는 동안 학과 물품을 등록할 수 없습니다.');
+      return;
+    }
+
     setProductType(type);
     setFormData({
       title: '',
