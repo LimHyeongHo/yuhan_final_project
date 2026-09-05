@@ -126,9 +126,10 @@ const LoginPage = () => {
   };
 
   const generateKeyPair = async () => {
+    // [변경] 서명용(RSASSA-PKCS1-v1_5) → 공개키 암호화용(RSA-OAEP).
     return await window.crypto.subtle.generateKey(
-      { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
-      true, ["sign", "verify"]
+      { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+      true, ["encrypt", "decrypt"]
     );
   };
 
@@ -211,15 +212,17 @@ const LoginPage = () => {
       }
       const { challenge } = await chalRes.json();
 
-      const sig = await window.crypto.subtle.sign("RSASSA-PKCS1-v1_5", currentKey, new TextEncoder().encode(challenge));
-      const signature = btoa(String.fromCharCode(...new Uint8Array(sig)));
+      // 서버가 기기 공개키로 암호화한 챌린지를 개인키로 복호화해 평문 nonce 를 되돌려준다.
+      const cipherBytes = Uint8Array.from(atob(challenge), (c) => c.charCodeAt(0));
+      const plainBuf = await window.crypto.subtle.decrypt({ name: "RSA-OAEP" }, currentKey, cipherBytes);
+      const answer = new TextDecoder().decode(plainBuf);
 
       const verRes = await fetch('http://localhost:8080/api/pki/login/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // [수정] 로그인 성공 시 서버가 내려주는 세션 쿠키(JSESSIONID)를 저장/전송하기 위해 credentials 추가
         credentials: 'include',
-        body: JSON.stringify({ deviceId, password, signature, ci: regCi })
+        body: JSON.stringify({ deviceId, password, answer, ci: regCi })
       });
 
       const result = await verRes.json();

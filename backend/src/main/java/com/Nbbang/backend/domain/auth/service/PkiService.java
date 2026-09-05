@@ -6,13 +6,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.Cipher;
 import javax.crypto.Mac;
+import javax.crypto.spec.OAEPParameterSpec;
+import javax.crypto.spec.PSource;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.PublicKey;
-import java.security.Signature;
+import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Map;
@@ -60,24 +63,41 @@ public class PkiService {
         return challenge;
     }
 
-    // 3. 서명 검증 (RSA)
-    public boolean verifySignature(String publicKeyBase64, String data, String signatureBase64) {
+    // 2-1. 챌린지 생성 후 해당 기기 공개키로 암호화하여 반환 (RSA-OAEP)
+    //  - 클라이언트는 개인키로 이 값을 복호화해 평문 nonce 를 되돌려줘야 로그인이 성립한다.
+    //  - 기기 인증서가 없으면 null (컨트롤러에서 404 처리).
+    public String createEncryptedChallenge(String deviceId) {
+        DeviceCert cert = deviceCertRepository.findByDeviceId(deviceId).orElse(null);
+        if (cert == null || cert.getPublicKey() == null) return null;
+
+        String challenge = createChallenge(deviceId);
+        return encryptWithPublicKey(cert.getPublicKey(), challenge);
+    }
+
+    // 3. RSA-OAEP(SHA-256) 공개키 암호화
+    //  - WebCrypto 의 RSA-OAEP(hash: SHA-256) 와 상호운용하려면 MGF1 해시도 반드시 SHA-256 으로 맞춰야 한다.
+    //    (Java 기본값은 MGF1-SHA1 이라 명시하지 않으면 클라이언트에서 복호화 실패)
+    public String encryptWithPublicKey(String publicKeyBase64, String plaintext) {
         try {
             byte[] publicBytes = Base64.getDecoder().decode(publicKeyBase64);
             X509EncodedKeySpec keySpec = new X509EncodedKeySpec(publicBytes);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             PublicKey pubKey = keyFactory.generatePublic(keySpec);
 
-            Signature sig = Signature.getInstance("SHA256withRSA");
-            sig.initVerify(pubKey);
-            sig.update(data.getBytes(StandardCharsets.UTF_8));
-            return sig.verify(Base64.getDecoder().decode(signatureBase64));
+            Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
+            OAEPParameterSpec oaep = new OAEPParameterSpec(
+                    "SHA-256", "MGF1", MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT);
+            cipher.init(Cipher.ENCRYPT_MODE, pubKey, oaep);
+            byte[] encrypted = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder().encodeToString(encrypted);
         } catch (Exception e) {
-            return false;
+            e.printStackTrace();
+            return null;
         }
     }
 
-    public boolean validateChallenge(String deviceId, String signatureBase64) {
+    // 클라이언트가 개인키로 복호화해 되돌려준 평문 nonce 가 서버가 발급한 챌린지와 같은지 검증
+    public boolean validateChallenge(String deviceId, String answerPlaintext) {
         String originalChallenge = challengeStore.get(deviceId);
         if (originalChallenge == null) return false;
 
@@ -101,7 +121,7 @@ public class PkiService {
             System.err.println("CA 서비스 검증 중 오류 발생: " + e.getMessage());
         }
 
-        boolean isValid = verifySignature(cert.getPublicKey(), originalChallenge, signatureBase64);
+        boolean isValid = originalChallenge.equals(answerPlaintext);
         if (isValid) {
             challengeStore.remove(deviceId);
         }
