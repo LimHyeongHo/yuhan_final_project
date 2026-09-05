@@ -17,4 +17,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     // 정산(출금 가능액 계산)용: 특정 상품들(productId) 중 특정 상태(status)로 완료된 결제건 조회
     List<Payment> findByProductIdInAndStatus(List<Long> productIds, String status);
+
+    // [MEM-RQ-001] 회원 탈퇴 시 결제 이력의 개인 표시 정보(buyerName) 익명화용
+    List<Payment> findByMember_Email(String email);
 }

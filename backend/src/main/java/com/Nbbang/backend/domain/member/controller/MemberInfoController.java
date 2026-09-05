@@ -5,8 +5,13 @@ import com.Nbbang.backend.domain.auth.entity.UserAccount;
 import com.Nbbang.backend.domain.auth.repository.DeviceCertRepository;
 import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
 import com.Nbbang.backend.domain.auth.service.CAService;
+import com.Nbbang.backend.domain.log.service.SystemLogService;
 import com.Nbbang.backend.domain.member.service.CertificateSessionService;
+import com.Nbbang.backend.domain.payment.entity.Payment;
+import com.Nbbang.backend.domain.payment.repository.PaymentRepository;
+import com.Nbbang.backend.domain.product.entity.Participation;
 import com.Nbbang.backend.domain.product.entity.Product;
+import com.Nbbang.backend.domain.product.repository.ParticipationRepository;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -44,19 +49,31 @@ public class MemberInfoController {
     private final CAService caService;
     private final PasswordEncoder passwordEncoder;
     private final ProductRepository productRepository;
+    private final SystemLogService systemLogService;
+    private final ParticipationRepository participationRepository;
+    private final PaymentRepository paymentRepository;
+
+    // [MEM-RQ-001] 탈퇴 시 거래 이력은 보존하되 개인 표시 정보만 이 값으로 덮어써 익명화한다.
+    private static final String ANONYMIZED_DISPLAY_NAME = "탈퇴한 사용자";
 
     public MemberInfoController(UserAccountRepository userAccountRepository,
                                  DeviceCertRepository deviceCertRepository,
                                  CertificateSessionService certificateSessionService,
                                  CAService caService,
                                  PasswordEncoder passwordEncoder,
-                                 ProductRepository productRepository) {
+                                 ProductRepository productRepository,
+                                 SystemLogService systemLogService,
+                                 ParticipationRepository participationRepository,
+                                 PaymentRepository paymentRepository) {
         this.userAccountRepository = userAccountRepository;
         this.deviceCertRepository = deviceCertRepository;
         this.certificateSessionService = certificateSessionService;
         this.caService = caService;
         this.passwordEncoder = passwordEncoder;
         this.productRepository = productRepository;
+        this.systemLogService = systemLogService;
+        this.participationRepository = participationRepository;
+        this.paymentRepository = paymentRepository;
     }
 
     // 마이페이지 "회원 정보 개요"에 표시할 실제 계정 정보 + CA 인증서 시리얼 번호 조회
@@ -195,8 +212,19 @@ public class MemberInfoController {
                 }
             }
 
+            // [MEM-RQ-001] 참여/결제 기록(감사 데이터)은 그대로 두되, 화면에 노출되는 닉네임 스냅샷만 익명화
+            for (Participation participation : participationRepository.findByMember_EmailOrderByJoinDateDesc(userId)) {
+                participation.setBuyerName(ANONYMIZED_DISPLAY_NAME);
+            }
+            for (Payment payment : paymentRepository.findByMember_Email(userId)) {
+                payment.setBuyerName(ANONYMIZED_DISPLAY_NAME);
+            }
+
             user.setStatus("WITHDRAWN");
             userAccountRepository.save(user);
+
+            // [NFR-002] 회원 탈퇴는 감사 로그 대상
+            systemLogService.log("MEMBER", "SUCCESS", "회원 탈퇴: " + userId);
 
             request.getSession().invalidate();
 

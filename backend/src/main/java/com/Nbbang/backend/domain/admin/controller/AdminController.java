@@ -3,6 +3,7 @@ package com.Nbbang.backend.domain.admin.controller;
 import com.Nbbang.backend.domain.admin.service.AdminService;
 import com.Nbbang.backend.domain.admin.service.LegacyMigrationJobService;
 import com.Nbbang.backend.domain.admin.service.LegacyMigrationWorker;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -34,8 +35,9 @@ public class AdminController {
 
     // 판매자 권한 부여
     @PostMapping("/users/{email}/grant-seller")
-    public ResponseEntity<String> grantSellerRole(@PathVariable String email) {
-        adminService.grantSellerRole(email);
+    public ResponseEntity<String> grantSellerRole(@PathVariable String email, HttpSession session) {
+        String adminEmail = (String) session.getAttribute("userId");
+        adminService.grantSellerRole(email, adminEmail);
         return ResponseEntity.ok("판매자 권한이 부여되었습니다.");
     }
 

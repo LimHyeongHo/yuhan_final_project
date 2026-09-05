@@ -54,6 +54,7 @@ public enum ErrorCode {
     PRODUCT_UPDATE_FAILED(500, "수정에 실패했습니다. 잠시 후 다시 시도해주세요"),
     PRODUCT_CANNOT_DELETE_WITH_PARTICIPANTS(409, "이미 참여자가 있는 프로젝트는 삭제할 수 없습니다"),
     PRODUCT_CANNOT_MODIFY_COMPLETED(409, "목표 달성 완료된 프로젝트는 수정하거나 삭제할 수 없습니다"),
+    PRODUCT_SELLER_WITHDRAWN(409, "판매자가 탈퇴하여 더 이상 참여할 수 없는 상품입니다"),
 
     // ========== 판매자 (SELLER) ==========
     SELLER_STATISTICS_LOAD_FAILED(500, "통계 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
