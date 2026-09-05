@@ -99,7 +99,7 @@ function App() {
           { /* ----------------판매자 페이지-----------------*/}
           { /* 대시보드 페이지 접속 화면 */}
           <Route path="/seller/dashboard" element={<SellerDashboardPage />} />
-          { /* 상품관리 페이지 접속 화면 */}
+          { /* 상품관리 페이지 접속 화면 - 네이버 검색 api 문제로 인해 상품 검색만 임시 차단*/}
           <Route path="/seller/products" element={<ProductsRegisterPage />} />
           { /* 상품 수정 페이지 접속 화면 */}
           <Route path="/seller/products/edit/:id" element={<ProductsEditPage />} />
