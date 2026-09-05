@@ -1,6 +1,7 @@
 package com.Nbbang.backend.domain.product.repository;
 
 import com.Nbbang.backend.domain.product.entity.Product;
+import com.Nbbang.backend.domain.product.entity.BlockchainJobStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -18,4 +19,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     // [신규] 대시보드용 최근 등록된 5개 상품 조회
     List<Product> findTop5ByOrderByCreatedAtDesc();
+
+    List<Product> findByBlockchainStatusIn(List<BlockchainJobStatus> statuses);
 }

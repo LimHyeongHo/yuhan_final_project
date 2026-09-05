@@ -232,6 +232,27 @@ public class AdminService {
             .collect(Collectors.toList());
     }
 
+    /** 관리자용 블록체인 비동기 작업 상태 및 실패 이력 조회. */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getBlockchainJobs() {
+        return productRepository.findAll().stream()
+                .sorted(java.util.Comparator.comparing(
+                        Product::getBlockchainUpdatedAt,
+                        java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
+                .map(product -> {
+                    Map<String, Object> job = new HashMap<>();
+                    job.put("productId", product.getProductId());
+                    job.put("title", product.getTitle());
+                    job.put("status", product.getBlockchainStatus());
+                    job.put("txHash", product.getTxHash());
+                    job.put("retryCount", product.getBlockchainRetryCount());
+                    job.put("lastError", product.getBlockchainLastError());
+                    job.put("updatedAt", product.getBlockchainUpdatedAt());
+                    return job;
+                })
+                .collect(Collectors.toList());
+    }
+
     // 어드민 전용 상품 강제 삭제
     @Transactional
     public void deleteProductByAdmin(Long productId) {

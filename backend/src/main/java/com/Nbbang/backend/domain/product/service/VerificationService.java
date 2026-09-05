@@ -1,6 +1,7 @@
 package com.Nbbang.backend.domain.product.service;
 
 import com.Nbbang.backend.domain.product.entity.Product;
+import com.Nbbang.backend.domain.product.entity.BlockchainJobStatus;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,11 +39,36 @@ public class VerificationService {
             return result;
         }
 
-        // 1. 블록체인에서 원본 해시 조회 (비동기로 등록되므로 아직 없을 수도 있음)
-        String blockchainHash = blockchainService.getHash(productId);
+        // DB 작업 상태를 먼저 반환해 txHash 부재 원인과 재시도 이력을 API에서 구분한다.
+        result.put("txHash", product.getTxHash());
+        result.put("blockchainStatus", product.getBlockchainStatus());
+        result.put("retryCount", product.getBlockchainRetryCount());
+        result.put("lastError", product.getBlockchainLastError());
+
+        // 1. 블록체인 조회 장애와 아직 기록되지 않은 상태를 구분한다.
+        BlockchainService.BlockchainReadResult readResult = blockchainService.readHash(productId);
+        if (!readResult.success()) {
+            if (product.getBlockchainStatus() == BlockchainJobStatus.FAILED_FINAL) {
+                result.put("status", "FAILED");
+                result.put("message", product.getBlockchainLastError() != null
+                        ? product.getBlockchainLastError()
+                        : "블록체인 기록이 최종 실패했습니다.");
+            } else if ("UNAVAILABLE".equals(readResult.code())) {
+                result.put("status", "UNAVAILABLE");
+                result.put("message", "블록체인 검증 서비스를 일시적으로 사용할 수 없습니다.");
+            } else {
+                result.put("status", "PENDING");
+                result.put("message", "블록체인 기록을 처리하고 있습니다.");
+            }
+            result.put("retryable", product.getBlockchainStatus() != BlockchainJobStatus.FAILED_FINAL);
+            return result;
+        }
+
+        String blockchainHash = readResult.hash();
         if (blockchainHash == null || blockchainHash.isEmpty()) {
             result.put("status", "PENDING");
-            result.put("message", "블록체인에 아직 기록되지 않았거나 조회할 수 없습니다.");
+            result.put("message", "블록체인 기록을 처리하고 있습니다.");
+            result.put("retryable", true);
             return result;
         }
 
@@ -51,7 +77,6 @@ public class VerificationService {
         String currentHash = productHashService.calculateHash(product);
 
         // 스마트 영수증(보증서)용 상세 데이터 추가
-        result.put("txHash", product.getTxHash() != null ? product.getTxHash() : "Pending...");
         result.put("blockchainHash", blockchainHash);
         result.put("dbHash", currentHash);
         result.put("targetData", currentDataString);

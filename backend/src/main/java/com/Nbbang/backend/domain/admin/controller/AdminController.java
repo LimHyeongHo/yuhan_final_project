@@ -115,4 +115,9 @@ public class AdminController {
         Map<String, Object> job = legacyMigrationJobService.getJob(jobId);
         return job != null ? ResponseEntity.ok(job) : ResponseEntity.notFound().build();
     }
+
+    @GetMapping("/blockchain/jobs")
+    public ResponseEntity<List<Map<String, Object>>> getBlockchainJobs() {
+        return ResponseEntity.ok(adminService.getBlockchainJobs());
+    }
 }
