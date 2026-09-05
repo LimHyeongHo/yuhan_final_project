@@ -4,6 +4,7 @@ import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
 import com.Nbbang.backend.domain.chat.dto.ChatRoomResponse;
 import com.Nbbang.backend.domain.chat.entity.ChatRoom;
 import com.Nbbang.backend.domain.chat.repository.ChatRoomRepository;
+import com.Nbbang.backend.domain.product.repository.ProductRepository;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class ChatRoomService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final UserAccountRepository userAccountRepository;
+    private final ProductRepository productRepository;
 
     /** 내 채팅방 목록 조회 */
     @Transactional(readOnly = true)
@@ -53,8 +55,18 @@ public class ChatRoomService {
 
         return chatRoomRepository
                 .findByBuyerEmailAndSellerEmailAndProductId(buyerEmail, sellerEmail, productId)
-                .orElseGet(() -> chatRoomRepository.save(
-                        ChatRoom.create(buyerEmail, sellerEmail, productId, productName)));
+                .orElseGet(() -> {
+                    // [MEM-RQ-002] 판매자가 탈퇴한 상품은 새 채팅방(문의) 생성 불가.
+                    // 기존 대화(이미 찾은 방)는 CHAT-RQ-001에 따라 계속 조회 가능해야 하므로 신규 생성 분기에서만 막는다.
+                    boolean sellerWithdrawn = productRepository.findById(productId)
+                            .map(p -> "SELLER_WITHDRAWN".equals(p.getStatus()))
+                            .orElse(false);
+                    if (sellerWithdrawn) {
+                        throw new CustomException(ErrorCode.PRODUCT_SELLER_WITHDRAWN);
+                    }
+                    return chatRoomRepository.save(
+                            ChatRoom.create(buyerEmail, sellerEmail, productId, productName));
+                });
     }
 
     /** 채팅방 조회 */

@@ -110,7 +110,17 @@ const Header = () => {
   }, [nickname]);
 
   const handleLogout = async () => {
-    // 인증서 폐기는 탈퇴/타이머 만료 때만 해야 함 - 수동 로그아웃은 로컬 세션 정리만 한다
+    // [SEC-RQ-002] 서버 세션도 함께 무효화해야 뒤로가기/재요청으로 보호 API에 재진입할 수 없음.
+    // 인증서 폐기는 탈퇴/타이머 만료 때만 해야 하므로 여기서는 로그아웃 API만 호출한다.
+    try {
+      await fetch(`http://${window.location.hostname}:8080/api/pki/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (err) {
+      console.error('서버 로그아웃 요청 실패', err);
+    }
+
     localStorage.removeItem('user_nickname');
     localStorage.removeItem('user_role');
     // [신규] 채팅 메시지 판별 email 삭제
@@ -241,7 +251,8 @@ const Header = () => {
             </>
           )}
 
-          {(userRole === 'ROLE_BUYER' || !userRole.startsWith('ROLE_')) && (
+          {/* [SEC-RQ-003] ROLE_SELLER_PENDING(승인 대기 판매자)은 아직 SELLER가 아니므로 구매자와 같은 탐색 메뉴를 보여준다 */}
+          {(userRole === 'ROLE_BUYER' || userRole === 'ROLE_SELLER_PENDING' || !userRole.startsWith('ROLE_')) && (
             <>
               <Link to="/" className="hover:text-gray-950 transition">홈</Link>
               <Link to="/buyer/products" className="hover:text-gray-950 transition">공구 찾기</Link>
@@ -421,7 +432,8 @@ const Header = () => {
               </>
             )}
 
-            {(userRole === 'ROLE_BUYER' || !userRole.startsWith('ROLE_')) && (
+            {/* [SEC-RQ-003] ROLE_SELLER_PENDING(승인 대기 판매자)은 아직 SELLER가 아니므로 구매자와 같은 탐색 메뉴를 보여준다 */}
+          {(userRole === 'ROLE_BUYER' || userRole === 'ROLE_SELLER_PENDING' || !userRole.startsWith('ROLE_')) && (
               <>
                 <Link to="/" onClick={() => setIsMobileMenuOpen(false)}>홈</Link>
                 <Link to="/buyer/products" onClick={() => setIsMobileMenuOpen(false)}>공구 찾기</Link>

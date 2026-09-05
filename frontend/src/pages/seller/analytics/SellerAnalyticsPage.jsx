@@ -9,7 +9,8 @@ const SellerAnalyticsPage = () => {
 
   useEffect(() => {
     const userId = localStorage.getItem('user_id') || '1'; // 임시 기본값 지원
-    fetch(`http://localhost:8080/api/seller/${userId}/analytics`)
+    // [SEC-RQ-001] 세션 쿠키를 안 보내면 로그인 요구 정책에 걸려 401이 난다.
+    fetch(`http://localhost:8080/api/seller/${userId}/analytics`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         setAnalyticsData(data);

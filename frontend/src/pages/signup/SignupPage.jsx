@@ -39,7 +39,11 @@ const checkEmailAvailability = async (email) => {
     const res = await fetch(`http://localhost:8080/api/pki/check-email?email=${encodeURIComponent(email)}`);
     if (!res.ok) return "";
     const data = await res.json();
-    return data.available ? "" : "이미 사용 중인 이메일입니다.";
+    if (data.available) return "";
+    // [MEM-RQ-001] 탈퇴한 계정은 영구 재가입 불가 - "이미 사용 중"과 다른 문구로 안내
+    return data.reason === "WITHDRAWN"
+      ? "탈퇴한 계정입니다. 이 이메일로는 다시 가입할 수 없습니다."
+      : "이미 사용 중인 이메일입니다.";
   } catch {
     return "";
   }
