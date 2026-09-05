@@ -34,7 +34,7 @@ public class ProductService {
     private final ParticipationRepository participationRepository;
     private final ScrapRepository scrapRepository;
     private final UserAccountRepository userAccountRepository;
-    private final VerificationService verificationService;
+    private final ProductHashService productHashService;
     private final BlockchainService blockchainService;
 
     // 로컬 업로드 경로 설정 (프로젝트 실행 위치의 uploads 폴더)
@@ -80,10 +80,7 @@ public class ProductService {
         Product savedProduct = productRepository.save(product);
 
         // [블록체인 연동] 상품 등록 시 비동기로 블록체인에 데이터 해시 기록
-        String dataString = savedProduct.getProductId() + "_" + 
-                           (savedProduct.getIsbn() != null ? savedProduct.getIsbn() : "") + "_" + 
-                           (savedProduct.getPrice() != null ? savedProduct.getPrice().stripTrailingZeros().toPlainString() : "");
-        String dataHash = verificationService.hashString(dataString);
+        String dataHash = productHashService.calculateHash(savedProduct);
         blockchainService.recordHashAsync(savedProduct.getProductId(), dataHash);
 
         return savedProduct;
@@ -158,6 +155,10 @@ public class ProductService {
                 .orElseThrow(() -> new CustomException(ErrorCode.AUTH_UNAUTHORIZED));
 
         product.incrementCurrentCount();
+
+        if (product.getCurrentCount() != null && product.getCurrentCount() >= product.getTargetCount()) {
+            product.setStatus("CLOSED_SUCCESS");
+        }
 
         Participation participation = new Participation();
         participation.setProduct(product);

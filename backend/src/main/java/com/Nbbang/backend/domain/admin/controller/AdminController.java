@@ -1,10 +1,13 @@
 package com.Nbbang.backend.domain.admin.controller;
 
 import com.Nbbang.backend.domain.admin.service.AdminService;
+import com.Nbbang.backend.domain.admin.service.LegacyMigrationJobService;
+import com.Nbbang.backend.domain.admin.service.LegacyMigrationWorker;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -14,6 +17,8 @@ import java.util.Map;
 public class AdminController {
 
     private final AdminService adminService;
+    private final LegacyMigrationJobService legacyMigrationJobService;
+    private final LegacyMigrationWorker legacyMigrationWorker;
 
     // 대시보드 통계 조회
     @GetMapping("/statistics")
@@ -78,5 +83,36 @@ public class AdminController {
         String reason = body.get("reason");
         adminService.rejectProductByAdmin(id, reason);
         return ResponseEntity.ok("상품이 성공적으로 거절(삭제)되었으며, 판매자에게 알림이 발송되었습니다.");
+    }
+
+    // [신규] 보안 검증 시뮬레이터: 해킹 시뮬레이션
+    @PostMapping("/security/simulate-hack")
+    public ResponseEntity<Map<String, Object>> simulateHack() {
+        Map<String, Object> result = adminService.simulateHack();
+        result.put("message", "해킹 시뮬레이션 성공. (가격 조작 완료)");
+        return ResponseEntity.ok(result);
+    }
+
+    // [신규] 보안 검증 시뮬레이터: 원상 복구
+    @PostMapping("/security/restore/{id}")
+    public ResponseEntity<String> restoreHack(@PathVariable Long id) {
+        adminService.restoreHack(id);
+        return ResponseEntity.ok("정상적으로 복구되었습니다.");
+    }
+
+    // [신규] 레거시 데이터 블록체인 마이그레이션
+    @PostMapping("/security/migrate-legacy")
+    public ResponseEntity<Map<String, Object>> migrateLegacyData() {
+        LegacyMigrationJobService.StartResult startResult = legacyMigrationJobService.createJob();
+        if (startResult.created()) {
+            legacyMigrationWorker.run(startResult.jobId());
+        }
+        return ResponseEntity.accepted().body(startResult.snapshot());
+    }
+
+    @GetMapping("/security/migrate-legacy/{jobId}")
+    public ResponseEntity<Map<String, Object>> getLegacyMigrationStatus(@PathVariable String jobId) {
+        Map<String, Object> job = legacyMigrationJobService.getJob(jobId);
+        return job != null ? ResponseEntity.ok(job) : ResponseEntity.notFound().build();
     }
 }

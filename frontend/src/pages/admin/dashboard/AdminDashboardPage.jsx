@@ -71,9 +71,6 @@ const AdminDashboardPage = () => {
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">일간 신규 가입</span>
               <h3 className="text-3xl font-black text-gray-950 mt-1">{stats.newUsersToday.toLocaleString()} 명</h3>
-              <span className="text-emerald-600 text-xs font-bold mt-1 flex items-center gap-0.5">
-                ▲ +12% <span className="text-gray-400 font-normal ml-1">vs 어제</span>
-              </span>
             </div>
             <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
               <Users size={22} />
@@ -88,9 +85,6 @@ const AdminDashboardPage = () => {
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">누적 활성 판매자</span>
               <h3 className="text-3xl font-black text-gray-950 mt-1">{stats.activeSellers.toLocaleString()} 명</h3>
-              <span className="text-emerald-600 text-xs font-bold mt-1 flex items-center gap-0.5">
-                ▲ +3% <span className="text-gray-400 font-normal ml-1">vs 지난달</span>
-              </span>
             </div>
             <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
               <BarChart3 size={22} />
@@ -271,8 +265,11 @@ const AdminDashboardPage = () => {
                         {product.price.toLocaleString()}원
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold inline-block ${
-                          product.status === 'OPEN' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold inline-block uppercase ${
+                          product.status === 'OPEN' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                          product.status === 'CLOSED_SUCCESS' ? 'bg-green-50 text-green-700 border border-green-100' :
+                          product.status === 'TAMPERED' ? 'bg-purple-50 text-purple-700 border border-purple-100' :
+                          'bg-gray-100 text-gray-500'
                         }`}>
                           {product.status}
                         </span>

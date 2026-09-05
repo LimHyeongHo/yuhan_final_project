@@ -69,7 +69,11 @@ const LoginPage = () => {
         // [신규] 관리자는 인증서 타이머가 없지만, 혹시 있을 상태를 정리하기 위해 동기화 호출
         await syncStatus();
         alert(`${result.nickname}님 환영합니다!`);
-        navigate('/');
+        if (result.role === 'ROLE_ADMIN') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/');
+        }
       } else {
         throw new Error(result.message);
       }
@@ -238,7 +242,11 @@ const LoginPage = () => {
         // [신규] 로그인 성공 직후 서버에서 시작된 인증서 10분 타이머를 프론트와 동기화
         await syncStatus();
         alert(`${result.nickname}님 환영합니다!`);
-        navigate('/');
+        if (result.role === 'ROLE_ADMIN') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/');
+        }
         return;
       } else {
         const message = result.message || "로그인에 실패했습니다.";

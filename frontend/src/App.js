@@ -13,6 +13,7 @@ import SignupPage from './pages/signup/SignupPage';
 import HomePage_v2 from './pages/home/HomePage_v2';
 /// [*] 관리자용 페이지 import
 import SecurityLogPage from './pages/admin/security/SecurityLogPage';
+import AdminSimulatorPage from './pages/admin/security/AdminSimulatorPage';
 import UserAuthorization from './pages/admin/authorization/UserAuthorization';
 import AdminDashboardPage from './pages/admin/dashboard/AdminDashboardPage';
 import ProductsManagementPage from './pages/admin/products/ProductsManagementPage';
@@ -75,6 +76,8 @@ function App() {
           { /* ----------------관리자 페이지-----------------*/}
           { /* 보안 로그 화면으로 접속했을 때 보여줄 화면 */}
           <Route path="/admin/security" element={<AdminRoute><SecurityLogPage /></AdminRoute>} />
+          { /* 보안 검증 시뮬레이터 화면 */}
+          <Route path="/admin/simulator" element={<AdminRoute><AdminSimulatorPage /></AdminRoute>} />
           { /* 회원 관리 페이지 접속 화면 */}
           <Route path="/admin/authorization" element={<AdminRoute><UserAuthorization /></AdminRoute>} />
           { /* 대시보드 페이지 접속 화면 */}

@@ -6,9 +6,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+
+import com.Nbbang.backend.domain.log.entity.SystemLog;
+import com.Nbbang.backend.domain.log.repository.SystemLogRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -16,7 +19,9 @@ public class VerificationService {
 
     private final ProductRepository productRepository;
     private final BlockchainService blockchainService;
+    private final ProductHashService productHashService;
     private final AladdinApiService aladdinApiService;
+    private final SystemLogRepository systemLogRepository;
 
     /**
      * 상품 교차 검증 수행
@@ -42,10 +47,8 @@ public class VerificationService {
         }
 
         // 2. 현재 DB 데이터를 기반으로 해시 생성 (ProductID + ISBN + Price)
-        String currentDataString = productId + "_" + 
-                                   (product.getIsbn() != null ? product.getIsbn() : "") + "_" + 
-                                   (product.getPrice() != null ? product.getPrice().stripTrailingZeros().toPlainString() : "");
-        String currentHash = hashString(currentDataString);
+        String currentDataString = productHashService.buildDataString(product);
+        String currentHash = productHashService.calculateHash(product);
 
         // 스마트 영수증(보증서)용 상세 데이터 추가
         result.put("txHash", product.getTxHash() != null ? product.getTxHash() : "Pending...");
@@ -60,6 +63,16 @@ public class VerificationService {
         if (!cleanCurrent.equals(cleanBc)) {
             result.put("status", "FORGED");
             result.put("message", "데이터 위변조가 감지되었습니다. (DB: " + cleanCurrent.substring(0,6) + " != BC: " + cleanBc.substring(0, Math.min(6, cleanBc.length())) + ")");
+            
+            // 보안 로그 기록 (TAMPERED)
+            systemLogRepository.save(SystemLog.builder()
+                    .displayId("TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
+                    .type("SECURITY")
+                    .status("TAMPERED")
+                    .diff("Diff: DB Hash Mismatch")
+                    .detail("위변조 추적")
+                    .build());
+            
             return result;
         }
 
@@ -100,28 +113,17 @@ public class VerificationService {
         // 해시가 일치하고 가격이 범위 내에 있으면 정상
         result.put("status", "VALID");
         result.put("message", "정상적으로 검증되었습니다.");
+        
+        // 보안 로그 기록 (SUCCESS)
+        systemLogRepository.save(SystemLog.builder()
+                .displayId("TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
+                .type("SECURITY")
+                .status("SUCCESS")
+                .diff("0x0000...0000")
+                .detail("상세 정보")
+                .build());
+                
         return result;
     }
 
-    /**
-     * SHA-256 해시 생성 헬퍼 메서드
-     */
-    public String hashString(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes("UTF-8"));
-            StringBuilder hexString = new StringBuilder();
-
-            for (byte b : hash) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) {
-                    hexString.append('0');
-                }
-                hexString.append(hex);
-            }
-            return hexString.toString();
-        } catch (Exception ex) {
-            throw new RuntimeException("해시 생성 중 오류 발생", ex);
-        }
-    }
 }
