@@ -9,7 +9,7 @@ const SellerAnalyticsPage = () => {
 
   useEffect(() => {
     const userId = localStorage.getItem('user_id') || '1'; // 임시 기본값 지원
-    fetch(`http://localhost:8080/api/seller/${userId}/analytics`)
+    fetch(`http://localhost:8080/api/seller/${userId}/analytics`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         setAnalyticsData(data);

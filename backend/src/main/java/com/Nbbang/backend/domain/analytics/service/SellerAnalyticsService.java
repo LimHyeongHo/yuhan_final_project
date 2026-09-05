@@ -22,6 +22,16 @@ public class SellerAnalyticsService {
         // 실제 로그인한 sellerId 로 필터링하여 자신의 판매 데이터만 가져옴
         List<Product> allProducts = productRepository.findBySellerIdOrderByCreatedAtDesc(sellerId);
 
+        return buildAnalytics(allProducts);
+    }
+
+    @Transactional(readOnly = true)
+    public SellerAnalyticsResponseDto getSellerAnalyticsByEmail(String sellerEmail) {
+        return buildAnalytics(productRepository.findBySellerEmailOrderByCreatedAtDesc(sellerEmail));
+    }
+
+    private SellerAnalyticsResponseDto buildAnalytics(List<Product> allProducts) {
+
         long totalRevenue = allProducts.stream()
                 .mapToLong(p -> p.getPrice().longValue() * p.getCurrentCount())
                 .sum();

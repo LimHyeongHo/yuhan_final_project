@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/api/products")
@@ -23,13 +24,27 @@ import java.util.Map;
 @CrossOrigin(origins = "http://localhost:3000")
 public class ProductController {
 
+    private static final long REGISTRATION_KEY_TTL_MILLIS = 5 * 60 * 1000L;
+    private final Map<String, Long> recentRegistrationKeys = new ConcurrentHashMap<>();
+
     private final ProductService productService; // 💡 레포지토리 대신 서비스로 변경!
 
     @PostMapping
     public ResponseEntity<Product> createProduct(
             @ModelAttribute Product product,
             @RequestParam(value = "image", required = false) MultipartFile image,
-            HttpSession session) {
+            HttpSession session,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            String userId = String.valueOf(session.getAttribute("userId"));
+            String requestKey = userId + ":" + idempotencyKey.trim();
+            long now = System.currentTimeMillis();
+            recentRegistrationKeys.entrySet().removeIf(entry -> entry.getValue() <= now);
+            if (recentRegistrationKeys.putIfAbsent(
+                    requestKey, now + REGISTRATION_KEY_TTL_MILLIS) != null) {
+                throw new CustomException(ErrorCode.PRODUCT_DUPLICATE);
+            }
+        }
         // 프론트엔드에서 FormData로 전송하므로 @ModelAttribute로 매핑하고 이미지는 별도로 받습니다.
         // [신규] POST /api/chat/rooms 호출용 판매자 이메일 세팅
         product.setSellerEmail((String) session.getAttribute("userId"));
