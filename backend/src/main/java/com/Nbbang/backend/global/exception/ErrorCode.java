@@ -34,12 +34,20 @@ public enum ErrorCode {
     PURCHASE_FULL(409, "모집이 완료된 공동구매입니다"),
     PURCHASE_ALREADY_JOINED(409, "이미 참여 중인 공동구매입니다"),
     PURCHASE_DEADLINE_PASSED(409, "마감된 공동구매입니다"),
+    // ===== 0906 문건우 수정 시작 =====
+    // PRD-RQ-001: 본인 소유가 아니거나 존재하지 않는 참여 건에 대한 취소 요청
+    PARTICIPATION_NOT_FOUND(404, "참여 내역을 찾을 수 없습니다"),
+    // ===== 0906 문건우 수정 끝 =====
 
     // ========== 결제 (PAYMENT) ==========(총4줄 추가됨)
     PAYMENT_INVALID_AMOUNT(400, "결제 금액이 올바르지 않습니다"),
     PAYMENT_ORDER_NOT_FOUND(404, "유효하지 않은 주문입니다"),
     PAYMENT_AMOUNT_MISMATCH(400, "결제 금액이 일치하지 않습니다"),
     PAYMENT_CONFIRM_FAILED(502, "결제 승인에 실패했습니다. 잠시 후 다시 시도해주세요"),
+    // ===== 0906 문건우 수정 시작 =====
+    // PAY-RQ-001: Toss 취소 API 호출 실패 (네트워크 오류/명시적 거부 모두 포함, 재시도 가능)
+    PAYMENT_REFUND_FAILED(502, "환불 처리에 실패했습니다. 잠시 후 다시 시도해주세요"),
+    // ===== 0906 문건우 수정 끝 =====
 
     // ========== 상품 (PRODUCT) ==========
     //[추가]
@@ -54,6 +62,13 @@ public enum ErrorCode {
     PRODUCT_UPDATE_FAILED(500, "수정에 실패했습니다. 잠시 후 다시 시도해주세요"),
     PRODUCT_CANNOT_DELETE_WITH_PARTICIPANTS(409, "이미 참여자가 있는 프로젝트는 삭제할 수 없습니다"),
     PRODUCT_CANNOT_MODIFY_COMPLETED(409, "목표 달성 완료된 프로젝트는 수정하거나 삭제할 수 없습니다"),
+    // ===== 0906 문건우 수정 시작 =====
+    // PRD-RQ-004/005: 가격·목표인원 수정 정책 및 숫자 입력 검증
+    PRODUCT_PRICE_INCREASE_NOT_ALLOWED(400, "가격은 인상할 수 없습니다"),
+    PRODUCT_PRICE_CHANGE_HAS_PARTICIPANTS(409, "이미 결제가 완료된 참여자가 있어 가격을 수정할 수 없습니다"),
+    PRODUCT_TARGET_COUNT_BELOW_CURRENT(400, "목표 인원은 현재 참여 인원보다 적게 설정할 수 없습니다"),
+    PRODUCT_PRICE_INVALID_UNIT(400, "가격은 100원 단위로 입력해주세요"),
+    // ===== 0906 문건우 수정 끝 =====
 
     // ========== 판매자 (SELLER) ==========
     SELLER_STATISTICS_LOAD_FAILED(500, "통계 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),

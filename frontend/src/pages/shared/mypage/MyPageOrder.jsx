@@ -180,6 +180,25 @@ const MyPageOrders = () => {
     loadOrders();
   }, [loadOrders]);
 
+  // [신규] PRD-RQ-001: 마이페이지에서도 참여 취소 가능 (기존엔 상세 페이지의 죽은 토글 버튼뿐이었음)
+  const handleCancel = async (order) => {
+    if (!window.confirm('공동구매 참여를 취소하시겠어요? 결제가 완료된 건은 환불 처리됩니다.')) return;
+    try {
+      const res = await fetch(`${API_BASE}/products/${order.productId}/cancel`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || '참여 취소에 실패했습니다.');
+      }
+      alert('공동구매 참여가 취소되었습니다.');
+      loadOrders();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const refreshEligibility = (productId) => {
     fetch(`${API_BASE}/reviews/eligibility?productId=${productId}`, { credentials: 'include' })
       .then((res) => (res.ok ? res.json() : null))
@@ -273,6 +292,14 @@ const MyPageOrders = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">
+                {order.rawStatus === 'OPEN' && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleCancel(order); }}
+                    className="text-xs font-bold text-red-600 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50"
+                  >
+                    참여 취소
+                  </button>
+                )}
                 {renderReviewControls(order)}
                 <ChevronRight className="text-gray-300 group-hover:text-blue-500 transition" size={20} />
               </div>

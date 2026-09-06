@@ -154,6 +154,11 @@ const ProductRegisterPage = () => {
       alert("가격과 목표 인원은 0보다 큰 수치여야 합니다.");
       return;
     }
+    // [신규] PRD-RQ-005: 가격은 100원 단위로만 입력 가능
+    if (Number(formData.price) % 100 !== 0) {
+      alert("가격은 100원 단위로 입력해주세요.");
+      return;
+    }
 
     // 🌟 이미지가 포함된 데이터를 보낼 때는 FormData를 사용합니다
     const submitData = new FormData();
@@ -337,8 +342,9 @@ const ProductRegisterPage = () => {
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">₩</span>
                   <input
-                    type="number" id="price" required
+                    type="number" id="price" required step="100"
                     value={formData.price} onChange={handleChange}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="예) 35000"
                     className="w-full p-3.5 pl-9 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-semibold"
                   />
@@ -349,8 +355,9 @@ const ProductRegisterPage = () => {
                 <div className="relative">
                   <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                   <input
-                    type="number" id="targetCount" required
+                    type="number" id="targetCount" required step="1"
                     value={formData.targetCount} onChange={handleChange}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="예) 10"
                     className="w-full p-3.5 pl-11 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-semibold"
                   />

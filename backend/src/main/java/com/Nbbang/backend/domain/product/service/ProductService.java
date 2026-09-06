@@ -2,9 +2,12 @@ package com.Nbbang.backend.domain.product.service; // 🚨 본인 경로에 맞�
 
 import com.Nbbang.backend.domain.auth.entity.UserAccount;
 import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
+import com.Nbbang.backend.domain.payment.repository.PaymentRepository;
 import com.Nbbang.backend.domain.product.entity.Participation;
+import com.Nbbang.backend.domain.product.entity.ProductPriceHistory;
 import com.Nbbang.backend.domain.product.entity.Scrap;
 import com.Nbbang.backend.domain.product.repository.ParticipationRepository;
+import com.Nbbang.backend.domain.product.repository.ProductPriceHistoryRepository;
 import com.Nbbang.backend.domain.product.repository.ScrapRepository;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
@@ -17,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -36,6 +40,8 @@ public class ProductService {
     private final UserAccountRepository userAccountRepository;
     private final ProductHashService productHashService;
     private final BlockchainService blockchainService;
+    private final PaymentRepository paymentRepository;
+    private final ProductPriceHistoryRepository productPriceHistoryRepository;
 
     // 로컬 업로드 경로 설정 (프로젝트 실행 위치의 uploads 폴더)
     private final String uploadDir = System.getProperty("user.dir") + "/uploads/";
@@ -46,7 +52,10 @@ public class ProductService {
         if (product.getSellerId() == null) {
             product.setSellerId(1L); // 임시 유저 세팅
         }
-        
+
+        // [신규] PRD-RQ-005: 가격은 100원 단위로만 등록 가능
+        validatePriceUnit(product.getPrice());
+
         // 정가(originalPrice) 정보가 폼에 없어서 null일 경우 공구가와 동일하게 처리
         if (product.getOriginalPrice() == null) {
             product.setOriginalPrice(product.getPrice());
@@ -94,7 +103,7 @@ public class ProductService {
     // 개별 상품 상세 조회 로직
     public Product getProductById(Long id) {
         return productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 상품입니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
     }
 
     // 판매자 기준 상품 목록 조회
@@ -139,11 +148,13 @@ public class ProductService {
     // 공동구매 참여
     @Transactional
     public Product joinProduct(Long id, String userId) {
-        Product product = getProductById(id);
+        // [신규] PRD-RQ-003: 정원 체크+증가를 비관적 락으로 직렬화 (동시 요청 시 마지막 1석 중복 확정 방지)
+        Product product = productRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
         // 정원 초과 여부 확인
         if (product.getCurrentCount() != null && product.getCurrentCount() >= product.getTargetCount()) {
-            throw new IllegalStateException("이미 목표 인원이 달성되었습니다.");
+            throw new CustomException(ErrorCode.PURCHASE_FULL);
         }
 
         // 같은 사용자가 같은 공동구매에 중복 참여(=인원 조작)하는 것 방지
@@ -169,19 +180,54 @@ public class ProductService {
         return product; // 트랜잭션 종료 시 자동 더티 체킹으로 DB에 반영됨
     }
 
-    // 공동구매 취소
-    @Transactional
-    public Product cancelJoinProduct(Long id) {
-        Product product = getProductById(id);
-        product.decrementCurrentCount();
-        return product;
+    // [신규] PRD-RQ-005: 가격 100원 단위 검증 (등록/수정 공통)
+    private void validatePriceUnit(BigDecimal price) {
+        if (price != null && price.remainder(new BigDecimal(100)).compareTo(BigDecimal.ZERO) != 0) {
+            throw new CustomException(ErrorCode.PRODUCT_PRICE_INVALID_UNIT);
+        }
     }
+
+    // 참여 취소(공용 케이스 없는 취소)는 PaymentService.cancelParticipation으로 이동함
+    // (Participation/Payment 상태를 함께 다뤄야 해서 리포지토리를 모두 가진 PaymentService에 둠)
 
     // 상품 수정 로직
     @Transactional
-    public Product updateProduct(Long id, Product updatedData, MultipartFile image) {
+    public Product updateProduct(Long id, Product updatedData, MultipartFile image, String sellerEmail) {
         Product product = getProductById(id);
-        
+
+        // [신규] 소유자 확인 — 지금까지 이 엔드포인트엔 소유자 체크가 전혀 없어서 누구나 남의 상품을 수정할 수 있었음
+        if (sellerEmail == null || !sellerEmail.equals(product.getSellerEmail())) {
+            throw new CustomException(ErrorCode.AUTH_ACCESS_DENIED);
+        }
+
+        // [신규] PRD-RQ-004: OPEN 상태(정산 시작 전)에만 수정 허용
+        if (!"OPEN".equals(product.getStatus())) {
+            throw new CustomException(ErrorCode.PRODUCT_CANNOT_MODIFY_COMPLETED);
+        }
+
+        // [신규] PRD-RQ-004: 목표 인원은 현재 참여 인원 미만으로 설정 불가
+        if (updatedData.getTargetCount() != null && product.getCurrentCount() != null
+                && updatedData.getTargetCount() < product.getCurrentCount()) {
+            throw new CustomException(ErrorCode.PRODUCT_TARGET_COUNT_BELOW_CURRENT);
+        }
+
+        // [신규] PRD-RQ-005: 가격 100원 단위 검증
+        validatePriceUnit(updatedData.getPrice());
+
+        BigDecimal oldPrice = product.getPrice();
+        boolean priceChanged = updatedData.getPrice() != null && oldPrice.compareTo(updatedData.getPrice()) != 0;
+
+        if (priceChanged) {
+            // [신규] PRD-RQ-004: 가격 인상은 이번 스코프에서 허용하지 않음
+            if (updatedData.getPrice().compareTo(oldPrice) > 0) {
+                throw new CustomException(ErrorCode.PRODUCT_PRICE_INCREASE_NOT_ALLOWED);
+            }
+            // [신규] PRD-RQ-004: 결제 완료(DONE) 참여자가 있으면 가격 변경 불가
+            if (paymentRepository.existsByProductIdAndStatus(id, "DONE")) {
+                throw new CustomException(ErrorCode.PRODUCT_PRICE_CHANGE_HAS_PARTICIPANTS);
+            }
+        }
+
         // 필드 업데이트
         product.setTitle(updatedData.getTitle());
         product.setType(updatedData.getType());
@@ -209,15 +255,42 @@ public class ProductService {
                 String originalFilename = image.getOriginalFilename();
                 String extension = originalFilename != null ? originalFilename.substring(originalFilename.lastIndexOf(".")) : ".jpg";
                 String savedFilename = UUID.randomUUID().toString() + extension;
-                
+
                 Path filePath = Paths.get(uploadDir + savedFilename);
                 Files.write(filePath, image.getBytes());
-                
+
                 product.setImageUrl("http://localhost:8080/uploads/" + savedFilename);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
+
+        // [신규] PRD-RQ-004: 가격이 실제로 바뀐 경우 감사 이력을 남기고, 새 가격 기준 해시를 온체인에 재기록해
+        // VerificationService가 다음 검증 때 정상 가격 변경을 FORGED로 오탐하지 않도록 한다.
+        // [수정] 처음엔 동기(recordHashAndConfirm)로 했다가 실제로 붙여보니 Sepolia 컨펌 지연 때문에
+        // 요청 하나가 2~4분씩 걸리는 걸 확인함 — createProduct와 동일하게 비동기로 전환.
+        // 재기록이 끝나기 전까지 /verify는 FORGED가 아니라 PENDING(정직한 미확인 상태)을 반환하므로
+        // 오탐 없이 안전하고, 판매자는 응답을 바로 받는다.
+        if (priceChanged) {
+            int newVersion = (product.getPriceVersion() == null ? 1 : product.getPriceVersion()) + 1;
+            String newDataHash = productHashService.calculateHash(product);
+            blockchainService.recordHashAsync(product.getProductId(), newDataHash);
+
+            ProductPriceHistory history = new ProductPriceHistory();
+            history.setProductId(product.getProductId());
+            history.setOldPrice(oldPrice);
+            history.setNewPrice(product.getPrice());
+            history.setVersionNumber(newVersion);
+            history.setChangedBy(sellerEmail);
+            history.setReason("판매자 가격 인하");
+            history.setNewDataHash(newDataHash);
+            // 비동기 기록이라 이 시점엔 tx 해시를 알 수 없음 (블록체인 기록 완료 후 Product.txHash에 반영됨)
+            history.setNewTxHash(null);
+            productPriceHistoryRepository.save(history);
+
+            product.setPriceVersion(newVersion);
+        }
+
         return product;
     }
 

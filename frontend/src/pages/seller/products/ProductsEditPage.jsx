@@ -154,6 +154,11 @@ const ProductsEditPage = () => {
       alert("가격과 목표 인원은 0보다 큰 수치여야 합니다.");
       return;
     }
+    // [신규] PRD-RQ-005: 가격은 100원 단위로만 입력 가능
+    if (Number(formData.price) % 100 !== 0) {
+      alert("가격은 100원 단위로 입력해주세요.");
+      return;
+    }
 
     // 🌟 이미지가 포함된 데이터를 보낼 때는 FormData를 사용합니다
     const submitData = new FormData();
@@ -177,6 +182,7 @@ const ProductsEditPage = () => {
     try {
       const response = await fetch(`http://localhost:8080/api/products/${id}`, {
         method: 'PUT',
+        credentials: 'include', // [수정] 로그인 세션 쿠키 포함 (소유자 확인용)
         body: submitData, // FormData 전송 시 Content-Type은 브라우저가 자동으로 multipart/form-data로 설정함
       });
 
@@ -184,11 +190,12 @@ const ProductsEditPage = () => {
         alert("프로젝트가 성공적으로 수정되었습니다!");
         navigate('/seller/status');
       } else {
-        throw new Error('상품 수정 실패');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || '상품 수정 실패');
       }
     } catch (error) {
       console.error('등록 에러:', error);
-      alert('상품 등록 중 오류가 발생했습니다.');
+      alert(error.message || '상품 등록 중 오류가 발생했습니다.');
     }
   };
 
@@ -322,8 +329,9 @@ const ProductsEditPage = () => {
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">₩</span>
                   <input
-                    type="number" id="price" required
+                    type="number" id="price" required step="100"
                     value={formData.price} onChange={handleChange}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="예) 35000"
                     disabled={productType === 'BOOK'}
                     className="w-full p-3.5 pl-9 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-semibold disabled:bg-gray-200 disabled:text-gray-500"
@@ -335,8 +343,9 @@ const ProductsEditPage = () => {
                 <div className="relative">
                   <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                   <input
-                    type="number" id="targetCount" required
+                    type="number" id="targetCount" required step="1"
                     value={formData.targetCount} onChange={handleChange}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="예) 10"
                     disabled={productType === 'BOOK'}
                     className="w-full p-3.5 pl-11 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-semibold disabled:bg-gray-200 disabled:text-gray-500"

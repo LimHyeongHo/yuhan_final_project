@@ -47,6 +47,12 @@ public class Payment {
     @Column(name = "approved_at")
     private LocalDateTime approvedAt; // Toss 승인 확정 시각
 
+    @Column(name = "cancel_reason")
+    private String cancelReason; // 취소/환불 사유
+
+    @Column(name = "canceled_at")
+    private LocalDateTime canceledAt; // Toss 취소 확정 시각
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
