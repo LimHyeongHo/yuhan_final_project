@@ -249,6 +249,9 @@ const Header = () => {
               <Link to="/buyer/chat" className="hover:text-gray-950 transition" onClick={handleChatClick}>채팅</Link>
             </>
           )}
+
+          {/* [UI-RQ-006][feature/ui-fixes] 이용 가이드 — 로그인 여부/역할 무관하게 항상 노출 */}
+          <Link to="/guide" className="hover:text-gray-950 transition">이용 가이드</Link>
         </nav>
 
         <div className="hidden md:block w-px h-4 bg-gray-200"></div>
@@ -428,6 +431,9 @@ const Header = () => {
                 <Link to="/buyer/chat" onClick={(e) => { handleChatClick(e); setIsMobileMenuOpen(false); }}>채팅</Link>
               </>
             )}
+
+            {/* [UI-RQ-006][feature/ui-fixes] 이용 가이드 (모바일) — 로그인 여부/역할 무관하게 항상 노출 */}
+            <Link to="/guide" onClick={() => setIsMobileMenuOpen(false)}>이용 가이드</Link>
           </nav>
         </div>
       )}
