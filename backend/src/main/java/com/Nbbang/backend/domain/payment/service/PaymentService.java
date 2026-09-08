@@ -60,6 +60,11 @@ public class PaymentService {
         Product product = productRepository.findByIdForUpdate(request.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
+        // [MEM-RQ-002] 판매자가 탈퇴한 상품은 결제 준비 단계에서부터 차단 (참여 시점만 막으면 이미 결제된 뒤라 늦음)
+        if ("SELLER_WITHDRAWN".equals(product.getStatus())) {
+            throw new CustomException(ErrorCode.PRODUCT_SELLER_WITHDRAWN);
+        }
+
         if (product.getCurrentCount() != null && product.getCurrentCount() >= product.getTargetCount()) {
             throw new CustomException(ErrorCode.PURCHASE_FULL);
         }

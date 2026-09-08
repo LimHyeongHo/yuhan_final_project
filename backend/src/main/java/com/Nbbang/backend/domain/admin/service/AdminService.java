@@ -2,6 +2,7 @@ package com.Nbbang.backend.domain.admin.service;
 
 import com.Nbbang.backend.domain.auth.entity.UserAccount;
 import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
+import com.Nbbang.backend.domain.log.service.SystemLogService;
 import com.Nbbang.backend.domain.notification.entity.Notification;
 import com.Nbbang.backend.domain.notification.repository.NotificationRepository;
 import com.Nbbang.backend.domain.product.entity.BlockchainJobStatus;
@@ -34,6 +35,7 @@ public class AdminService {
     private final NotificationRepository notificationRepository;
     private final BlockchainService blockchainService;
     private final ProductHashService productHashService;
+    private final SystemLogService systemLogService;
     private final Map<Long, java.math.BigDecimal> hackPriceSnapshots = new ConcurrentHashMap<>();
 
     @Transactional(readOnly = true)
@@ -67,15 +69,18 @@ public class AdminService {
     }
 
     @Transactional
-    public void grantSellerRole(String email) {
+    public void grantSellerRole(String email, String adminEmail) {
         UserAccount user = userAccountRepository.findById(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
-        
+
         if (!"ROLE_SELLER_PENDING".equals(user.getRole())) {
             throw new CustomException(ErrorCode.VALIDATION_FAILED); // 승인 대기 상태가 아님
         }
-        
+
         user.setRole("ROLE_SELLER");
+
+        // [NFR-002] 역할 승인은 감사 로그 대상 - 승인자(adminEmail)와 대상(email)을 함께 남긴다.
+        systemLogService.log("MEMBER", "SUCCESS", "판매자 권한 승인: " + email + " (승인자: " + adminEmail + ")");
     }
 
     @Transactional(readOnly = true)

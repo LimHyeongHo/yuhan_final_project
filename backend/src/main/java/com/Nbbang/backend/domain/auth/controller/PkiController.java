@@ -142,12 +142,20 @@ public class PkiController {
      * 이메일(아이디) 중복 여부 확인 - 회원가입 폼 실시간 검증용
      */
     @GetMapping("/check-email")
-    public ResponseEntity<Map<String, Boolean>> checkEmail(@RequestParam String email) {
+    public ResponseEntity<Map<String, Object>> checkEmail(@RequestParam String email) {
         String normalizedEmail = email != null ? email.replaceAll("\\s", "") : "";
-        boolean available = normalizedEmail.isEmpty() || !userAccountRepository.existsById(normalizedEmail);
+        UserAccount existing = normalizedEmail.isEmpty() ? null : userAccountRepository.findById(normalizedEmail).orElse(null);
 
-        Map<String, Boolean> response = new HashMap<>();
-        response.put("available", available);
+        Map<String, Object> response = new HashMap<>();
+        if (existing == null) {
+            response.put("available", true);
+            // [MEM-RQ-001] 탈퇴 계정은 영구 재가입 불가 - 프론트가 "이미 사용 중"과 구분해 안내할 수 있도록 사유를 함께 내려준다.
+        } else if ("WITHDRAWN".equals(existing.getStatus())) {
+            response.put("available", false);
+            response.put("reason", "WITHDRAWN");
+        } else {
+            response.put("available", false);
+        }
         return ResponseEntity.ok(response);
     }
 
@@ -158,7 +166,11 @@ public class PkiController {
             String email = request.get("email") != null ? request.get("email").replaceAll("\\s", "") : null;
             String password = request.get("password");
             String nickname = request.get("nickname");
-            String role = request.get("role") != null ? request.get("role").trim() : "ROLE_USER";
+            // [SEC-RQ-003] 클라이언트가 보낸 role 문자열을 그대로 신뢰하면 안 됨(ROLE_ADMIN 등 임의 값 주입 가능).
+            // 서버는 "판매자로 가입하겠다"는 의사표시만 받아들이고, 실제 ROLE_SELLER 승격은
+            // AdminController#/users/{email}/grant-seller(관리자 승인)를 통해서만 이뤄지도록 PENDING으로 내린다.
+            boolean sellerSignupRequested = "ROLE_SELLER".equals(request.get("role") != null ? request.get("role").trim() : "");
+            String role = sellerSignupRequested ? "ROLE_SELLER_PENDING" : "ROLE_BUYER";
             String ci = request.get("ci");
             String publicKey = request.get("publicKey");
             String deviceId = request.get("deviceId") != null ? request.get("deviceId").replaceAll("\\s", "") : email;
@@ -168,10 +180,18 @@ public class PkiController {
             System.out.println("Processing registration/update for: [" + email + "]");
 
             // --- 중복 가입 방지 로직 (1인 1계정 정책) ---
+            // [MEM-RQ-001] 이 CI로 이미 가입된 계정이 있어도, 그 계정이 탈퇴(WITHDRAWN)한 상태라면
+            // 더 이상 "활성 중복 계정"이 아니므로 막지 않는다. 안 그러면 한 번 탈퇴한 사람은
+            // 본인인증을 다시 받아도 어떤 이메일로도 영영 재가입할 수 없게 된다.
             String ciHash = pkiService.generateCiHash(ci);
             deviceCertRepository.findByCiHash(ciHash).ifPresent(existingCert -> {
                 if (!existingCert.getUserId().equals(email)) {
-                    throw new RuntimeException("이미 이 본인인증 정보로 가입된 다른 계정(" + existingCert.getUserId() + ")이 존재합니다.");
+                    boolean linkedAccountWithdrawn = userAccountRepository.findById(existingCert.getUserId())
+                            .map(acc -> "WITHDRAWN".equals(acc.getStatus()))
+                            .orElse(false);
+                    if (!linkedAccountWithdrawn) {
+                        throw new RuntimeException("이미 이 본인인증 정보로 가입된 다른 계정(" + existingCert.getUserId() + ")이 존재합니다.");
+                    }
                 }
             });
             // ------------------------------------------
@@ -179,6 +199,12 @@ public class PkiController {
             // 1. UserAccount 처리
             UserAccount userAccount = userAccountRepository.findById(email).orElse(null);
             boolean isNewUser = (userAccount == null);
+
+            // [MEM-RQ-001] 탈퇴(WITHDRAWN)한 이메일은 감사 이력 보존을 위해 영구적으로 재가입/기기 재등록 모두 불가.
+            // (row 자체는 남아있어 isNewUser=false로 잡히므로, "이미 사용 중" 분기보다 먼저 명확히 구분해서 안내한다.)
+            if (!isNewUser && "WITHDRAWN".equals(userAccount.getStatus())) {
+                throw new RuntimeException("탈퇴한 계정입니다. 이 이메일로는 다시 가입할 수 없습니다.");
+            }
 
             if (isNewUser) {
                 // 신규 가입은 닉네임이 반드시 필요함. 재발급 요청(닉네임 빈 값)이
@@ -190,9 +216,7 @@ public class PkiController {
                 userAccount.setEmail(email);
                 userAccount.setPassword(passwordEncoder.encode(password));
                 userAccount.setNickname(nickname);
-                if (request.get("role") != null && !request.get("role").trim().isEmpty()) {
-                    userAccount.setRole(role);
-                }
+                userAccount.setRole(role); // 서버가 결정한 값(ROLE_BUYER 또는 ROLE_SELLER_PENDING)만 사용
             } else if (nickname != null && !nickname.trim().isEmpty()) {
                 // 이미 가입된 이메일로 신규 회원가입(닉네임 포함) 요청이 들어온 경우.
                 // 기존에는 여기서 그대로 통과시켜 기존 계정의 비밀번호를 덮어썼음(계정 탈취 가능) -> 거부로 변경.
@@ -229,8 +253,25 @@ public class PkiController {
             caResponse.put("serialNumber", serialNumber);
 
             // 3. DeviceCert 처리 - 1인 1기기 정책 적용 (덮어쓰기)
-            DeviceCert cert = deviceCertRepository.findByUserId(email).orElse(new DeviceCert());
-            
+            DeviceCert cert = deviceCertRepository.findByUserId(email).orElse(null);
+            if (cert == null) {
+                // deviceId는 DB에서 unique라서, 같은 기기로 "새 이메일" 가입 시 그냥 새 행을 insert하면
+                // 예전에 그 기기를 쓰던 계정의 행과 충돌한다. 그 기존 계정이 탈퇴(WITHDRAWN) 상태라면
+                // 그 행을 새 이메일로 재사용하고, 활성 계정이 여전히 쓰고 있다면 명확히 거부한다.
+                DeviceCert existingByDevice = deviceCertRepository.findByDeviceId(deviceId).orElse(null);
+                if (existingByDevice != null) {
+                    boolean ownerWithdrawnOrGone = userAccountRepository.findById(existingByDevice.getUserId())
+                            .map(acc -> "WITHDRAWN".equals(acc.getStatus()))
+                            .orElse(true);
+                    if (!ownerWithdrawnOrGone) {
+                        throw new RuntimeException("이 기기는 이미 다른 계정에 등록되어 있습니다.");
+                    }
+                    cert = existingByDevice;
+                } else {
+                    cert = new DeviceCert();
+                }
+            }
+
             System.out.println("Updating device cert for: " + email + " -> New Device: " + deviceId);
             
             cert.setUserId(email);
@@ -272,6 +313,11 @@ public class PkiController {
 
             if (!TEST_LOGIN_ACCOUNTS.contains(email)) {
                 throw new RuntimeException("테스트 전용 계정만 이 방식으로 로그인할 수 있습니다.");
+            }
+
+            // [MEM-RQ-001] 탈퇴(WITHDRAWN)한 계정은 재로그인 불가
+            if ("WITHDRAWN".equals(user.getStatus())) {
+                throw new RuntimeException("탈퇴한 계정입니다.");
             }
 
             if (!passwordEncoder.matches(password, user.getPassword())) {
@@ -336,6 +382,14 @@ public class PkiController {
             UserAccount user = userAccountRepository.findById(cert.getUserId())
                     .orElseThrow(() -> new RuntimeException("등록되지 않은 사용자입니다."));
 
+            // [MEM-RQ-001] 탈퇴(WITHDRAWN)한 계정은 재로그인 불가
+            if ("WITHDRAWN".equals(user.getStatus())) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "탈퇴한 계정입니다.");
+                return ResponseEntity.status(403).body(response);
+            }
+
             if (!passwordEncoder.matches(password, user.getPassword())) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
@@ -384,6 +438,19 @@ public class PkiController {
             response.put("message", "로그인 오류: " + e.getMessage());
             return ResponseEntity.internalServerError().body(response);
         }
+    }
+
+    // [SEC-RQ-002] 서버 로그아웃: 현재 HTTP 세션을 무효화한다 (JSESSIONID 쿠키는 세션 무효화 시 자동 만료됨).
+    // 수동 로그아웃은 정책상 인증서를 폐기하지 않으므로 caService/certificateSessionService는 호출하지 않는다.
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(HttpServletRequest httpRequest) {
+        HttpSession session = httpRequest.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "로그아웃되었습니다.");
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/revoke")

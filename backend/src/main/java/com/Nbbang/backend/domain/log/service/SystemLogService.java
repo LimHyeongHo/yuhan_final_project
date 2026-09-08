@@ -58,4 +58,16 @@ public class SystemLogService {
     public List<SystemLog> getLogsByType(String type) {
         return systemLogRepository.findByTypeOrderByTimestampDesc(type);
     }
+
+    // [NFR-002] 역할 승인, 상품 변경/삭제, 회원 탈퇴, 환불, 인증서 폐기 등 감사 대상 이벤트 기록용 범용 로그 기록
+    @Transactional
+    public void log(String type, String status, String detail) {
+        systemLogRepository.save(SystemLog.builder()
+                .displayId(type + "-" + System.currentTimeMillis())
+                .type(type)
+                .status(status)
+                .detail(detail)
+                .diff("-")
+                .build());
+    }
 }

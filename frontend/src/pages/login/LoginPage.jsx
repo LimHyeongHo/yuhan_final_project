@@ -311,6 +311,17 @@ const LoginPage = () => {
     }
   };
 
+  // [MEM-RQ-003] 인증서 재발급 실패 시, 새로고침 없이 이메일을 바꿔서 본인인증부터 다시 시작할 수 있도록
+  // isVerified/needsReissue/regCi/privateKey 참조와 입력값을 전부 초기화한다.
+  const resetToStart = () => {
+    setIsVerified(false);
+    setNeedsReissue(false);
+    setRegCi(null);
+    setPrivateKey(null);
+    setEmail('');
+    setPassword('');
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900">
       {/* [*] 헤더 내용 수정 */}
@@ -452,14 +463,25 @@ const LoginPage = () => {
                   {isLoading ? '로그인 중...' : '안전 로그인 실행'}
                 </button>
                 {needsReissue && (
-                  <button
-                    type="button"
-                    onClick={handleReissue}
-                    disabled={isLoading}
-                    className="w-full p-3 bg-purple-600 text-white rounded-xl font-bold text-base shadow-lg shadow-purple-200 hover:bg-purple-700 transition duration-150"
-                  >
-                    기기 인증서 재발급
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleReissue}
+                      disabled={isLoading}
+                      className="w-full p-3 bg-purple-600 text-white rounded-xl font-bold text-base shadow-lg shadow-purple-200 hover:bg-purple-700 transition duration-150"
+                    >
+                      기기 인증서 재발급
+                    </button>
+                    {/* [MEM-RQ-003] 재발급이 실패했거나 다른 계정으로 다시 시도하고 싶을 때, 새로고침 없이 처음부터 */}
+                    <button
+                      type="button"
+                      onClick={resetToStart}
+                      disabled={isLoading}
+                      className="w-full p-2.5 text-sm font-bold text-gray-500 hover:text-gray-700 underline transition"
+                    >
+                      처음부터 다시 (다른 이메일로 본인인증)
+                    </button>
+                  </>
                 )}
               </div>
             )}

@@ -294,6 +294,11 @@ const MyPageOverview = ({ userRole = 'BUYER' }) => {
               <span className="bg-emerald-100 text-emerald-700 text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md w-max mx-auto sm:mx-0 flex items-center gap-1">
                 <Store size={14} /> SELLER (판매자)
               </span>
+            ) : info?.role === 'ROLE_SELLER_PENDING' ? (
+              // [SEC-RQ-003] 판매자 가입 신청은 관리자 승인 전까지 ROLE_SELLER_PENDING - 구매자와 구분해 안내
+              <span className="bg-amber-100 text-amber-700 text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md w-max mx-auto sm:mx-0 flex items-center gap-1">
+                <Clock size={14} /> 판매자 승인 대기중
+              </span>
             ) : (
               <span className="bg-blue-100 text-blue-700 text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md w-max mx-auto sm:mx-0 flex items-center gap-1">
                 <ShieldCheck size={14} /> BUYER (구매자)

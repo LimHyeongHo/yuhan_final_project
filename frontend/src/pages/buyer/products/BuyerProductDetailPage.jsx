@@ -61,9 +61,10 @@ const BuyerProductDetailPage = () => {
           deadline: data.deadline ? data.deadline.split('T')[0].replace(/-/g, '.') : '기한 없음',
           dDay: dDayText,
           status: data.status === 'OPEN' ? '모집 중' : '마감됨',
-          // ===== 0906 문건우 수정 시작 =====
-          rawStatus: data.status, // PRD-RQ-002: 버튼 비활성화 판단용 원본 상태값 보존
-          // ===== 0906 문건우 수정 끝 =====
+
+          // PRD-RQ-002: 버튼 비활성화 판단용 원본 상태값 보존
+          // [MEM-RQ-002] 탈퇴 판매자 상품(SELLER_WITHDRAWN) 판별용 원본 상태값
+          rawStatus: data.status,
           thumbnail: data.imageUrl || null,
           description: data.description,
           sellerEmail: data.sellerEmail // [신규] 문의하기 버튼에서 채팅방 생성 API 호출용
@@ -75,7 +76,7 @@ const BuyerProductDetailPage = () => {
         fetch(`http://localhost:8080/api/products/${id}/participation/status`, { credentials: 'include' })
           .then((res) => (res.ok ? res.json() : false))
           .then((joined) => setIsJoined(joined))
-          .catch(() => {});
+          .catch(() => { });
         // ===== 0906 문건우 수정 끝 =====
 
         // [신규] 판매자 프로필 요약 조회 (닉네임 / 거래 만족도 % / 후기 수)
@@ -83,7 +84,7 @@ const BuyerProductDetailPage = () => {
           fetch(`http://localhost:8080/api/sellers/${encodeURIComponent(data.sellerEmail)}/profile`)
             .then(r => (r.ok ? r.json() : null))
             .then(p => p && setSeller(p))
-            .catch(() => {});
+            .catch(() => { });
         }
       })
       .catch(err => {
@@ -269,10 +270,11 @@ const BuyerProductDetailPage = () => {
   const isOwnProduct = !!product.sellerEmail && product.sellerEmail === localStorage.getItem('email');
   // [신규] 판매자(본인 상품 아닌 경우) 또는 관리자 계정 — 구매자 행동(참여/문의) 전부 비활성화
   const isRestrictedViewer = ['ROLE_SELLER', 'ROLE_ADMIN'].includes(localStorage.getItem('user_role')) && !isOwnProduct;
-  // ===== 0906 문건우 수정 시작 =====
+
   // PRD-RQ-002: 정원 달성 또는 OPEN이 아닌 상품은 신규 참여 버튼을 비활성화
   const isFull = product.rawStatus !== 'OPEN' || product.currentCount >= product.targetCount;
-  // ===== 0906 문건우 수정 끝 =====
+  // [MEM-RQ-002] 판매자가 탈퇴한 상품 - 참여/문의 버튼을 막고 사유를 안내
+  const isSellerWithdrawn = product.rawStatus === 'SELLER_WITHDRAWN';
 
   // [신규] 검증 상태에 따른 뱃지 렌더링 함수
   const renderVerificationBadge = () => {
@@ -584,6 +586,29 @@ const BuyerProductDetailPage = () => {
                     판매자·관리자 계정으로는 이용할 수 없는 기능입니다
                   </p>
                 </>
+              ) : isSellerWithdrawn ? (
+                <>
+                  {/* [MEM-RQ-002] 판매자가 탈퇴한 상품 — 참여/문의 버튼 비활성화 + 사유 표시 */}
+                  <button
+                    disabled
+                    title="판매자가 탈퇴하여 더 이상 참여할 수 없는 상품입니다"
+                    className="w-full py-4 rounded-2xl font-black text-base md:text-lg flex items-center justify-center gap-2 bg-gray-100 text-gray-400 cursor-not-allowed"
+                  >
+                    공동구매 참여하기 (N빵 탑승)
+                  </button>
+
+                  <button
+                    disabled
+                    title="판매자가 탈퇴하여 문의할 수 없는 상품입니다"
+                    className="w-full py-3.5 rounded-2xl font-bold bg-gray-100 text-gray-400 border-2 border-gray-200 cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={18} />
+                    판매자에게 문의하기 (채팅)
+                  </button>
+                  <p className="text-xs text-center text-gray-400 font-medium -mt-3 flex items-center justify-center gap-1">
+                    <AlertCircle size={14} /> 판매자가 탈퇴하여 거래가 불가능한 상품입니다
+                  </p>
+                </>
               ) : (
                 <>
                   {/* 🌟 구매자 최종 액션 버튼 (참여 여부에 따른 조건부 UI) */}
@@ -595,8 +620,8 @@ const BuyerProductDetailPage = () => {
                     className={`w-full py-4 rounded-2xl font-black text-base md:text-lg transition-all shadow-md flex items-center justify-center gap-2 ${isJoined
                       ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100'
                       : isFull
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-500/20'
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-500/20'
                       }`}
                   >
                     {isJoined ? (

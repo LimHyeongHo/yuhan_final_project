@@ -167,6 +167,11 @@ public class ProductService {
         Product product = productRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
+        // [MEM-RQ-002] 판매자가 탈퇴한 상품은 참여 불가
+        if ("SELLER_WITHDRAWN".equals(product.getStatus())) {
+            throw new CustomException(ErrorCode.PRODUCT_SELLER_WITHDRAWN);
+        }
+
         // 정원 초과 여부 확인
         if (product.getCurrentCount() != null && product.getCurrentCount() >= product.getTargetCount()) {
             throw new CustomException(ErrorCode.PURCHASE_FULL);

@@ -24,4 +24,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     // [신규] PRD-RQ-004: 가격 변경 제한 판단용 — 이 상품에 결제 완료(DONE) 건이 하나라도 있는지
     boolean existsByProductIdAndStatus(Long productId, String status);
+    
+    // [MEM-RQ-001] 회원 탈퇴 시 결제 이력의 개인 표시 정보(buyerName) 익명화용
+    List<Payment> findByMember_Email(String email);
 }

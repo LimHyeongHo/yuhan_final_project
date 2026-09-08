@@ -3,12 +3,13 @@ import { Store, BarChart3, TrendingUp, Users, Eye, ArrowUpRight, DollarSign, Cal
 import Header from '../../../components/layout/Header';
 
 const SellerAnalyticsPage = () => {
-  const [timeRange, setTimeRange] = useState('7D'); 
+  const [timeRange, setTimeRange] = useState('7D');
   const [analyticsData, setAnalyticsData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const userId = localStorage.getItem('user_id') || '1'; // 임시 기본값 지원
+    // [SEC-RQ-001] 세션 쿠키를 안 보내면 로그인 요구 정책에 걸려 401이 난다.
     fetch(`http://localhost:8080/api/seller/${userId}/analytics`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
@@ -39,7 +40,7 @@ const SellerAnalyticsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
-      
+
       {/* 1. 글로벌 헤더 */}
       <Header />
 
@@ -60,7 +61,7 @@ const SellerAnalyticsPage = () => {
 
       {/* 3. 메인 콘텐츠 영역 */}
       <main className="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
-        
+
         {/* ✨ 컨트롤 패널 (기간 설정 필터 버튼) */}
         <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
           <div className="flex items-center gap-2">
@@ -72,11 +73,10 @@ const SellerAnalyticsPage = () => {
               <button
                 key={tabId}
                 onClick={() => setTimeRange(tabId)}
-                className={`px-4 py-2 text-xs font-bold rounded-lg transition ${
-                  timeRange === tabId 
-                    ? 'bg-white text-blue-600 shadow-sm ring-1 ring-gray-900/5' 
+                className={`px-4 py-2 text-xs font-bold rounded-lg transition ${timeRange === tabId
+                    ? 'bg-white text-blue-600 shadow-sm ring-1 ring-gray-900/5'
                     : 'text-gray-600 hover:bg-gray-200/50'
-                }`}
+                  }`}
               >
                 {analyticsData.filterData[tabId].label}
               </button>
@@ -119,7 +119,7 @@ const SellerAnalyticsPage = () => {
           <div className="bg-white rounded-[24px] p-6 shadow-md flex justify-between items-center relative overflow-hidden group">
             {/* 배경 장식 효과 */}
             <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl group-hover:bg-indigo-500/30 transition-all"></div>
-            
+
             <div className="flex flex-col gap-1 relative z-10">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">총 누적 판매 수익</span>
               <h3 className="text-3xl font-black text-gray-950 mt-1">₩{totalCumulativeRevenue}</h3>
@@ -135,7 +135,7 @@ const SellerAnalyticsPage = () => {
 
         {/* 하단 스플릿 레이아웃 (차트 영역 2/3 + 랭킹 영역 1/3) */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
+
           {/* ✨ 좌측: 트렌드 차트 (필터 연동형 동적 렌더링) */}
           <div className="lg:col-span-2 bg-white rounded-[28px] p-6 md:p-8 border border-gray-200 shadow-sm flex flex-col gap-6">
             <div className="flex justify-between items-center border-b border-gray-100 pb-4">
@@ -159,10 +159,10 @@ const SellerAnalyticsPage = () => {
               {/* 막대 그래프 렌더링 */}
               {currentData.chart.map((data, idx) => {
                 // 데이터 비율 계산 (최대 95%까지만 올라가도록 UI 조정)
-                const heightPercentage = Math.max((data.revenue / maxRevenue) * 95, 5); 
-                
+                const heightPercentage = Math.max((data.revenue / maxRevenue) * 95, 5);
+
                 // 오늘/이번달 등 가장 최근 데이터를 시각적으로 강조
-                const isHighlight = idx === currentData.chart.length - 1 || (timeRange === '7D' && idx === 4); 
+                const isHighlight = idx === currentData.chart.length - 1 || (timeRange === '7D' && idx === 4);
 
                 return (
                   <div key={`${timeRange}-${idx}`} className="flex-grow flex flex-col items-center gap-2 h-full justify-end relative z-10 group">
@@ -171,11 +171,10 @@ const SellerAnalyticsPage = () => {
                       ₩{data.revenue.toLocaleString()}
                     </div>
                     {/* 차트 막대 */}
-                    <div 
-                      style={{ height: `${heightPercentage}%` }} 
-                      className={`w-full max-w-[48px] rounded-t-xl transition-all duration-700 ease-out hover:opacity-80 animate-fade-in-up ${
-                        isHighlight ? 'bg-blue-600 shadow-lg shadow-blue-200' : 'bg-blue-100'
-                      }`}
+                    <div
+                      style={{ height: `${heightPercentage}%` }}
+                      className={`w-full max-w-[48px] rounded-t-xl transition-all duration-700 ease-out hover:opacity-80 animate-fade-in-up ${isHighlight ? 'bg-blue-600 shadow-lg shadow-blue-200' : 'bg-blue-100'
+                        }`}
                     ></div>
                     {/* X축 라벨 */}
                     <span className={`text-[11px] font-bold mt-2 whitespace-nowrap ${isHighlight ? 'text-blue-600' : 'text-gray-400'}`}>
@@ -233,7 +232,8 @@ const SellerAnalyticsPage = () => {
       </main>
 
       {/* 차트 애니메이션용 CSS */}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }

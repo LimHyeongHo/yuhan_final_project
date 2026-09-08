@@ -39,8 +39,14 @@ public class ProductController {
             @RequestParam(value = "image", required = false) MultipartFile image,
             HttpSession session,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+
+        String userId = (session != null) ? (String) session.getAttribute("userId") : null;
+
+        if (userId == null) {
+            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
+        }
+        // 중복 등록 방지를 위한 멱등성 키 검사
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            String userId = String.valueOf(session.getAttribute("userId"));
             String requestKey = userId + ":" + idempotencyKey.trim();
             long now = System.currentTimeMillis();
             recentRegistrationKeys.entrySet().removeIf(entry -> entry.getValue() <= now);
@@ -49,9 +55,14 @@ public class ProductController {
                 throw new CustomException(ErrorCode.PRODUCT_DUPLICATE);
             }
         }
-        // 프론트엔드에서 FormData로 전송하므로 @ModelAttribute로 매핑하고 이미지는 별도로 받습니다.
-        // [신규] POST /api/chat/rooms 호출용 판매자 이메일 세팅
-        product.setSellerEmail((String) session.getAttribute("userId"));
+        // [SEC-RQ-004] @ModelAttribute는 폼 데이터를 통째로 바인딩하므로, 서버가 관리해야 할 필드는
+        // 클라이언트가 뭘 보냈든 무시하고 서버 쪽에서 강제로 안전한 초기값으로 되돌린다.
+        // (안 그러면 상품 생성 요청에 status=CLOSED_SUCCESS, currentCount=999, txHash=아무값,sellerId=타인ID 등을 끼워 넣어도 그대로 저장됨)
+        product.setSellerEmail(userId);
+        product.setSellerId(null); // ProductService가 null이면 기본값으로 채움
+        product.setCurrentCount(0);
+        product.setStatus("OPEN");
+        product.setTxHash(null);
         Product savedProduct = productService.createProduct(product, image);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedProduct);
     }
@@ -136,20 +147,37 @@ public class ProductController {
         return userId;
     }
 
+    // [SEC-RQ-004] 본인 상품만 수정 가능 - sellerEmail이 세션 사용자와 일치해야 함
     @PutMapping("/{id}")
     public ResponseEntity<Product> updateProduct(
             @PathVariable Long id,
             @ModelAttribute Product product,
             @RequestParam(value = "image", required = false) MultipartFile image,
             HttpSession session) {
+    /// [09/08 merge]
         Product updatedProduct = productService.updateProduct(id, product, image, getEmail(session));
+        requireOwnership(id, session);
         return ResponseEntity.ok(updatedProduct);
     }
 
+    // [SEC-RQ-004] 본인 상품만 삭제 가능 - sellerEmail이 세션 사용자와 일치해야 함
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteProduct(@PathVariable Long id, HttpSession session) {
+        requireOwnership(id, session);
         productService.deleteProduct(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // 세션 로그인 여부 + 상품 소유자(sellerEmail) 일치 여부를 확인. 익명은 401, 타인 상품이면 403.
+    private void requireOwnership(Long productId, HttpSession session) {
+        String userId = (session != null) ? (String) session.getAttribute("userId") : null;
+        if (userId == null) {
+            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
+        }
+        Product product = productService.getProductById(productId);
+        if (!userId.equals(product.getSellerEmail())) {
+            throw new CustomException(ErrorCode.AUTH_ACCESS_DENIED);
+        }
     }
 
     /** [신규] DB 해킹 시뮬레이션 (시연용) */
