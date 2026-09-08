@@ -218,7 +218,17 @@ const LoginPage = () => {
 
       // 서버가 기기 공개키로 암호화한 챌린지를 개인키로 복호화해 평문 nonce 를 되돌려준다.
       const cipherBytes = Uint8Array.from(atob(challenge), (c) => c.charCodeAt(0));
-      const plainBuf = await window.crypto.subtle.decrypt({ name: "RSA-OAEP" }, currentKey, cipherBytes);
+      let plainBuf;
+      try {
+        plainBuf = await window.crypto.subtle.decrypt({ name: "RSA-OAEP" }, currentKey, cipherBytes);
+      } catch (decryptError) {
+        // [신규] 이 브라우저에 저장된 개인키가 예전 알고리즘(서명용 RSASSA-PKCS1-v1_5)으로 만들어진
+        // 경우 여기서 "key.algorithm does not match that of operation" 같은 예외가 난다.
+        // 예전엔 이 예외가 아래 문자열 매칭(기기 인증 정보가 없습니다/기기 인증 실패)에 걸리지 않아
+        // 재발급 버튼이 뜨지 않고 그냥 막혔음 — 재발급이 필요한 상황으로 명시적으로 처리한다.
+        reissueNeeded = true;
+        throw new Error("저장된 기기 인증서가 최신 로그인 방식과 호환되지 않습니다. '인증서 재발급'이 필요합니다.");
+      }
       const answer = new TextDecoder().decode(plainBuf);
 
       const verRes = await fetch('http://localhost:8080/api/pki/login/verify', {

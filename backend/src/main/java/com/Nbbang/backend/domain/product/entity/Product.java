@@ -66,6 +66,9 @@ public class Product {
     @Column(name = "current_count", nullable = false)
     private Integer currentCount = 0; // 현재 참여 인원
 
+    @Column(name = "price_version", nullable = false)
+    private Integer priceVersion = 1; // 가격 변경 시마다 증가 (ProductPriceHistory.versionNumber와 매칭)
+
     @Column(nullable = false)
     private LocalDateTime deadline; // 마감 기한
 

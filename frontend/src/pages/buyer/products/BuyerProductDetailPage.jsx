@@ -48,10 +48,22 @@ const BuyerProductDetailPage = () => {
           deadline: data.deadline ? data.deadline.split('T')[0].replace(/-/g, '.') : '기한 없음',
           dDay: dDayText,
           status: data.status === 'OPEN' ? '모집 중' : '마감됨',
+          // ===== 0906 문건우 수정 시작 =====
+          rawStatus: data.status, // PRD-RQ-002: 버튼 비활성화 판단용 원본 상태값 보존
+          // ===== 0906 문건우 수정 끝 =====
           thumbnail: data.imageUrl || null,
           description: data.description,
           sellerEmail: data.sellerEmail // [신규] 문의하기 버튼에서 채팅방 생성 API 호출용
         });
+
+        // ===== 0906 문건우 수정 시작 =====
+        // PRD-RQ-001: 로그인한 사용자가 이 상품에 실제로 참여 중인지 서버에서 확인
+        // (예전엔 isJoined가 항상 false로 고정된 죽은 코드라 취소 버튼을 실제로 쓸 수 없었음)
+        fetch(`http://localhost:8080/api/products/${id}/participation/status`, { credentials: 'include' })
+          .then((res) => (res.ok ? res.json() : false))
+          .then((joined) => setIsJoined(joined))
+          .catch(() => {});
+        // ===== 0906 문건우 수정 끝 =====
 
         // [신규] 판매자 프로필 요약 조회 (닉네임 / 거래 만족도 % / 후기 수)
         if (data.sellerEmail) {
@@ -93,9 +105,21 @@ const BuyerProductDetailPage = () => {
         navigate('/payment', { state: { product } });
 
       } else {
+        // ===== 0906 문건우 수정 시작 =====
+        // PRD-RQ-001: 실수로 인한 취소를 막기 위한 확인창 + 인증 쿠키 포함
+        if (!window.confirm('공동구매 참여를 취소하시겠어요? 결제가 완료된 건은 환불 처리됩니다.')) {
+          return;
+        }
         // 백엔드 API 연동: 참여 인원 감소 (취소)
-        const res = await fetch(`http://localhost:8080/api/products/${product.id}/cancel`, { method: 'POST' });
-        if (!res.ok) throw new Error("참여 취소 실패");
+        const res = await fetch(`http://localhost:8080/api/products/${product.id}/cancel`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.message || "참여 취소 실패");
+        }
+        // ===== 0906 문건우 수정 끝 =====
         const updatedProduct = await res.json();
 
         // 서버에서 받은 최신 인원으로 화면 업데이트
@@ -105,7 +129,9 @@ const BuyerProductDetailPage = () => {
       }
     } catch (error) {
       console.error(error);
-      alert("서버와 통신하는 중 문제가 발생했습니다.");
+      // ===== 0906 문건우 수정 시작 =====
+      alert(error.message || "서버와 통신하는 중 문제가 발생했습니다.");
+      // ===== 0906 문건우 수정 끝 =====
     }
   };
 
@@ -174,6 +200,10 @@ const BuyerProductDetailPage = () => {
   const isOwnProduct = !!product.sellerEmail && product.sellerEmail === localStorage.getItem('email');
   // [신규] 판매자(본인 상품 아닌 경우) 또는 관리자 계정 — 구매자 행동(참여/문의) 전부 비활성화
   const isRestrictedViewer = ['ROLE_SELLER', 'ROLE_ADMIN'].includes(localStorage.getItem('user_role')) && !isOwnProduct;
+  // ===== 0906 문건우 수정 시작 =====
+  // PRD-RQ-002: 정원 달성 또는 OPEN이 아닌 상품은 신규 참여 버튼을 비활성화
+  const isFull = product.rawStatus !== 'OPEN' || product.currentCount >= product.targetCount;
+  // ===== 0906 문건우 수정 끝 =====
 
   // [신규] 검증 상태에 따른 뱃지 렌더링 함수
   const renderVerificationBadge = () => {
@@ -458,10 +488,15 @@ const BuyerProductDetailPage = () => {
               ) : (
                 <>
                   {/* 🌟 구매자 최종 액션 버튼 (참여 여부에 따른 조건부 UI) */}
+                  {/* ===== 0906 문건우 수정 시작 ===== */}
+                  {/* PRD-RQ-002: 미참여 상태에서 정원 달성/마감된 상품은 참여 버튼 비활성화 */}
                   <button
                     onClick={handleJoinToggle}
+                    disabled={!isJoined && isFull}
                     className={`w-full py-4 rounded-2xl font-black text-base md:text-lg transition-all shadow-md flex items-center justify-center gap-2 ${isJoined
                       ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100'
+                      : isFull
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                       : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-500/20'
                       }`}
                   >
@@ -470,10 +505,13 @@ const BuyerProductDetailPage = () => {
                         <CheckCircle size={20} />
                         공구 탑승 완료 (취소하기)
                       </>
+                    ) : isFull ? (
+                      '모집 완료'
                     ) : (
                       '공동구매 참여하기 (N빵 탑승)'
                     )}
                   </button>
+                  {/* ===== 0906 문건우 수정 끝 ===== */}
 
                   {/* 문의하기 (채팅) 버튼 */}
                   <button
