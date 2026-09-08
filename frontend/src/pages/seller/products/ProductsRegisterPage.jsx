@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, PlusCircle, BookOpen, Package, DollarSign, Users, FileText, Upload, AlertCircle, X, Search } from 'lucide-react';
 import Header from '../../../components/layout/Header';
 
 const ProductRegisterPage = () => {
   const navigate = useNavigate();
+  const submitLockRef = useRef(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 1. 등록 유형 상태 관리 ('BOOK' 또는 'ITEM')
   const [productType, setProductType] = useState('BOOK');
@@ -150,6 +152,8 @@ const ProductRegisterPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitLockRef.current) return;
+
     if (Number(formData.price) <= 0 || Number(formData.targetCount) <= 0) {
       alert("가격과 목표 인원은 0보다 큰 수치여야 합니다.");
       return;
@@ -159,6 +163,9 @@ const ProductRegisterPage = () => {
       alert("가격은 100원 단위로 입력해주세요.");
       return;
     }
+
+    submitLockRef.current = true;
+    setIsSubmitting(true);
 
     // 🌟 이미지가 포함된 데이터를 보낼 때는 FormData를 사용합니다
     const submitData = new FormData();
@@ -185,6 +192,9 @@ const ProductRegisterPage = () => {
       const response = await fetch('http://localhost:8080/api/products', {
         method: 'POST',
         credentials: 'include', // [수정] 로그인 세션 쿠키 포함
+        headers: {
+          'Idempotency-Key': crypto.randomUUID(),
+        },
         body: submitData, // FormData 전송 시 Content-Type은 브라우저가 자동으로 multipart/form-data로 설정함
       });
 
@@ -197,6 +207,9 @@ const ProductRegisterPage = () => {
     } catch (error) {
       console.error('등록 에러:', error);
       alert('상품 등록 중 오류가 발생했습니다.');
+    } finally {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -439,9 +452,10 @@ const ProductRegisterPage = () => {
             </button>
             <button
               type="submit"
-              className="flex-grow py-4 bg-emerald-600 text-white rounded-xl font-bold text-lg shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition flex items-center justify-center gap-2"
+              disabled={isSubmitting}
+              className="flex-grow py-4 bg-emerald-600 text-white rounded-xl font-bold text-lg shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              <PlusCircle size={20} /> 공동구매 프로젝트 개설 완료
+              <PlusCircle size={20} /> {isSubmitting ? '등록 중...' : '공동구매 프로젝트 개설 완료'}
             </button>
           </div>
         </form>

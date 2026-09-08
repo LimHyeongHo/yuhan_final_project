@@ -2,6 +2,7 @@ package com.Nbbang.backend.domain.product.repository;
 
 import com.Nbbang.backend.domain.product.entity.Product;
 import jakarta.persistence.LockModeType;
+import com.Nbbang.backend.domain.product.entity.BlockchainJobStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -28,4 +29,5 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Product p where p.productId = :id")
     Optional<Product> findByIdForUpdate(@Param("id") Long id);
+    List<Product> findByBlockchainStatusIn(List<BlockchainJobStatus> statuses);
 }

@@ -4,6 +4,7 @@ import com.Nbbang.backend.domain.auth.entity.UserAccount;
 import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
 import com.Nbbang.backend.domain.notification.entity.Notification;
 import com.Nbbang.backend.domain.notification.repository.NotificationRepository;
+import com.Nbbang.backend.domain.product.entity.BlockchainJobStatus;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
 import com.Nbbang.backend.domain.product.service.BlockchainService;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -232,6 +234,27 @@ public class AdminService {
             .collect(Collectors.toList());
     }
 
+    /** 관리자용 블록체인 비동기 작업 상태 및 실패 이력 조회. */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getBlockchainJobs() {
+        return productRepository.findAll().stream()
+                .sorted(java.util.Comparator.comparing(
+                        Product::getBlockchainUpdatedAt,
+                        java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
+                .map(product -> {
+                    Map<String, Object> job = new HashMap<>();
+                    job.put("productId", product.getProductId());
+                    job.put("title", product.getTitle());
+                    job.put("status", product.getBlockchainStatus());
+                    job.put("txHash", product.getTxHash());
+                    job.put("retryCount", product.getBlockchainRetryCount());
+                    job.put("lastError", product.getBlockchainLastError());
+                    job.put("updatedAt", product.getBlockchainUpdatedAt());
+                    return job;
+                })
+                .collect(Collectors.toList());
+    }
+
     // 어드민 전용 상품 강제 삭제
     @Transactional
     public void deleteProductByAdmin(Long productId) {
@@ -355,7 +378,11 @@ public class AdminService {
             BlockchainService.BlockchainReadResult readResult =
                     blockchainService.readHash(product.getProductId());
 
-            if (!readResult.success()) {
+            if (!readResult.success() && !"NOT_FOUND".equals(readResult.code())) {
+                BlockchainJobStatus failureStatus = "UNAVAILABLE".equals(readResult.code())
+                        ? BlockchainJobStatus.FAILED_RETRYABLE
+                        : BlockchainJobStatus.FAILED_FINAL;
+                markLegacyBlockchainState(product, failureStatus, readResult.message());
                 failedCount++;
                 items.add(migrationItem(product.getProductId(), "RPC_ERROR",
                         product.getTxHash(), readResult.message()));
@@ -366,11 +393,14 @@ public class AdminService {
                 continue;
             }
 
-            String hashOnChain = readResult.hash();
+            String hashOnChain = readResult.success() ? readResult.hash() : null;
 
             if (hashOnChain != null && !hashOnChain.isEmpty()) {
                 if (productHashService.matches(expectedHash, hashOnChain)) {
+                    markLegacyBlockchainState(product, BlockchainJobStatus.CONFIRMED, null);
                     alreadySyncedCount++;
+                    items.add(migrationItem(product.getProductId(), "CONFIRMED",
+                            product.getTxHash(), "온체인 해시와 일치하여 DB 상태를 보정했습니다."));
                     processedCount++;
                     notifyMigrationProgress(progressListener, totalCount, processedCount,
                             confirmedCount, failedCount, alreadySyncedCount,
@@ -402,6 +432,8 @@ public class AdminService {
                     }
                 } else {
                     mismatchCount++;
+                    markLegacyBlockchainState(product, BlockchainJobStatus.FAILED_FINAL,
+                            "기존 온체인 해시와 현재 DB 해시가 일치하지 않습니다.");
                     items.add(migrationItem(product.getProductId(), "HASH_MISMATCH",
                             product.getTxHash(), "기존 온체인 해시와 현재 DB 해시가 달라 자동 덮어쓰기를 중단했습니다."));
                 }
@@ -477,6 +509,19 @@ public class AdminService {
         result.put("remainingCount", Math.max(0, totalCount - processedCount));
         result.put("items", items);
         return result;
+    }
+
+    private void markLegacyBlockchainState(
+            Product product,
+            BlockchainJobStatus status,
+            String lastError) {
+        product.setBlockchainStatus(status);
+        if (product.getBlockchainRetryCount() == null) {
+            product.setBlockchainRetryCount(0);
+        }
+        product.setBlockchainLastError(lastError);
+        product.setBlockchainUpdatedAt(LocalDateTime.now());
+        productRepository.save(product);
     }
 
     private void notifyMigrationProgress(

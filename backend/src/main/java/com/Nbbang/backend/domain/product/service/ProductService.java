@@ -16,6 +16,8 @@ import com.Nbbang.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -90,9 +92,22 @@ public class ProductService {
 
         // [블록체인 연동] 상품 등록 시 비동기로 블록체인에 데이터 해시 기록
         String dataHash = productHashService.calculateHash(savedProduct);
-        blockchainService.recordHashAsync(savedProduct.getProductId(), dataHash);
+        runAfterCommit(() -> blockchainService.recordHashAsync(savedProduct.getProductId(), dataHash));
 
         return savedProduct;
+    }
+
+    private void runAfterCommit(Runnable task) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            task.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                task.run();
+            }
+        });
     }
 
     // 전체 상품 조회 로직

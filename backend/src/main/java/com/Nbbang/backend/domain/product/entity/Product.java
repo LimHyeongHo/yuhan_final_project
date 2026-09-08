@@ -54,6 +54,19 @@ public class Product {
     @Column(name = "tx_hash", length = 100)
     private String txHash; // 블록체인 스마트 컨트랙트에 기록된 트랜잭션 해시
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "blockchain_status", length = 30)
+    private BlockchainJobStatus blockchainStatus = BlockchainJobStatus.QUEUED;
+
+    @Column(name = "blockchain_retry_count", nullable = false)
+    private Integer blockchainRetryCount = 0;
+
+    @Column(name = "blockchain_last_error", columnDefinition = "TEXT")
+    private String blockchainLastError;
+
+    @Column(name = "blockchain_updated_at")
+    private LocalDateTime blockchainUpdatedAt;
+
     @Column(name = "original_price")
     private BigDecimal originalPrice; // 프론트에서 정가 정보가 넘어올 경우 대비, 기본은 price 와 같게 처리
 
@@ -98,6 +111,15 @@ public class Product {
         }
         if (this.currentCount == null) {
             this.currentCount = 0;
+        }
+        if (this.blockchainStatus == null) {
+            this.blockchainStatus = BlockchainJobStatus.QUEUED;
+        }
+        if (this.blockchainRetryCount == null) {
+            this.blockchainRetryCount = 0;
+        }
+        if (this.blockchainUpdatedAt == null) {
+            this.blockchainUpdatedAt = LocalDateTime.now();
         }
     }
 

@@ -20,7 +20,7 @@ public class VerificationController {
     /**
      * 특정 상품의 블록체인 및 알라딘 정가 이중 교차 검증을 수행합니다.
      * @param id 상품 ID
-     * @return 검증 상태 (VALID, GOOD_DEAL, ANCHORING_WARNING, FORGED, PENDING, ERROR)
+     * @return 검증 상태 (VALID, GOOD_DEAL, ANCHORING_WARNING, FORGED, PENDING, UNAVAILABLE, FAILED, ERROR)
      */
     @GetMapping("/{id}/verify")
     public ResponseEntity<Map<String, Object>> verifyProduct(@PathVariable Long id) {

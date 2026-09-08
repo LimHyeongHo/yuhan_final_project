@@ -23,7 +23,8 @@ const BuyerProductDetailPage = () => {
   // [수정][feature/ui-fixes] 진입 경로에 맞는 버튼 문구 (state 없으면 "목록으로 돌아가기")
   const backButtonText = location.state?.backButtonText || '목록으로 돌아가기';
   const [product, setProduct] = useState(null);
-  const [verification, setVerification] = useState(null); // [신규] 블록체인 검증 상태
+  const [verification, setVerification] = useState({ status: 'LOADING' }); // [신규] 블록체인 검증 상태
+  const [verificationRetryKey, setVerificationRetryKey] = useState(0);
   const [isJoined, setIsJoined] = useState(false); // 테스트용: 공구 참여 상태 토글
   const [showReceiptModal, setShowReceiptModal] = useState(false); // [신규] 스마트 영수증 모달 상태
   const [isScrapped, setIsScrapped] = useState(false); // [신규] 스크랩 상태
@@ -90,12 +91,6 @@ const BuyerProductDetailPage = () => {
         alert("상품 정보를 불러오는데 실패했습니다.");
       });
 
-    // [신규] 블록체인 및 알라딘 가격 교차 검증 API 호출
-    fetch(`http://localhost:8080/api/products/${id}/verify`)
-      .then(res => res.json())
-      .then(data => setVerification(data))
-      .catch(err => console.error("검증 정보 로드 실패:", err));
-
     // [신규] 스크랩 상태 호출
     fetch(`http://localhost:8080/api/products/${id}/scrap/status`, { credentials: 'include' })
       .then(res => {
@@ -105,6 +100,40 @@ const BuyerProductDetailPage = () => {
       .then(data => setIsScrapped(data))
       .catch(err => console.error("스크랩 상태 로드 실패:", err));
   }, [id]);
+
+  // 블록체인 노드 장애가 상품 상세 조회를 막지 않도록 별도 요청과 제한 시간을 사용한다.
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    let active = true;
+    setVerification({ status: 'LOADING' });
+
+    fetch(`http://localhost:8080/api/products/${id}/verify`, { signal: controller.signal })
+      .then(res => {
+        if (!res.ok) throw new Error('검증 API 호출 실패');
+        return res.json();
+      })
+      .then(data => {
+        if (active) setVerification(data);
+      })
+      .catch(err => {
+        if (active) {
+          console.error("검증 정보 로드 실패:", err);
+          setVerification({
+            status: 'UNAVAILABLE',
+            message: '블록체인 검증 서비스를 일시적으로 사용할 수 없습니다.',
+            retryable: true
+          });
+        }
+      })
+      .finally(() => clearTimeout(timeoutId));
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [id, verificationRetryKey]);
 
   // 공구 참여하기 버튼 클릭 핸들러
   const handleJoinToggle = async () => {
@@ -250,6 +279,32 @@ const BuyerProductDetailPage = () => {
     if (!verification) return null;
     let badgeContent = null;
     switch (verification.status) {
+      case 'LOADING':
+        badgeContent = (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 text-gray-600 text-sm font-bold rounded-full border border-gray-200 shadow-sm">
+            <Clock size={16} /> 블록체인 확인 중
+          </div>
+        );
+        break;
+      case 'PENDING':
+      case 'UNAVAILABLE':
+      case 'FAILED':
+        badgeContent = (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 text-sm font-bold rounded-full border border-amber-200 shadow-sm">
+            <AlertTriangle size={16} />
+            {verification.status === 'PENDING' ? '블록체인 기록 대기 중' : '블록체인 확인 불가'}
+            {verification.retryable && (
+              <button
+                type="button"
+                onClick={() => setVerificationRetryKey(key => key + 1)}
+                className="ml-1 underline underline-offset-2"
+              >
+                다시 확인
+              </button>
+            )}
+          </div>
+        );
+        break;
       case 'VALID':
         badgeContent = (
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-sm font-bold rounded-full border border-green-200 shadow-sm">
