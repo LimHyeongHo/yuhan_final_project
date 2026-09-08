@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { Store, TrendingUp, Package, MessageSquare, PlusCircle, ArrowRight, BookOpen, Clock, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '../../../components/layout/Header'; // 공통 헤더
+// [feature/chat-fixes] 채팅 안읽음 수를 전역 Context(WebSocket)에서 실시간으로 받음 (기존 20초 폴링 대체)
+import { useChatNotifications } from '../../../contexts/ChatNotificationContext';
 
 const SellerDashboardPage = () => {
   const [listings, setListings] = useState([]);
   const [participations, setParticipations] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [selectedNotification, setSelectedNotification] = useState(null);
-  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const { totalChatUnread: unreadChatCount } = useChatNotifications();
 
   const deleteNotification = (id) => {
     if (!window.confirm('이 알림을 삭제하시겠습니까?')) return;
@@ -31,24 +33,7 @@ const SellerDashboardPage = () => {
     return isWithinWeek ? sum + (part.product?.price || 0) : sum;
   }, 0);
 
-  React.useEffect(() => {
-    // [수정] 하드코딩된 "12건" → 실제 채팅방 안읽음 메시지 합산, 새로고침 없이도 20초마다 갱신
-    const loadUnreadChatCount = () => {
-      fetch(`http://${window.location.hostname}:8080/api/chat/rooms`, { credentials: 'include' })
-        .then(res => {
-          if (!res.ok) throw new Error('Failed to fetch chat rooms');
-          return res.json();
-        })
-        .then(rooms => {
-          setUnreadChatCount(rooms.reduce((sum, r) => sum + (r.unreadCount || 0), 0));
-        })
-        .catch(err => console.error(err));
-    };
-
-    loadUnreadChatCount();
-    const intervalId = setInterval(loadUnreadChatCount, 20000);
-    return () => clearInterval(intervalId);
-  }, []);
+  // [feature/chat-fixes] 신규 채팅/문의 건수는 전역 Context에서 실시간으로 받음 (여기서 폴링 안 함)
 
   React.useEffect(() => {
     // [수정] sellerId=1 고정 하드코딩 → 로그인한 본인 상품만 조회

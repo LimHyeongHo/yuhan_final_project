@@ -4,6 +4,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { User, ShieldAlert, LogOut, Bell, X, Menu } from 'lucide-react';
 // [신규] 인증서 남은 시간(mm:ss) + +5분/-5분 조정을 위한 Context 훅
 import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
+// [feature/chat-fixes] 채팅 안읽음 수를 전역 WebSocket 기준으로 실시간 수신 (기존 20초 폴링 대체)
+import { useChatNotifications } from '../../contexts/ChatNotificationContext';
 
 // [신규] 초 단위를 "mm:ss" 형식 문자열로 변환
 const formatRemaining = (totalSeconds) => {
@@ -25,7 +27,8 @@ const Header = () => {
   // [신규] 인증서 타이머 상태 (남은 초 / 조정 함수)
   const { remainingSeconds, extend } = useCertificateTimer();
   // [신규] 헤더 알림 배지 + 미리보기 드롭다운용 상태 (채팅 + 판매자 참여 알림 통합)
-  const [chatRooms, setChatRooms] = useState([]);
+  // [feature/chat-fixes] 채팅방 목록/안읽음은 전역 Context(WebSocket)에서 실시간으로 받는다
+  const { chatRooms } = useChatNotifications();
   const [participationAlerts, setParticipationAlerts] = useState([]);
   const [systemNotifications, setSystemNotifications] = useState([]);
   const [isChatPreviewOpen, setIsChatPreviewOpen] = useState(false);
@@ -53,34 +56,16 @@ const Header = () => {
     return () => window.removeEventListener('user-profile-updated', syncFromStorage);
   }, []);
 
-  // [신규] 읽음 처리 이벤트 받으면 배지 즉시 갱신
-  useEffect(() => {
-    const handleChatRead = (e) => {
-      const { roomId } = e.detail || {};
-      if (roomId == null) return;
-      setChatRooms(prev => prev.map(r => r.roomId === roomId ? { ...r, unreadCount: 0 } : r));
-    };
-    window.addEventListener('chat-read', handleChatRead);
-    return () => window.removeEventListener('chat-read', handleChatRead);
-  }, []);
+  // [feature/chat-fixes] 채팅 안읽음은 전역 Context로 이동 → 여기 chat-read 처리·20초 폴링 제거
 
-  // [신규] 채팅방 목록(+ 판매자면 참여 알림)을 20초마다 갱신
+  // [신규] 판매자 참여/시스템 알림을 20초마다 갱신 (채팅과 무관한 별도 기능이라 폴링 유지)
   useEffect(() => {
     if (!localStorage.getItem('user_nickname')) {
-      setChatRooms([]);
       setParticipationAlerts([]);
       return;
     }
 
     const loadNotifications = () => {
-      fetch(`http://${window.location.hostname}:8080/api/chat/rooms`, { credentials: 'include' })
-        .then(res => {
-          if (!res.ok) throw new Error('Failed to fetch chat rooms');
-          return res.json();
-        })
-        .then(setChatRooms)
-        .catch(err => console.error('헤더 채팅 알림 로드 실패', err));
-
       // [신규] 참여 알림 및 시스템 알림은 판매자 계정에만 의미 있는 이벤트라 seller일 때만 조회
       if (localStorage.getItem('user_role') === 'ROLE_SELLER') {
         fetch(`http://${window.location.hostname}:8080/api/products/seller/me/participations`, { credentials: 'include' })

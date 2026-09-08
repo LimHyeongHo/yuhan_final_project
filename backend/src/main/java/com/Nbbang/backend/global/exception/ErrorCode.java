@@ -104,6 +104,9 @@ public enum ErrorCode {
     CHAT_ROOM_NOT_FOUND(404, "채팅방을 찾을 수 없습니다"),
     CHAT_ACCESS_DENIED(403, "접근 권한이 없는 채팅방입니다"),
     CHAT_HISTORY_LOAD_FAILED(500, "채팅 내역을 불러오지 못했습니다"),
+    // [CHAT-RQ-002][feature/chat-fixes] 메시지 전송 취소
+    CHAT_MESSAGE_NOT_FOUND(404, "존재하지 않는 메시지입니다"),
+    CHAT_MESSAGE_NOT_OWNER(403, "본인이 보낸 메시지만 취소할 수 있습니다"),
     CHAT_INVALID_FILE_FORMAT(400, "이미지 파일(PNG/JPG/GIF/WEBP)만 업로드 가능합니다"),
     CHAT_FILE_SIZE_EXCEEDED(400, "파일 크기는 5MB 이하여야 합니다"),
 

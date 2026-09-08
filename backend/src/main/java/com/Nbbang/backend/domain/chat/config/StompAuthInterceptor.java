@@ -59,6 +59,20 @@ public class StompAuthInterceptor implements ChannelInterceptor {
 
     private void handleSubscribe(StompHeaderAccessor accessor) {
         String destination = accessor.getDestination();
+
+        // 전역 알림용 개인 토픽 "/topic/chat/user/{email}" — 본인 것만 구독 허용
+        String userTopicEmail = extractUserTopicEmail(destination);
+        if (userTopicEmail != null) {
+            Principal principal = accessor.getUser();
+            if (principal == null) {
+                throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
+            }
+            if (!userTopicEmail.equals(principal.getName())) {
+                throw new CustomException(ErrorCode.CHAT_ACCESS_DENIED);
+            }
+            return;
+        }
+
         Long roomId = extractRoomId(destination);
         if (roomId == null) return; // 채팅방 토픽이 아니면 통과 (다른 브로드캐스트 용도 대비)
 
@@ -72,6 +86,14 @@ public class StompAuthInterceptor implements ChannelInterceptor {
         if (!myEmail.equals(room.getBuyerEmail()) && !myEmail.equals(room.getSellerEmail())) {
             throw new CustomException(ErrorCode.CHAT_ACCESS_DENIED);
         }
+    }
+
+    /** "/topic/chat/user/{email}" 형태에서 email 추출, 아니면 null */
+    private String extractUserTopicEmail(String destination) {
+        String prefix = "/topic/chat/user/";
+        if (destination == null || !destination.startsWith(prefix)) return null;
+        String email = destination.substring(prefix.length());
+        return email.isBlank() ? null : email;
     }
 
     /** "/topic/chat/{roomId}" 형태에서 roomId 추출, 형식 안 맞으면 null */

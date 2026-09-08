@@ -3,6 +3,7 @@ package com.Nbbang.backend.domain.chat.controller;
 import com.Nbbang.backend.domain.chat.dto.ChatMessageResponse;
 import com.Nbbang.backend.domain.chat.dto.ChatRoomResponse;
 import com.Nbbang.backend.domain.chat.entity.ChatRoom;
+import com.Nbbang.backend.domain.chat.entity.MessageType;
 import com.Nbbang.backend.domain.chat.service.ChatMessageService;
 import com.Nbbang.backend.domain.chat.service.ChatRoomService;
 import com.Nbbang.backend.global.exception.CustomException;
@@ -72,9 +73,10 @@ public class ChatRoomController {
     public ResponseEntity<List<ChatMessageResponse>> getMessages(
             @PathVariable Long roomId,
             HttpSession session) {
+        String myEmail = getEmail(session);
         ChatRoom room = chatRoomService.getRoom(roomId);
-        validateAccess(room, getEmail(session));
-        return ResponseEntity.ok(chatMessageService.getHistory(roomId));
+        validateAccess(room, myEmail);
+        return ResponseEntity.ok(chatMessageService.getHistory(room, myEmail));
     }
 
     /** 읽음 처리 + WebSocket READ 이벤트 브로드캐스트 */
@@ -85,7 +87,71 @@ public class ChatRoomController {
         validateAccess(room, myEmail);
         chatMessageService.markAsRead(roomId, myEmail);
         chatRoomService.resetUnreadCount(roomId, myEmail);
-        messagingTemplate.convertAndSend("/topic/chat/" + roomId, ChatMessageResponse.readEvent(roomId));
+        messagingTemplate.convertAndSend("/topic/chat/" + roomId, ChatMessageResponse.readEvent(roomId, myEmail));
+        // 내 개인 토픽에도 알림 → 다른 탭·기기의 헤더 배지도 이 방을 읽음 처리
+        messagingTemplate.convertAndSend("/topic/chat/user/" + myEmail, ChatMessageResponse.readEvent(roomId, myEmail));
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * [CHAT-RQ-001] 채팅방 나가기 (카톡 방식)
+     * 본인 방에서만 가능(타인 대리 나가기 → 403). 나가면 "OO님이 나가셨습니다" 시스템 메시지를 양쪽에 브로드캐스트한다.
+     */
+    @PostMapping("/rooms/{roomId}/leave")
+    public ResponseEntity<Void> leaveRoom(@PathVariable Long roomId, HttpSession session) {
+        String myEmail = getEmail(session);
+        ChatRoom room = chatRoomService.getRoom(roomId);
+        validateAccess(room, myEmail);
+        if (chatRoomService.leaveRoom(roomId, myEmail)) {
+            broadcastSystemMessage(room, myEmail, MessageType.LEAVE);
+        }
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * [CHAT-RQ-001] 채팅방 재입장
+     * 나가 있던 사용자가 방을 다시 열 때 호출. "OO님이 들어왔습니다" 시스템 메시지를 양쪽에 브로드캐스트한다.
+     */
+    @PostMapping("/rooms/{roomId}/rejoin")
+    public ResponseEntity<Void> rejoinRoom(@PathVariable Long roomId, HttpSession session) {
+        String myEmail = getEmail(session);
+        ChatRoom room = chatRoomService.getRoom(roomId);
+        validateAccess(room, myEmail);
+        if (chatRoomService.rejoinRoom(roomId, myEmail)) {
+            broadcastSystemMessage(room, myEmail, MessageType.JOIN);
+        }
+        return ResponseEntity.ok().build();
+    }
+
+    /** 나가기/재입장 시스템 메시지를 저장하고 방 토픽 + 양측 개인 토픽에 발행 */
+    private void broadcastSystemMessage(ChatRoom room, String actorEmail, MessageType type) {
+        ChatMessageResponse sysMsg = chatMessageService.saveSystemMessage(room.getId(), actorEmail, type);
+        chatRoomService.updateLastMessagePreview(room.getId(), sysMsg.getContent());
+        messagingTemplate.convertAndSend("/topic/chat/" + room.getId(), sysMsg);
+        messagingTemplate.convertAndSend("/topic/chat/user/" + room.getBuyerEmail(), sysMsg);
+        messagingTemplate.convertAndSend("/topic/chat/user/" + room.getSellerEmail(), sysMsg);
+    }
+
+    /**
+     * [CHAT-RQ-002] 메시지 전송 취소 (소프트 삭제)
+     * 작성자 본인만 가능(타인 요청 → 403), 취소 이벤트를 WebSocket으로 양측에 즉시 브로드캐스트한다.
+     * 마지막 메시지를 취소하면 채팅방 목록 미리보기도 함께 갱신한다.
+     */
+    @DeleteMapping("/rooms/{roomId}/messages/{messageId}")
+    public ResponseEntity<Void> deleteMessage(
+            @PathVariable Long roomId,
+            @PathVariable Long messageId,
+            HttpSession session) {
+        String myEmail = getEmail(session);
+        ChatRoom room = chatRoomService.getRoom(roomId);
+        validateAccess(room, myEmail);
+        String preview = chatMessageService.deleteMessage(roomId, messageId, myEmail);
+        chatRoomService.updateLastMessagePreview(roomId, preview);
+        ChatMessageResponse deleteEvent = ChatMessageResponse.deleteEvent(roomId, messageId, preview);
+        messagingTemplate.convertAndSend("/topic/chat/" + roomId, deleteEvent);
+        // 양측 개인 토픽에도 발행 → 채팅 화면 밖에서도 헤더 목록 미리보기가 갱신되도록
+        messagingTemplate.convertAndSend("/topic/chat/user/" + room.getBuyerEmail(), deleteEvent);
+        messagingTemplate.convertAndSend("/topic/chat/user/" + room.getSellerEmail(), deleteEvent);
         return ResponseEntity.ok().build();
     }
 

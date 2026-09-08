@@ -4,6 +4,8 @@ import './App.css';
 
 /// [신규] 인증서 만료 타이머(헤더 +5분/-5분, 00:00 만료 로그아웃) 전역 상태 Provider
 import { CertificateTimerProvider } from './contexts/CertificateTimerContext';
+// [feature/chat-fixes] 채팅 안읽음 배지 전역 실시간 공유 Provider (Header/Dashboard 20초 폴링 대체)
+import { ChatNotificationProvider } from './contexts/ChatNotificationContext';
 /// [신규] 비로그인 시 URL 직접 접근 막는 라우트 가드
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
@@ -70,6 +72,8 @@ function App() {
     <BrowserRouter basename={routerBasename}>
       {/* [신규] 인증서 타이머 Provider로 전체 라우트를 감싸 어느 페이지에서도 남은 시간을 공유 */}
       <CertificateTimerProvider>
+       {/* [feature/chat-fixes] 채팅 안읽음 배지를 어느 페이지에서도 실시간으로 공유 */}
+       <ChatNotificationProvider>
         <Routes>
           {/* 메인 주소(localhost:3000/)로 접속했을 때 보여줄 화면 */}
           {/* <Route path="/" element={<Home />} /> */}
@@ -161,6 +165,7 @@ function App() {
           {/* 나중에 전공책 상세페이지 같은 걸 추가하면 이렇게 씁니다 */}
           {/* <Route path="/book/:id" element={<BookDetail />} /> */}
         </Routes>
+       </ChatNotificationProvider>
       </CertificateTimerProvider>
     </BrowserRouter>
   );

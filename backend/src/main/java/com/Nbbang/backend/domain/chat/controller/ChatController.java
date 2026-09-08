@@ -62,5 +62,16 @@ public class ChatController {
 
         // 4. 해당 채팅방 구독자 전체에게 브로드캐스트
         messagingTemplate.convertAndSend("/topic/chat/" + request.getRoomId(), response);
+
+        // 5. 수신자 개인 토픽에도 발행 — 채팅 화면 밖(다른 페이지)에 있어도 헤더 알림이 실시간 갱신되도록
+        //    단, 수신자가 이 방에서 나가 있으면 알림(토스트/헤더 배지)을 보내지 않는다.
+        boolean senderIsBuyer = senderEmail.equals(room.getBuyerEmail());
+        String recipient = senderIsBuyer ? room.getSellerEmail() : room.getBuyerEmail();
+        boolean recipientLeft = senderIsBuyer
+                ? room.getSellerLeftAt() != null
+                : room.getBuyerLeftAt() != null;
+        if (!recipientLeft) {
+            messagingTemplate.convertAndSend("/topic/chat/user/" + recipient, response);
+        }
     }
 }
