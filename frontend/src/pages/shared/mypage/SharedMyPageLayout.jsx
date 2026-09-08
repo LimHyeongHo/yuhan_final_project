@@ -1,6 +1,7 @@
+// [UI-RQ-003][feature/ui-fixes] 판매자 사이드바에 "내가 받은 후기" 진입점 추가
 import React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { User, ShoppingBag, Bookmark, Settings, Store, CreditCard, ChevronRight } from 'lucide-react';
+import { User, ShoppingBag, Bookmark, Settings, Store, CreditCard, ChevronRight, Star } from 'lucide-react';
 import Header from '../../../components/layout/Header';
 
 const SharedMyPageLayout = ({ userRole = 'BUYER' }) => {
@@ -16,6 +17,7 @@ const SharedMyPageLayout = ({ userRole = 'BUYER' }) => {
   const sellerMenuItems = [
     { path: 'overview', label: '회원 정보 개요', icon: <User size={18} /> },
     { path: 'projects', label: '개설한 공동구매 관리', icon: <Store size={18} /> },
+    { path: 'reviews', label: '내가 받은 후기', icon: <Star size={18} /> },
     { path: 'settlement', label: '정산 및 계좌 관리', icon: <CreditCard size={18} /> },
     { path: 'settings', label: '프로필/비밀번호 수정', icon: <Settings size={18} /> },
   ];

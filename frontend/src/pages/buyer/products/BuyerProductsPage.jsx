@@ -1,13 +1,15 @@
+// [UI-RQ-004][feature/ui-fixes] 메인에서 넘어온 쿼리(?q=)를 목록 검색 상태에 초기 반영
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 // 🛠️ LayoutGrid, List 아이콘이 추가되었습니다.
 import { Search, SlidersHorizontal, BookOpen, Users, ChevronDown, Filter, Clock, Image as ImageIcon, LayoutGrid, List, CheckCircle } from 'lucide-react';
 import Header from '../../../components/layout/Header';
 
 
 const BuyerProductsPage = () => {
+  const [searchParams] = useSearchParams();
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [searchTarget, setSearchTarget] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -20,6 +22,11 @@ const BuyerProductsPage = () => {
   const [showClosed, setShowClosed] = useState(false);
 
   const [productList, setProductList] = useState([]);
+
+  // [UI-RQ-004][feature/ui-fixes] 다른 검색어로 재진입 시 최신 쿼리로 갱신
+  React.useEffect(() => {
+    setSearchQuery(searchParams.get('q') || '');
+  }, [searchParams]);
 
   React.useEffect(() => {
     fetch('http://localhost:8080/api/products')

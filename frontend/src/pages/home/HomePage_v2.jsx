@@ -1,3 +1,4 @@
+// [UI-RQ-004][feature/ui-fixes] 메인 검색창 → 공구 찾기 목록으로 검색어 전달 (Enter/버튼 동일 동작)
 import React, { useState, useEffect } from 'react';
 import { Search, Flame, TrendingUp, Clock, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -8,6 +9,12 @@ const HomePage = () => {
 
   // 팀원이 수정한 버그 픽스 적용 (handleProductClick 제거됨)
   const [productList, setProductList] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const handleSearch = () => {
+    const trimmed = searchTerm.trim();
+    navigate(trimmed ? `/buyer/products?q=${encodeURIComponent(trimmed)}` : '/buyer/products');
+  };
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -96,12 +103,19 @@ const HomePage = () => {
           </div>
           <input
             type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
             placeholder="이번 학기 필요한 전공책, 저자, 출판사를 검색해보세요!"
             className="flex-grow pl-3 md:pl-4 pr-4 py-3 md:py-4 bg-transparent border-none text-sm md:text-base font-semibold outline-none w-full text-gray-900 placeholder-gray-400"
           />
-          <Link to="/buyer/products" className="px-6 md:px-10 py-3 md:py-4 bg-blue-600 hover:bg-blue-700 text-white text-sm md:text-base font-bold rounded-xl md:rounded-[18px] transition whitespace-nowrap">
+          <button
+            type="button"
+            onClick={handleSearch}
+            className="px-6 md:px-10 py-3 md:py-4 bg-blue-600 hover:bg-blue-700 text-white text-sm md:text-base font-bold rounded-xl md:rounded-[18px] transition whitespace-nowrap"
+          >
             검색
-          </Link>
+          </button>
         </div>
 
         {/* 🔥 섹션 1: 마감 임박 큐레이션 */}

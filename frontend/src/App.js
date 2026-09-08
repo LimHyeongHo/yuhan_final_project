@@ -11,6 +11,8 @@ import AdminRoute from './components/AdminRoute';
 import LoginPage from './pages/login/LoginPage';
 import SignupPage from './pages/signup/SignupPage';
 import HomePage_v2 from './pages/home/HomePage_v2';
+// [UI-RQ-006][feature/ui-fixes] 이용 가이드 페이지 (로그인 불필요, 공개 라우트)
+import GuidePage from './pages/guide/GuidePage';
 /// [*] 관리자용 페이지 import
 import SecurityLogPage from './pages/admin/security/SecurityLogPage';
 import AdminSimulatorPage from './pages/admin/security/AdminSimulatorPage';
@@ -52,6 +54,8 @@ import MyPageSettings from './pages/shared/mypage/MyPageSettings';
 /// [*] 판매자 마이페이지 내 세부 페이지 import
 import MyPageProjects from './pages/shared/mypage/MyPageProjects';
 import MyPageSettlement from './pages/shared/mypage/MyPageSettlement';
+// [UI-RQ-003][feature/ui-fixes] 판매자 "내가 받은 후기" 진입점
+import MyPageMyReviews from './pages/shared/mypage/MyPageMyReviews';
 
 
 
@@ -78,6 +82,8 @@ function App() {
 
           {/* 홈 화면으로 접속했을 때 보여줄 화면 */}
           <Route path="/" element={<HomePage_v2 />} />
+          {/* [UI-RQ-006][feature/ui-fixes] 이용 가이드 - 로그인 여부 무관 공개 라우트 */}
+          <Route path="/guide" element={<GuidePage />} />
 
           { /* ----------------관리자 페이지-----------------*/}
           { /* 보안 로그 화면으로 접속했을 때 보여줄 화면 */}
@@ -145,6 +151,8 @@ function App() {
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<MyPageOverview userRole="SELLER" />} />
             <Route path="projects" element={<MyPageProjects userRole="SELLER" />} />
+            {/* [UI-RQ-003][feature/ui-fixes] 내가 받은 후기 */}
+            <Route path="reviews" element={<MyPageMyReviews />} />
             <Route path="settlement" element={<MyPageSettlement userRole="SELLER" />} />
             <Route path="settings" element={<MyPageSettings userRole="SELLER" />} />
           </Route>

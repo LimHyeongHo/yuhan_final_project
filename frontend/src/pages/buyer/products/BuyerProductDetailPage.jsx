@@ -4,12 +4,24 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Users, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon, X, Copy, Heart, Info } from 'lucide-react';
 import Header from '../../../components/layout/Header';
 //[추가]
-import { useParams, Link, useNavigate } from 'react-router-dom';
+// [수정][feature/ui-fixes] "목록으로 돌아가기"를 고정 경로 대신 실제 유입 경로로 되돌아가게 수정
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 const BuyerProductDetailPage = () => {
   // 1. 주소창에서 상품 고유 ID 추출 (예: /buyer/products/1 -> id = "1")
   const { id } = useParams();
   //[추가]
   const navigate = useNavigate();
+  const location = useLocation();
+  // [수정][feature/ui-fixes] 앱 내 이동 이력 있으면 뒤로가기, 없으면(새로고침/직접진입) 기본 목록으로
+  const handleBackToList = () => {
+    if (location.key !== 'default') {
+      navigate(-1);
+    } else {
+      navigate('/buyer/products');
+    }
+  };
+  // [수정][feature/ui-fixes] 진입 경로에 맞는 버튼 문구 (state 없으면 "목록으로 돌아가기")
+  const backButtonText = location.state?.backButtonText || '목록으로 돌아가기';
   const [product, setProduct] = useState(null);
   const [verification, setVerification] = useState(null); // [신규] 블록체인 검증 상태
   const [isJoined, setIsJoined] = useState(false); // 테스트용: 공구 참여 상태 토글
@@ -154,6 +166,32 @@ const BuyerProductDetailPage = () => {
     }
   };
 
+  // [UI-RQ-005][feature/ui-fixes] 공유 버튼 — Web Share API 지원 시 시스템 공유창, 미지원 시 링크 클립보드 복사
+  const handleShare = async () => {
+    // 책 제목이 "본제목 - 부제목..." 형태로 길게 들어오므로 다른 화면들처럼 '-' 앞부분만 사용
+    const shortTitle = (product?.title || 'N빵 공동구매').split('-')[0].trim();
+    // 카톡 "복사"는 url + text를 구분자 없이 이어붙이므로 text 맨 앞에 줄바꿈을 둬서 링크와 문구가 분리되게 함
+    const shareData = {
+      title: shortTitle,
+      text: `\n${shortTitle} 공동구매에 참여해보세요!`,
+      url: window.location.href,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (e) {
+        // 사용자가 공유창을 취소한 경우는 조용히 무시
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      alert('상품 링크가 클립보드에 복사되었습니다.');
+    } catch (e) {
+      alert('링크 복사에 실패했습니다.');
+    }
+  };
+
   // [신규] 문의하기 버튼 클릭 핸들러 — 채팅방 생성 후 채팅방 목록으로 이동
   const handleChatInquiry = async () => {
     if (!localStorage.getItem('user_nickname')) {
@@ -261,10 +299,10 @@ const BuyerProductDetailPage = () => {
 
         {/* 뒤로가기 네비게이션 */}
         <div className="flex items-center justify-between">
-          <Link to="/buyer/products" className="flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-gray-900 transition">
+          <button onClick={handleBackToList} className="flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-gray-900 transition">
             <ChevronLeft size={18} />
-            목록으로 돌아가기
-          </Link>
+            {backButtonText}
+          </button>
           <div className="flex gap-2">
             <button
               onClick={handleScrapToggle}
@@ -272,7 +310,11 @@ const BuyerProductDetailPage = () => {
             >
               <Heart size={16} fill={isScrapped ? 'currentColor' : 'none'} />
             </button>
-            <button className="p-2 text-gray-400 hover:text-gray-600 bg-white border border-gray-200 rounded-xl transition shadow-sm">
+            {/* [UI-RQ-005][feature/ui-fixes] 공유 버튼 동작 연결 */}
+            <button
+              onClick={handleShare}
+              className="p-2 text-gray-400 hover:text-gray-600 bg-white border border-gray-200 rounded-xl transition shadow-sm"
+            >
               <Share2 size={16} />
             </button>
           </div>
