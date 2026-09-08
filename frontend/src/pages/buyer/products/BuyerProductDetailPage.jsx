@@ -146,7 +146,9 @@ const BuyerProductDetailPage = () => {
         }),
       });
       if (!res.ok) throw new Error('채팅방 생성에 실패했습니다.');
-      navigate('/buyer/chat');
+      // [feature/chat-fixes] 생성/기존 방 id를 받아 채팅 화면에서 바로 그 방이 열리도록 roomId를 넘긴다
+      const { roomId } = await res.json();
+      navigate(roomId ? `/buyer/chat?roomId=${roomId}` : '/buyer/chat');
     } catch (e) {
       alert(e.message);
     }
