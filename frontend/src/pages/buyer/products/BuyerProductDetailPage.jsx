@@ -248,21 +248,6 @@ const BuyerProductDetailPage = () => {
     }
   };
 
-  // [신규] DB 해킹 시뮬레이션 (시연용)
-  const handleHackSimulation = async () => {
-    if (window.confirm("경고: 진짜로 DB 가격을 조작하시겠습니까? (블록체인 방어 시스템 테스트용)")) {
-      try {
-        const res = await fetch(`http://localhost:8080/api/products/${product.id}/simulate-hack`, { method: 'POST' });
-        if (!res.ok) throw new Error("해킹 시뮬레이션 실패");
-        alert("🚨 DB 데이터가 999,999원으로 위조되었습니다!\n새로고침하여 블록체인이 어떻게 막아내는지 확인하세요!");
-        window.location.reload();
-      } catch (error) {
-        console.error(error);
-        alert("해킹 시뮬레이션 실패");
-      }
-    }
-  };
-
   if (!product) return <div className="p-8 text-center font-bold">도서 정보를 불러오는 중입니다...</div>;
 
   const progressRatio = Math.min(Math.round((product.currentCount / product.targetCount) * 100), 100);
@@ -646,16 +631,6 @@ const BuyerProductDetailPage = () => {
                     판매자에게 문의하기 (채팅)
                   </button>
                 </>
-              )}
-
-              {/* [신규] DB 해킹 시뮬레이션 버튼 (관리자 전용) */}
-              {localStorage.getItem('user_role') === 'ROLE_ADMIN' && (
-                <button
-                  onClick={handleHackSimulation}
-                  className="w-full mt-2 py-3 rounded-2xl font-bold text-red-50 bg-red-600 border border-red-700 hover:bg-red-700 transition-all shadow-md flex items-center justify-center gap-2"
-                >
-                  <span className="text-xl">☠️</span> DB 해킹 시뮬레이션 (시연용)
-                </button>
               )}
 
             </div>

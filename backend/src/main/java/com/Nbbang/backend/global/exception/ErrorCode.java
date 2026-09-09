@@ -70,6 +70,7 @@ public enum ErrorCode {
     PRODUCT_TARGET_COUNT_BELOW_CURRENT(400, "목표 인원은 현재 참여 인원보다 적게 설정할 수 없습니다"),
     PRODUCT_PRICE_INVALID_UNIT(400, "가격은 100원 단위로 입력해주세요"),
     PRODUCT_SELLER_WITHDRAWN(409, "판매자가 탈퇴하여 더 이상 참여할 수 없는 상품입니다"),
+    PRODUCT_INTEGRITY_TAMPERED(409, "상품 데이터 무결성 검증에 실패하여 공동구매에 참여할 수 없습니다"),
 
     // ========== 판매자 (SELLER) ==========
     SELLER_STATISTICS_LOAD_FAILED(500, "통계 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
@@ -98,6 +99,12 @@ public enum ErrorCode {
     ADMIN_HISTORY_LOAD_FAILED(500, "히스토리를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
     ADMIN_ANOMALY_DETAIL_LOAD_FAILED(500, "이상 감지 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
     ADMIN_SYNC_LOG_LOAD_FAILED(500, "동기화 로그를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
+
+    ADMIN_SIMULATION_NOT_FOUND(404, "보안 시뮬레이션을 찾을 수 없습니다"),
+    ADMIN_SIMULATION_CONFLICT(409, "해당 상품에 진행 중인 시뮬레이션 또는 정상 변경이 있습니다"),
+    ADMIN_SIMULATION_NOT_ELIGIBLE(409, "현재 시뮬레이션할 수 없는 상품입니다"),
+    ADMIN_SIMULATION_SNAPSHOT_NOT_FOUND(409, "복구할 시뮬레이션 스냅샷이 없습니다"),
+    ADMIN_SIMULATION_BLOCKCHAIN_UNAVAILABLE(503, "블록체인 원본을 확인할 수 없습니다"),
 
     // ========== 채팅 (CHAT) ==========
     // WebSocket 에러(WS_CONNECT_FAILED, WS_DISCONNECTED, WS_SEND_FAILED)는 STOMP 프레임으로 처리

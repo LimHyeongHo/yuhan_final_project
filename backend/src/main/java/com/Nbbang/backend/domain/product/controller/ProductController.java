@@ -180,13 +180,6 @@ public class ProductController {
         }
     }
 
-    /** [신규] DB 해킹 시뮬레이션 (시연용) */
-    @PostMapping("/{id}/simulate-hack")
-    public ResponseEntity<Void> simulateHack(@PathVariable Long id) {
-        productService.simulateDatabaseHack(id);
-        return ResponseEntity.ok().build();
-    }
-
     /** [신규] 구매자 마이페이지용 참여 내역 조회 */
     @GetMapping("/participations/me")
     public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getMyBuyerParticipations(HttpSession session) {
