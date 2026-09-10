@@ -17,15 +17,19 @@ import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import io.netty.channel.ChannelOption;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.netty.http.client.HttpClient;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HashMap;
@@ -48,8 +52,15 @@ public class PaymentService {
     @Value("${toss.secret-key}")
     private String secretKey;
 
+    // [NFR-004] 외부 결제사(Toss) 호출에 명시적 타임아웃. 미설정 시 응답이 없으면 호출 스레드가
+    // 무한 대기해 결제/환불 요청이 밀린다. connect 3초 / response 10초로 제한하고, 초과 시
+    // WebClient가 예외를 던져 confirmPayment·callTossCancel의 catch에서 실패로 처리된다.
     private final WebClient webClient = WebClient.builder()
             .baseUrl("https://api.tosspayments.com")
+            .clientConnector(new ReactorClientHttpConnector(
+                    HttpClient.create()
+                            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 3000)
+                            .responseTimeout(Duration.ofSeconds(10))))
             .build();
 
     // 결제 준비: 결제창을 열기 전에 서버가 실제 상품 가격을 확인하고 PENDING 상태로 기록해둔다.
@@ -127,68 +138,169 @@ public class PaymentService {
         }
     }
 
-    // Toss 리다이렉트 콜백 처리: PENDING 조회 -> 금액 대조 -> 승인 확정(커밋) -> 참여 확정 시도.
+    // [신규] PAY-RQ-001: orderId로 Toss에 결제 실제 상태를 조회한다. 승인/취소 요청의 응답이 유실됐을 때
+    // "실제로 처리됐는지"를 대조하는 용도. 해당 주문이 Toss에 아직 없으면(승인 시도 전) null 반환.
+    private PaymentResponse lookupTossPayment(String orderId) {
+        String encodedKey = Base64.getEncoder()
+                .encodeToString((secretKey + ":").getBytes(StandardCharsets.UTF_8));
+        try {
+            return webClient.get()
+                    .uri("/v1/payments/orders/{orderId}", orderId)
+                    .header("Authorization", "Basic " + encodedKey)
+                    .retrieve()
+                    .bodyToMono(PaymentResponse.class)
+                    .block();
+        } catch (WebClientResponseException e) {
+            if (e.getStatusCode().value() == 404) {
+                return null; // Toss에 아직 존재하지 않는 주문
+            }
+            log.error("Toss 결제조회 실패: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new CustomException(ErrorCode.PAYMENT_LOOKUP_FAILED);
+        } catch (Exception e) {
+            log.error("Toss 결제조회 중 알 수 없는 오류", e);
+            throw new CustomException(ErrorCode.PAYMENT_LOOKUP_FAILED);
+        }
+    }
+
+    // [신규] PAY-RQ-001 Edge1: confirm 호출의 응답만 유실된 채 실패했을 수 있으므로, 실패 시 Toss에
+    // 실제 상태를 물어본다. 이미 DONE(+금액 일치)이면 그 결과로 진행 — confirm이 사실상 멱등해진다.
+    private PaymentResponse confirmOrReconcile(PaymentRequest request, Long expectedAmount) {
+        try {
+            return confirmPayment(request);
+        } catch (CustomException e) {
+            PaymentResponse looked = lookupTossPayment(request.getOrderId());
+            if (looked != null && "DONE".equals(looked.getStatus())
+                    && expectedAmount.equals(looked.getTotalAmount())) {
+                log.warn("[PAYMENT-AUDIT] confirm 실패했으나 Toss 조회상 이미 승인됨 - 조회 결과로 진행: orderId={}",
+                        request.getOrderId());
+                return looked;
+            }
+            throw e;
+        }
+    }
+
+    // Toss 리다이렉트 콜백 처리: PENDING -> (Toss 승인) APPROVED -> (참여 확정) DONE.
     //
-    // [수정] PRD-RQ-003: 예전엔 이 메서드 전체 + finalizeSuccessfulPayment가 하나의 @Transactional
-    // 이었고, 같은 빈 안에서 this.finalizeSuccessfulPayment(...)를 호출했기 때문에(자기 자신 호출은
-    // 프록시를 거치지 않아 @Transactional이 무시됨) 실제로는 트랜잭션이 하나였다. 그 결과 Toss 승인
-    // (실제 돈 인출)까지 끝난 뒤 joinProduct가 정원 초과로 실패하면 전체 트랜잭션이 롤백되어
-    // Payment.status=DONE 저장까지 함께 사라졌다 — 고객 돈은 빠져나갔는데 결제/환불 기록이 전혀
-    // 남지 않는 상태가 될 수 있었음. TransactionTemplate으로 "DONE 커밋"과 "참여 확정 시도(+실패 시
-    // 자동환불)"를 별도 트랜잭션으로 분리해 이 문제를 막는다.
+    // [수정] PRD-RQ-003: 예전엔 이 메서드가 하나의 트랜잭션이라 Toss 승인(실제 인출) 후 joinProduct가
+    // 실패하면 status=DONE 저장까지 롤백돼 돈만 빠져나가고 기록이 안 남았다.
+    // [수정] PAY-RQ-001 §3.1: 예전엔 승인 직후 바로 DONE을 커밋해서, "DONE 커밋"과 "참여 확정" 사이에
+    // 프로세스가 죽으면 재진입 콜백이 DONE만 보고 성공 반환 -> 참여 생성도 환불도 안 일어났다.
+    // 이제 승인 직후엔 APPROVED만 커밋하고 참여 확정 후에만 DONE으로 바꾼다. 콜백이 끊겨도
+    // 재진입 시 현재 상태를 보고 끊긴 지점부터 재개한다.
     public PaymentResponse processSuccessCallback(String orderId, String paymentKey, Long amount) {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
-        PaymentResponse cached = tx.execute(status -> {
+        String phase = tx.execute(status -> {
             Payment payment = paymentRepository.findByOrderId(orderId)
                     .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
-
-            if ("DONE".equals(payment.getStatus())) {
-                // 이미 처리된 콜백(중복 리다이렉트 등) - 재처리하지 않고 그대로 성공 응답
-                PaymentResponse response = new PaymentResponse();
-                response.setPaymentKey(payment.getPaymentKey());
-                response.setOrderId(payment.getOrderId());
-                response.setTotalAmount(payment.getAmount());
-                response.setStatus("DONE");
-                return response;
+            switch (payment.getStatus()) {
+                case "DONE":
+                    return "DONE";
+                case "CANCELED": // 참여 확정 실패로 이미 전액 환불됨 - 성공으로 응답하면 안 됨
+                    throw new CustomException(ErrorCode.PAYMENT_JOIN_FAILED);
+                case "CANCEL_REQUESTED":
+                case "REFUND_FAILED": // 환불이 시작됐으나 미완료 - 환불부터 재개
+                    return "RESUME_REFUND";
+                case "APPROVED": // 승인은 끝났고 참여 확정만 남음
+                    return "FINALIZE";
+                case "PENDING":
+                    if (!payment.getAmount().equals(amount)) {
+                        throw new CustomException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+                    }
+                    return "CONFIRM";
+                default:
+                    throw new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND);
             }
-            if (!payment.getAmount().equals(amount)) {
-                throw new CustomException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
-            }
-            return null;
         });
-        if (cached != null) {
-            return cached;
+
+        if ("DONE".equals(phase)) {
+            return doneResponse(orderId);
         }
 
-        PaymentRequest request = new PaymentRequest();
-        request.setPaymentKey(paymentKey);
-        request.setOrderId(orderId);
-        request.setAmount(amount);
-        PaymentResponse result = confirmPayment(request); // Toss 승인(실제 인출) — 트랜잭션 밖에서 호출
+        if ("RESUME_REFUND".equals(phase)) {
+            Long paymentId = tx.execute(status -> paymentRepository.findByOrderId(orderId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND)).getId());
+            log.warn("이전 콜백에서 시작된 자동 환불을 재개: orderId={}", orderId);
+            refundViaToss(paymentId, "참여 확정 실패 자동 환불(재개)"); // 멱등
+            throw new CustomException(ErrorCode.PAYMENT_JOIN_FAILED);
+        }
 
-        Long paymentId = tx.execute(status -> {
+        // confirm 응답이 유실된 채 죽었어도 재진입 시 PENDING이라 여기로 온다. confirmOrReconcile이
+        // 실패 시 Toss 결제조회로 실제 승인 여부를 대조하므로 confirm은 사실상 멱등하다. (PAY-RQ-001 Edge1)
+        String method = null; // 재개 경로에선 알 수 없음
+        if ("CONFIRM".equals(phase)) {
+            PaymentRequest request = new PaymentRequest();
+            request.setPaymentKey(paymentKey);
+            request.setOrderId(orderId);
+            request.setAmount(amount);
+            PaymentResponse confirmed = confirmOrReconcile(request, amount); // 트랜잭션 밖, 실제 인출
+            method = confirmed.getMethod();
+
+            tx.executeWithoutResult(status -> {
+                Payment payment = paymentRepository.findByOrderId(orderId)
+                        .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
+                payment.setPaymentKey(confirmed.getPaymentKey());
+                payment.setApprovedAt(LocalDateTime.now());
+                payment.setStatus("APPROVED");
+                paymentRepository.save(payment);
+            });
+            log.info("[PAYMENT-AUDIT] Toss 승인 완료(APPROVED): orderId={}, amount={}", orderId, amount);
+        }
+
+        long[] ref = tx.execute(status -> {
             Payment payment = paymentRepository.findByOrderId(orderId)
                     .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
-            payment.setPaymentKey(result.getPaymentKey());
-            payment.setStatus("DONE");
-            payment.setApprovedAt(LocalDateTime.now());
-            paymentRepository.save(payment);
-            return payment.getId();
+            return new long[]{payment.getId(), payment.getProductId()};
         });
+        Long paymentId = ref[0];
+        Long productId = ref[1];
+        String buyerEmail = tx.execute(status -> paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND))
+                .getMember().getEmail());
 
-        // [신규] PRD-RQ-003: 결제는 승인됐지만 참여 확정이 실패하는 "고아 결제" 시나리오를
-        // 자동 환불로 보상 처리한다 (예: 이 콜백이 처리되는 사이 다른 결제가 먼저 정원을 채운 경우).
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
-        try {
-            productService.joinProduct(payment.getProductId(), payment.getMember().getEmail());
-        } catch (CustomException e) {
-            log.warn("결제는 승인됐지만 참여 확정 실패, 자동 환불 처리: orderId={}, reason={}", orderId, e.getErrorCode());
-            refundViaToss(payment.getId(), "정원 초과 자동 환불");
+        // 참여가 이미 있으면(DONE 전환 직전에 죽은 경우) 재조인하면 ALREADY_JOINED로 실패해 정상 결제를 오환불하게 됨
+        boolean alreadyJoined = participationRepository
+                .existsByProduct_ProductIdAndMember_Email(productId, buyerEmail);
+
+        if (!alreadyJoined) {
+            try {
+                productService.joinProduct(productId, buyerEmail);
+            } catch (CustomException e) {
+                log.warn("결제는 승인됐지만 참여 확정 실패, 자동 환불: orderId={}, reason={}", orderId, e.getErrorCode());
+                refundViaToss(paymentId, "참여 확정 실패 자동 환불");
+                throw new CustomException(ErrorCode.PAYMENT_JOIN_FAILED);
+            }
         }
 
-        return result;
+        tx.executeWithoutResult(status -> paymentRepository.findById(paymentId).ifPresent(payment -> {
+            if (!"DONE".equals(payment.getStatus())) {
+                payment.setStatus("DONE");
+                paymentRepository.save(payment);
+                log.info("[PAYMENT-AUDIT] 결제/참여 확정(DONE): orderId={}, productId={}, buyer={}",
+                        orderId, productId, buyerEmail);
+            }
+        }));
+
+        return doneResponse(orderId, method);
+    }
+
+    private PaymentResponse doneResponse(String orderId) {
+        return doneResponse(orderId, null);
+    }
+
+    private PaymentResponse doneResponse(String orderId, String method) {
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        return tx.execute(status -> {
+            Payment payment = paymentRepository.findByOrderId(orderId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
+            PaymentResponse response = new PaymentResponse();
+            response.setPaymentKey(payment.getPaymentKey());
+            response.setOrderId(payment.getOrderId());
+            response.setTotalAmount(payment.getAmount());
+            response.setStatus("DONE");
+            response.setMethod(method);
+            return response;
+        });
     }
 
     // [신규] PAY-RQ-001: Toss 공식 취소 API 호출 (confirmPayment와 동일한 인증/에러 처리 패턴)
@@ -222,16 +334,30 @@ public class PaymentService {
     // (자동환불 시엔 Participation이 애초에 없고, 사용자 취소 시엔 성공 후에만 감소시켜야 하기 때문).
     // orderId/paymentKey 기준 재시도가 CANCEL_REQUESTED/REFUND_FAILED 상태에서 다시 들어와도
     // 동일하게 동작하므로 멱등하다.
+    //
+    // [수정] PAY-RQ-001 Edge2: Toss 취소 호출의 응답만 유실된 채 워커가 죽으면, 재시도가 취소를 또
+    // 호출해 Toss가 "이미 취소됨"으로 거부 -> REFUND_FAILED 오판이 났다. 이제 취소 호출 전에 Toss
+    // 실제 상태를 조회해서, 이미 (부분)취소돼 있으면 로컬 상태만 CANCELED로 맞추고 끝낸다.
     private void refundViaToss(Long paymentId, String reason) {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
-        String paymentKey = tx.execute(status -> {
+        String[] keyAndOrder = tx.execute(status -> {
             Payment payment = paymentRepository.findById(paymentId)
                     .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
             payment.setStatus("CANCEL_REQUESTED");
+            payment.setCancelRequestedAt(LocalDateTime.now());
             paymentRepository.save(payment);
-            return payment.getPaymentKey();
+            return new String[]{payment.getPaymentKey(), payment.getOrderId()};
         });
+        String paymentKey = keyAndOrder[0];
+
+        // Toss에 이미 취소돼 있으면 재호출하지 않고 로컬만 정리 (중복 취소 -> REFUND_FAILED 오판 방지)
+        PaymentResponse looked = lookupTossPayment(keyAndOrder[1]);
+        if (looked != null && ("CANCELED".equals(looked.getStatus()) || "PARTIAL_CANCELED".equals(looked.getStatus()))) {
+            log.warn("[PAYMENT-AUDIT] Toss 조회상 이미 취소됨 - 로컬 상태만 CANCELED로 동기화: paymentId={}", paymentId);
+            markCanceled(tx, paymentId, reason);
+            return;
+        }
 
         try {
             callTossCancel(paymentKey, reason);
@@ -242,57 +368,106 @@ public class PaymentService {
                     paymentRepository.save(payment);
                 });
             });
+            log.error("[PAYMENT-AUDIT] 환불 실패(REFUND_FAILED): paymentId={}, reason={}", paymentId, reason);
             throw e;
         }
 
-        tx.executeWithoutResult(status -> {
-            paymentRepository.findById(paymentId).ifPresent(payment -> {
-                payment.setStatus("CANCELED");
-                payment.setCanceledAt(LocalDateTime.now());
-                payment.setCancelReason(reason);
-                paymentRepository.save(payment);
-            });
-        });
+        markCanceled(tx, paymentId, reason);
+        log.info("[PAYMENT-AUDIT] 환불 완료(CANCELED): paymentId={}, reason={}", paymentId, reason);
+    }
+
+    private void markCanceled(TransactionTemplate tx, Long paymentId, String reason) {
+        tx.executeWithoutResult(status -> paymentRepository.findById(paymentId).ifPresent(payment -> {
+            payment.setStatus("CANCELED");
+            payment.setCanceledAt(LocalDateTime.now());
+            payment.setCancelReason(reason);
+            paymentRepository.save(payment);
+        }));
     }
 
     // [신규] PRD-RQ-001 + PAY-RQ-001: 구매자 본인의 참여 취소.
-    // Participation을 소유자 기준으로 특정하고, 결제 완료 건이 있으면 Toss 환불이 성공한 뒤에만
-    // Participation/currentCount를 확정적으로 정리한다 (환불 실패 시 인원/참여는 그대로 유지).
+    // 결제 완료 건이 있으면 Toss 환불이 성공한 뒤에만 Participation/currentCount를 확정적으로
+    // 정리한다 (환불 실패 시 인원/참여는 그대로 유지).
+    //
+    // [수정] PRD-RQ-001: 예전엔 participation 조회 -> 상태 판정 -> 환불이 별도 단계라, 같은 사용자가
+    // 취소를 연타하면 두 요청이 모두 상태 판정을 통과해 Toss 환불을 이중 호출할 수 있었다. 이제
+    // "환불 대상 판정 + CANCEL_REQUESTED 선점"을 Product 락 안의 한 트랜잭션에 묶는다. 먼저 들어온
+    // 요청이 CANCEL_REQUESTED로 바꾸면 뒤이은 요청은 그 상태를 보고 PAYMENT_CANCEL_IN_PROGRESS로
+    // 거절되므로 환불은 한 번만 실행된다. (Edge2) 단, 60초 넘게 그 상태로 멈춰 있으면 워커가 죽은
+    // 것으로 보고 재시도가 Toss 실제 상태를 대조해 환불을 재개한다.
     public Product cancelParticipation(Long productId, String email, String reason) {
-        Participation participation = participationRepository
-                .findByProduct_ProductIdAndMember_Email(productId, email)
-                .orElseThrow(() -> new CustomException(ErrorCode.PARTICIPATION_NOT_FOUND));
-
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
-        // Phase 1: Product 잠금 + OPEN 상태 확인(=정산 시작 전) + 관련 결제 조회
-        Payment payment = tx.execute(status -> {
+        // Phase 1: Product 락 안에서 취소 대상 확정. 환불 불필요 케이스는 여기서 인원 정리까지 끝내고,
+        // 환불 대상이면 CANCEL_REQUESTED로 선점한 뒤 결제 id를 돌려준다(null이면 이미 완료).
+        Long refundPaymentId = tx.execute(status -> {
             Product product = productRepository.findByIdForUpdate(productId)
                     .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
             if (!"OPEN".equals(product.getStatus())) {
                 throw new CustomException(ErrorCode.PRODUCT_CANNOT_MODIFY_COMPLETED);
             }
-            return paymentRepository
+
+            Participation participation = participationRepository
+                    .findByProduct_ProductIdAndMember_Email(productId, email)
+                    .orElseThrow(() -> new CustomException(ErrorCode.PARTICIPATION_NOT_FOUND));
+
+            Payment payment = paymentRepository
                     .findFirstByProductIdAndMember_EmailOrderByIdDesc(productId, email)
                     .orElse(null);
+            String st = payment == null ? null : payment.getStatus();
+
+            // 결제 기록 없는 참여(레거시 무료 참여) / 이미 취소 완료 / 아직 인출 전(PENDING) — 인원만 정리
+            if (payment == null || "CANCELED".equals(st) || "PENDING".equals(st)) {
+                decrementAndRemoveParticipation(productId, participation.getId());
+                return null;
+            }
+
+            // [PAY-RQ-001 Edge2] CANCEL_REQUESTED: 최근에 선점된 건이면 다른 요청이 환불 진행 중이므로
+            // 막는다(이중 환불 방지). 60초 넘게 멈춰 있으면 워커가 죽은 것으로 보고 재선점 —
+            // 아래 refundViaToss가 Toss 실제 상태를 대조해 안전하게 재개한다.
+            if ("CANCEL_REQUESTED".equals(st)) {
+                LocalDateTime since = payment.getCancelRequestedAt();
+                if (since != null && since.isAfter(LocalDateTime.now().minusSeconds(60))) {
+                    throw new CustomException(ErrorCode.PAYMENT_CANCEL_IN_PROGRESS);
+                }
+                log.warn("[PAYMENT-AUDIT] 멈춘 CANCEL_REQUESTED 재개: paymentId={}, since={}", payment.getId(), since);
+                payment.setCancelRequestedAt(LocalDateTime.now());
+                paymentRepository.save(payment);
+                return payment.getId();
+            }
+
+            // APPROVED = 인출됐으나 DONE 전환 직전 콜백이 끊긴 건, REFUND_FAILED = 이전 환불 재시도
+            if (!List.of("APPROVED", "DONE", "REFUND_FAILED").contains(st)) {
+                throw new CustomException(ErrorCode.PARTICIPATION_NOT_FOUND);
+            }
+
+            payment.setStatus("CANCEL_REQUESTED"); // 선점 — 이 커밋 이후 동시 요청은 위에서 막힌다
+            payment.setCancelRequestedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+            return payment.getId();
         });
 
-        if (payment == null || "CANCELED".equals(payment.getStatus()) || "PENDING".equals(payment.getStatus())) {
-            // 결제 기록이 없는 참여(레거시 무료 참여), 이미 취소 완료된 결제, 또는 아직 Toss 승인이
-            // 확정되지 않은 PENDING 건(=아직 돈이 빠져나가지 않음, 환불 대상 아님) — 인원만 정리
-            return tx.execute(status -> decrementAndRemoveParticipation(productId, participation.getId()));
+        if (refundPaymentId == null) {
+            log.info("[PAYMENT-AUDIT] 참여취소(환불 없음): productId={}, buyer={}, reason={}", productId, email, reason);
+            return productRepository.findById(productId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
         }
 
-        if (!List.of("DONE", "CANCEL_REQUESTED", "REFUND_FAILED").contains(payment.getStatus())) {
-            // 알 수 없는 상태값에 대한 방어적 처리
-            throw new CustomException(ErrorCode.PARTICIPATION_NOT_FOUND);
-        }
+        // Phase 2: 락 밖에서 Toss 환불(네트워크). 실패 시 refundViaToss가 REFUND_FAILED로 남기고
+        // PAYMENT_REFUND_FAILED를 던지며 여기서 중단 — Participation/currentCount는 그대로 유지된다.
+        log.info("[PAYMENT-AUDIT] 참여취소 환불 시작: paymentId={}, productId={}, buyer={}, reason={}",
+                refundPaymentId, productId, email, reason);
+        refundViaToss(refundPaymentId, reason);
 
-        // 환불 실패 시 refundViaToss가 PAYMENT_REFUND_FAILED를 던지며 여기서 중단되고,
-        // Participation/currentCount는 그대로 유지된다 (PAY-RQ-001 인수 기준 2).
-        refundViaToss(payment.getId(), reason);
-
-        return tx.execute(status -> decrementAndRemoveParticipation(productId, participation.getId()));
+        // Phase 3: 환불 성공 -> 인원/참여 정리
+        Product result = tx.execute(status -> {
+            Participation participation = participationRepository
+                    .findByProduct_ProductIdAndMember_Email(productId, email)
+                    .orElseThrow(() -> new CustomException(ErrorCode.PARTICIPATION_NOT_FOUND));
+            return decrementAndRemoveParticipation(productId, participation.getId());
+        });
+        log.info("[PAYMENT-AUDIT] 참여취소 환불 완료: paymentId={}, productId={}, buyer={}", refundPaymentId, productId, email);
+        return result;
     }
 
     private Product decrementAndRemoveParticipation(Long productId, Long participationId) {
