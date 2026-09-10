@@ -331,6 +331,8 @@ public class SecuritySimulationService {
         result.put("title", product.getTitle());
         result.put("category", product.getCategory() == null ? "기타" : product.getCategory());
         result.put("price", product.getPrice());
+        result.put("currentCount", product.getCurrentCount());
+        result.put("targetCount", product.getTargetCount());
         result.put("seller", product.getSellerEmail() == null ? "알 수 없음" : product.getSellerEmail());
         result.put("status", product.getStatus());
         result.put("blockchainStatus", product.getBlockchainStatus());
