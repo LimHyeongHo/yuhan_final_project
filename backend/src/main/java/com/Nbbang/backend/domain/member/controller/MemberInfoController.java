@@ -18,6 +18,7 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.KeyFactory;
@@ -107,6 +108,25 @@ public class MemberInfoController {
         }
     }
 
+    // [UI-RQ-001] 프론트 라우트 가드(PrivateRoute/AdminRoute)가 localStorage(위변조 가능) 대신
+    // 서버 세션을 신뢰하도록, 현재 로그인 세션의 역할/식별 정보를 반환한다.
+    // 세션이 없으면 401을 명시적으로 내려 프론트가 "비로그인"으로 처리하게 한다.
+    @GetMapping("/session")
+    public ResponseEntity<Map<String, Object>> session(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute("userId") == null) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("authenticated", false);
+            return ResponseEntity.status(401).body(body);
+        }
+        Map<String, Object> body = new HashMap<>();
+        body.put("authenticated", true);
+        body.put("email", session.getAttribute("userId"));
+        body.put("nickname", session.getAttribute("nickname"));
+        body.put("role", session.getAttribute("role"));
+        return ResponseEntity.ok(body);
+    }
+
     // 마이페이지 "프로필/비밀번호 수정" 저장: 닉네임/비밀번호 부분 수정 (빈 값이면 그대로 유지)
     @PatchMapping("/profile")
     public ResponseEntity<Map<String, Object>> updateProfile(@RequestBody Map<String, String> request,
@@ -184,6 +204,9 @@ public class MemberInfoController {
             body.put("message", "인증서가 재발급되었습니다.");
             return ResponseEntity.ok(body);
         } catch (Exception e) {
+            // [MEM-RQ-001] @Transactional 메서드 안에서 예외를 삼키면 스프링이 롤백 시점을 놓친다.
+            // (DeviceCert 저장 후 타이머 시작에서 실패하면 인증서만 갱신된 채 커밋될 수 있음)
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             Map<String, Object> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.internalServerError().body(error);
@@ -232,6 +255,10 @@ public class MemberInfoController {
             response.put("message", "회원 탈퇴가 완료되었습니다.");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            // [MEM-RQ-001] @Transactional 메서드 안에서 예외를 잡아 정상 응답으로 바꾸면
+            // 스프링이 롤백 시점을 놓쳐 상품 상태 전환/닉네임 익명화 등 일부만 커밋될 수 있다.
+            // 명시적으로 rollback-only로 표시해 전체가 원자적으로 롤백되도록 한다.
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.internalServerError().body(error);
