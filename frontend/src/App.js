@@ -13,6 +13,7 @@ import AdminRoute from './components/AdminRoute';
 import LoginPage from './pages/login/LoginPage';
 import SignupPage from './pages/signup/SignupPage';
 import HomePage_v2 from './pages/home/HomePage_v2';
+import HomePageV3 from './pages/home/homePage_v3';
 // [UI-RQ-006][feature/ui-fixes] 이용 가이드 페이지 (로그인 불필요, 공개 라우트)
 import GuidePage from './pages/guide/GuidePage';
 /// [*] 관리자용 페이지 import
@@ -86,6 +87,7 @@ function App() {
 
           {/* 홈 화면으로 접속했을 때 보여줄 화면 */}
           <Route path="/" element={<HomePage_v2 />} />
+          <Route path="/home-v3" element={<HomePageV3 />} />
           {/* [UI-RQ-006][feature/ui-fixes] 이용 가이드 - 로그인 여부 무관 공개 라우트 */}
           <Route path="/guide" element={<GuidePage />} />
 
