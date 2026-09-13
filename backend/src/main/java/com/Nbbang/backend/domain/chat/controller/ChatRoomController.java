@@ -55,7 +55,8 @@ public class ChatRoomController {
 
     /**
      * 채팅방 생성 or 기존 방 반환
-     * 요청 body: { sellerEmail, productId, productName }
+     * 요청 body: { sellerEmail, productId }
+     * [CHAT-RQ-003] productName은 더 이상 요청 body에서 신뢰하지 않는다 — 서버가 Product 기준으로 직접 채운다.
      */
     @PostMapping("/rooms")
     public ResponseEntity<Map<String, Long>> createRoom(
@@ -64,9 +65,8 @@ public class ChatRoomController {
         String buyerEmail = getEmail(session);
         String sellerEmail = body.get("sellerEmail");
         Long productId = Long.parseLong(body.get("productId"));
-        String productName = body.get("productName");
 
-        ChatRoom room = chatRoomService.findOrCreate(buyerEmail, sellerEmail, productId, productName);
+        ChatRoom room = chatRoomService.findOrCreate(buyerEmail, sellerEmail, productId);
         return ResponseEntity.ok(Map.of("roomId", room.getId()));
     }
 

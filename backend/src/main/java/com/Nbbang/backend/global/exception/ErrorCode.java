@@ -114,6 +114,12 @@ public enum ErrorCode {
     CHAT_IMAGE_UPLOAD_FAILED(500, "이미지 업로드에 실패했습니다. 잠시 후 다시 시도해주세요"),
     // [CHAT-RQ-002][fix/chat] 클라이언트가 JOIN/LEAVE 등 시스템 전용 MessageType을 위조해 보내는 것 차단
     CHAT_INVALID_MESSAGE_TYPE(400, "허용되지 않는 메시지 타입입니다"),
+    // [CHAT-RQ-001][fix/chat] 나간 사용자가 메시지 전송/취소를 시도 — 발신자 본인 나가기 상태 검증
+    CHAT_ROOM_LEFT(403, "채팅방을 나가서 더 이상 이용할 수 없습니다"),
+    // [CHAT-RQ-001][fix/chat] 탈퇴한 상대에게는 메시지를 보낼 수 없음 (프론트 입력창 비활성화 우회 방지용 서버 검증)
+    CHAT_RECIPIENT_WITHDRAWN(403, "탈퇴한 상대에게는 메시지를 보낼 수 없습니다"),
+    // [CHAT-RQ-003][fix/chat] 채팅방 생성 요청의 sellerEmail이 실제 상품의 판매자와 일치하지 않음
+    CHAT_ROOM_SELLER_MISMATCH(400, "요청한 판매자 정보가 상품 정보와 일치하지 않습니다"),
 
     // ========== 구매자 (BUYER) ==========
     BUYER_PRODUCT_LIST_LOAD_FAILED(500, "목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),

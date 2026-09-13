@@ -6,6 +6,7 @@ import com.Nbbang.backend.domain.chat.entity.ChatMessage;
 import com.Nbbang.backend.domain.chat.entity.ChatRoom;
 import com.Nbbang.backend.domain.chat.entity.MessageType;
 import com.Nbbang.backend.domain.chat.repository.ChatMessageRepository;
+import com.Nbbang.backend.domain.chat.repository.ChatRoomRepository;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 public class ChatMessageService {
 
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatRoomRepository chatRoomRepository;
     private final UserAccountRepository userAccountRepository;
 
     /** 메시지 저장 후 응답 DTO 반환 */
@@ -118,6 +120,16 @@ public class ChatMessageService {
         }
         if (!requesterEmail.equals(message.getSenderEmail())) {
             throw new CustomException(ErrorCode.CHAT_MESSAGE_NOT_OWNER);
+        }
+
+        // [CHAT-RQ-001] 나간 사용자는 자기 메시지도 취소할 수 없다 (ChatController.sendMessage()와 동일한 검증)
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+        boolean requesterLeft = requesterEmail.equals(room.getBuyerEmail())
+                ? room.getBuyerLeftAt() != null
+                : room.getSellerLeftAt() != null;
+        if (requesterLeft) {
+            throw new CustomException(ErrorCode.CHAT_ROOM_LEFT);
         }
 
         // 삭제 처리 전, 이 메시지가 현재 방의 미리보기 출처(=가장 최근 미취소 이벤트)인지 확인

@@ -313,7 +313,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   // ── 메시지 전송 ───────────────────────────────────────────────
   const handleSendMessage = (e) => {
     e.preventDefault();
-    if (!message.trim() || !activeRoom || !connected) return;
+    if (!message.trim() || !activeRoom || !connected || activeRoom.targetWithdrawn) return;
 
     stompClientRef.current.publish({
       destination: '/app/chat.message',
@@ -393,7 +393,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
 
   // ── 이미지 첨부 ───────────────────────────────────────────────
   const handleImageButtonClick = () => {
-    if (!connected || !activeRoom) return;
+    if (!connected || !activeRoom || activeRoom.targetWithdrawn) return;
     fileInputRef.current?.click();
   };
 
@@ -496,7 +496,10 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                 <div
                   key={room.roomId}
                   onClick={() => setActiveRoom(room)}
+                  // [CHAT-RQ-001] 판매자가 나간 방(iLeft)은 목록에서 흐리게 표시 (C안 — 목록엔 유지, 클릭하면 그대로 재입장)
                   className={`p-4 border-b border-gray-50 flex items-start gap-3 cursor-pointer transition ${
+                    room.iLeft ? 'opacity-50 grayscale' : ''
+                  } ${
                     activeRoom?.roomId === room.roomId ? 'bg-blue-50/50' : 'hover:bg-gray-50'
                   }`}
                 >
@@ -505,13 +508,30 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                   </div>
                   <div className="flex flex-col flex-grow overflow-hidden">
                     <div className="flex justify-between items-center mb-0.5">
-                      <h4 className="text-sm font-bold text-gray-900 truncate">{room.targetName}</h4>
+                      <h4 className="text-sm font-bold text-gray-900 truncate flex items-center gap-1.5">
+                        <span className="truncate">{room.targetWithdrawn ? '탈퇴한 유저' : room.targetName}</span>
+                        {room.iLeft && (
+                          <span className="shrink-0 text-[10px] font-bold text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded-full">
+                            나감
+                          </span>
+                        )}
+                      </h4>
                       <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap ml-2">
                         {formatTime(room.lastSentAt)}
                       </span>
                     </div>
-                    <p className="text-xs font-medium text-gray-500 truncate mb-1">{room.productName}</p>
-                    <p className={`text-xs truncate ${room.unreadCount > 0 ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>
+                    {/* [CHAT-RQ-003] 삭제된 상품(productDeleted)도 iLeft와 같은 흐림+배지 패턴 — 상품명은 유지, "삭제됨" 배지 + 미리보기만 회색조 */}
+                    <p className="text-xs font-medium text-gray-500 truncate mb-1 flex items-center gap-1.5">
+                      <span className={`truncate ${room.productDeleted ? 'line-through' : ''}`}>{room.productName}</span>
+                      {room.productDeleted && (
+                        <span className="shrink-0 text-[10px] font-bold text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded-full">
+                          삭제됨
+                        </span>
+                      )}
+                    </p>
+                    <p className={`text-xs truncate ${
+                      room.productDeleted ? 'text-gray-400' : (room.unreadCount > 0 ? 'text-gray-900 font-bold' : 'text-gray-500')
+                    }`}>
                       {room.lastMessage || '새 채팅방'}
                     </p>
                   </div>
@@ -541,19 +561,34 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                     <Store size={20} />
                   </div>
                   <div className="flex flex-col truncate">
-                    <span className="text-[11px] font-bold text-gray-500">{activeRoom.targetName}</span>
-                    {/* [CHAT-RQ-003] 상품명 클릭 시 상품 상세로 이동 (삭제·종료 상품이면 안내) */}
-                    <button
-                      onClick={handleGoToProduct}
-                      title="상품 상세 보기"
-                      className="group flex items-center gap-0.5 text-sm font-extrabold text-gray-900 truncate hover:text-blue-600 hover:underline transition"
-                    >
-                      <span className="truncate">{activeRoom.productName}</span>
-                      <ChevronRight size={14} className="shrink-0 text-gray-300 group-hover:text-blue-600" />
-                    </button>
-                    <span className={`text-xs font-bold mt-0.5 ${connected ? 'text-blue-600' : 'text-gray-400'}`}>
-                      {connected ? '공동구매 진행중' : '연결 중...'}
+                    <span className="text-[11px] font-bold text-gray-500">
+                      {activeRoom.targetWithdrawn ? '탈퇴한 유저' : activeRoom.targetName}
                     </span>
+                    {/* [CHAT-RQ-003] 물리 삭제된 상품이면 배너로 대체(클릭 비활성화), 판매 종료 등은 그대로 상품명 유지 */}
+                    {activeRoom.productDeleted ? (
+                      <span className="text-sm font-extrabold text-gray-400 truncate" title="삭제된 공동구매입니다">
+                        삭제된 공동구매입니다
+                      </span>
+                    ) : (
+                      <button
+                        onClick={handleGoToProduct}
+                        title="상품 상세 보기"
+                        className="group flex items-center gap-0.5 text-sm font-extrabold text-gray-900 truncate hover:text-blue-600 hover:underline transition"
+                      >
+                        <span className="truncate">{activeRoom.productName}</span>
+                        <ChevronRight size={14} className="shrink-0 text-gray-300 group-hover:text-blue-600" />
+                      </button>
+                    )}
+                    {/* [CHAT-RQ-003] 상태 텍스트는 WebSocket 연결 여부(connected)가 아니라 productStatus(서버가 매번 최신 조회) 기준 */}
+                    {!activeRoom.productDeleted && (
+                      <span className={`text-xs font-bold mt-0.5 ${
+                        !connected ? 'text-gray-400'
+                          : activeRoom.productStatus === 'OPEN' ? 'text-blue-600' : 'text-gray-400'
+                      }`}>
+                        {!connected ? '연결 중...'
+                          : activeRoom.productStatus === 'OPEN' ? '공동구매 진행중' : '공동구매 종료'}
+                      </span>
+                    )}
                   </div>
                 </div>
                 {/* [CHAT-RQ-001] 더보기 → 채팅방 나가기 메뉴 */}
@@ -592,8 +627,8 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
 
               {/* 메시지 목록 */}
               <div className="flex-grow overflow-y-auto p-4 flex flex-col gap-4 bg-gray-50/30">
-                {/* 구매자 화면: 상단에 판매자 프로필 요약 카드 */}
-                {userRole === 'BUYER' && sellerProfile && (
+                {/* 구매자 화면: 상단에 판매자 프로필 요약 카드 (탈퇴한 판매자는 통계 카드 대신 헤더의 "탈퇴한 유저" 표시로 대체) */}
+                {userRole === 'BUYER' && sellerProfile && !activeRoom.targetWithdrawn && (
                   <div className="flex flex-col items-center gap-1.5 py-4">
                     <div className="w-16 h-16 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-black text-2xl">
                       {(sellerProfile.nickname || activeRoom.targetName || '?').charAt(0)}
@@ -663,7 +698,8 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                           <div className={`flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
                             {!isMe && (
                               <span className="text-[11px] font-medium text-gray-500 px-1">
-                                {msg.senderNickname}
+                                {/* [CHAT-RQ-001] 1:1 채팅방이라 !isMe면 항상 activeRoom의 상대이므로 targetWithdrawn 재사용 */}
+                                {activeRoom.targetWithdrawn ? '탈퇴한 유저' : msg.senderNickname}
                               </span>
                             )}
                             <div className="flex items-end gap-1">
@@ -739,7 +775,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                   <button
                     type="button"
                     onClick={handleImageButtonClick}
-                    disabled={!connected || uploadingImage}
+                    disabled={!connected || uploadingImage || activeRoom.targetWithdrawn}
                     className="p-2.5 text-gray-400 hover:text-gray-600 transition rounded-xl hover:bg-gray-200 shrink-0 disabled:opacity-50"
                   >
                     <ImageIcon size={20} />
@@ -747,8 +783,12 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                   <textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder={connected ? '메시지를 입력하세요...' : '연결 중...'}
-                    disabled={!connected}
+                    placeholder={
+                      activeRoom.targetWithdrawn
+                        ? '탈퇴한 상대와는 대화를 할 수 없어요'
+                        : (connected ? '메시지를 입력하세요...' : '연결 중...')
+                    }
+                    disabled={!connected || activeRoom.targetWithdrawn}
                     className="flex-grow bg-transparent outline-none text-sm resize-none py-2.5 max-h-32 min-h-[44px] disabled:opacity-50"
                     rows={1}
                     onKeyDown={(e) => {
@@ -760,9 +800,9 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                   />
                   <button
                     type="submit"
-                    disabled={!message.trim() || !connected}
+                    disabled={!message.trim() || !connected || activeRoom.targetWithdrawn}
                     className={`p-2.5 rounded-xl transition shrink-0 flex items-center justify-center ${
-                      message.trim() && connected
+                      message.trim() && connected && !activeRoom.targetWithdrawn
                         ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700'
                         : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     }`}
