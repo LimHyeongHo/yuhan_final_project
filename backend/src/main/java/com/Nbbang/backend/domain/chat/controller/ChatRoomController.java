@@ -11,6 +11,7 @@ import com.Nbbang.backend.global.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.web.bind.annotation.*;
@@ -36,6 +37,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/chat")
 @RequiredArgsConstructor
+@Slf4j
 public class ChatRoomController {
 
     private final ChatRoomService chatRoomService;
@@ -145,9 +147,12 @@ public class ChatRoomController {
         String myEmail = getEmail(session);
         ChatRoom room = chatRoomService.getRoom(roomId);
         validateAccess(room, myEmail);
-        String preview = chatMessageService.deleteMessage(roomId, messageId, myEmail);
-        chatRoomService.updateLastMessagePreview(roomId, preview);
-        ChatMessageResponse deleteEvent = ChatMessageResponse.deleteEvent(roomId, messageId, preview);
+        ChatMessageService.DeleteMessageResult result = chatMessageService.deleteMessage(roomId, messageId, myEmail);
+        // [CHAT-RQ-002] 취소한 메시지가 방의 진짜 마지막 이벤트였을 때만 미리보기 갱신
+        if (result.previewChanged()) {
+            chatRoomService.updateLastMessagePreview(roomId, result.newPreview());
+        }
+        ChatMessageResponse deleteEvent = ChatMessageResponse.deleteEvent(roomId, messageId, result.previewChanged(), result.newPreview());
         messagingTemplate.convertAndSend("/topic/chat/" + roomId, deleteEvent);
         // 양측 개인 토픽에도 발행 → 채팅 화면 밖에서도 헤더 목록 미리보기가 갱신되도록
         messagingTemplate.convertAndSend("/topic/chat/user/" + room.getBuyerEmail(), deleteEvent);
@@ -191,7 +196,9 @@ public class ChatRoomController {
             String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
             return ResponseEntity.ok(Map.of("url", baseUrl + "/uploads/" + savedFilename));
         } catch (IOException e) {
-            throw new RuntimeException("이미지 업로드 실패: " + e.getMessage());
+            // [CHAT-RQ-002] 내부 예외 메시지를 클라이언트에 노출하지 않고 고정 메시지로 응답, 원인은 서버 로그로만 남긴다
+            log.error("채팅 이미지 업로드 실패 — uploadDir: {}", uploadDir, e);
+            throw new CustomException(ErrorCode.CHAT_IMAGE_UPLOAD_FAILED);
         }
     }
 

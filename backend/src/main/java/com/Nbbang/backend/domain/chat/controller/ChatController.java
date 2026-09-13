@@ -15,6 +15,7 @@ import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
+import java.util.List;
 
 /**
  * WebSocket STOMP 메시지 핸들러
@@ -36,6 +37,10 @@ public class ChatController {
     private final ChatRoomService chatRoomService;
     private final SimpMessageSendingOperations messagingTemplate;
 
+    // [CHAT-RQ-002] 클라이언트가 직접 보낼 수 있는 메시지 타입 화이트리스트.
+    // JOIN/LEAVE/READ/DELETE는 서버가 REST 엔드포인트(leave/rejoin/read/messages DELETE)에서만 내부적으로 생성한다.
+    private static final List<MessageType> ALLOWED_CLIENT_MESSAGE_TYPES = List.of(MessageType.CHAT, MessageType.IMAGE);
+
     @MessageMapping("/chat.message")
     public void sendMessage(@Payload ChatMessageRequest request, Principal principal) {
         String senderEmail = principal.getName();
@@ -44,6 +49,11 @@ public class ChatController {
         ChatRoom room = chatRoomService.getRoom(request.getRoomId());
         if (!senderEmail.equals(room.getBuyerEmail()) && !senderEmail.equals(room.getSellerEmail())) {
             throw new CustomException(ErrorCode.CHAT_ACCESS_DENIED);
+        }
+
+        // 0-1. [CHAT-RQ-002] 시스템 전용 타입(JOIN/LEAVE 등) 위조 차단 — 화이트리스트 방식
+        if (request.getType() != null && !ALLOWED_CLIENT_MESSAGE_TYPES.contains(request.getType())) {
+            throw new CustomException(ErrorCode.CHAT_INVALID_MESSAGE_TYPE);
         }
 
         // 1. 빈 메시지 차단

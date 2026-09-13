@@ -186,18 +186,21 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
             return;
           }
 
-          // [CHAT-RQ-002] DELETE 이벤트: 해당 메시지를 "삭제된 메시지"로 치환 + 목록 미리보기 갱신
+          // [CHAT-RQ-002] DELETE 이벤트: 해당 메시지를 "삭제된 메시지"로 치환
+          // + 취소한 메시지가 방의 진짜 마지막 이벤트였을 때(previewChanged)만 목록 미리보기 갱신
           if (msg.type === 'DELETE') {
             if (isThisRoomActive) {
               setMessages(prev =>
                 prev.map(m => m.id === msg.id ? { ...m, deleted: true, content: '' } : m)
               );
             }
-            setRooms(prev =>
-              prev.map(r => r.roomId === room.roomId
-                ? { ...r, lastMessage: msg.content || '메시지가 삭제되었습니다' }
-                : r)
-            );
+            if (msg.previewChanged) {
+              setRooms(prev =>
+                prev.map(r => r.roomId === room.roomId
+                  ? { ...r, lastMessage: msg.content || '메시지가 삭제되었습니다' }
+                  : r)
+              );
+            }
             return;
           }
 

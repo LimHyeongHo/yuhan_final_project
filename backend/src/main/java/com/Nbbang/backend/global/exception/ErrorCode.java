@@ -110,6 +110,10 @@ public enum ErrorCode {
     CHAT_MESSAGE_NOT_OWNER(403, "본인이 보낸 메시지만 취소할 수 있습니다"),
     CHAT_INVALID_FILE_FORMAT(400, "이미지 파일(PNG/JPG/GIF/WEBP)만 업로드 가능합니다"),
     CHAT_FILE_SIZE_EXCEEDED(400, "파일 크기는 5MB 이하여야 합니다"),
+    // [CHAT-RQ-002][fix/chat] 이미지 업로드 실패 시 내부 예외 메시지 노출 방지 — 고정 메시지로 대체, 원인은 서버 로그로만 확인
+    CHAT_IMAGE_UPLOAD_FAILED(500, "이미지 업로드에 실패했습니다. 잠시 후 다시 시도해주세요"),
+    // [CHAT-RQ-002][fix/chat] 클라이언트가 JOIN/LEAVE 등 시스템 전용 MessageType을 위조해 보내는 것 차단
+    CHAT_INVALID_MESSAGE_TYPE(400, "허용되지 않는 메시지 타입입니다"),
 
     // ========== 구매자 (BUYER) ==========
     BUYER_PRODUCT_LIST_LOAD_FAILED(500, "목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
