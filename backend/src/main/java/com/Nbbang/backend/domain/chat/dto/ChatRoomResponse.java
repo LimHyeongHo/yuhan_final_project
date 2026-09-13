@@ -30,10 +30,13 @@ public class ChatRoomResponse {
     // [CHAT-RQ-003] 상품의 실제 최신 status(OPEN/CLOSED_SUCCESS/FULL 등) — 채팅방 헤더의 상태 텍스트가 이 값을 봐야
     // WebSocket 연결 여부와 무관하게 실제 거래 상태를 반영한다. 상품이 삭제됐거나 productId가 없으면 null.
     private final String productStatus;
+    // [QA-5] 구매자 목록/헤더에서 상대 자리에 사람 아이콘 대신 보여줄 상품 썸네일. 상품이 없거나 이미지가 없으면 null(프론트가 아이콘으로 폴백).
+    private final String productImageUrl;
 
     private ChatRoomResponse(Long roomId, String targetName, String targetEmail, Long productId, String productName,
                              String lastMessage, LocalDateTime lastSentAt, int unreadCount, boolean iLeft,
-                             boolean targetWithdrawn, boolean productDeleted, String productStatus) {
+                             boolean targetWithdrawn, boolean productDeleted, String productStatus,
+                             String productImageUrl) {
         this.roomId = roomId;
         this.targetName = targetName;
         this.targetEmail = targetEmail;
@@ -46,10 +49,12 @@ public class ChatRoomResponse {
         this.targetWithdrawn = targetWithdrawn;
         this.productDeleted = productDeleted;
         this.productStatus = productStatus;
+        this.productImageUrl = productImageUrl;
     }
 
     public static ChatRoomResponse of(ChatRoom room, String myEmail, String targetNickname,
-                                       boolean targetWithdrawn, boolean productDeleted, String productStatus) {
+                                       boolean targetWithdrawn, boolean productDeleted, String productStatus,
+                                       String productImageUrl) {
         boolean isBuyer = myEmail.equals(room.getBuyerEmail());
         int unreadCount = isBuyer ? room.getBuyerUnreadCount() : room.getSellerUnreadCount();
         boolean iLeft = !isBuyer && room.getSellerLeftAt() != null;
@@ -67,7 +72,8 @@ public class ChatRoomResponse {
                 iLeft,
                 targetWithdrawn,
                 productDeleted,
-                productStatus
+                productStatus,
+                productImageUrl
         );
     }
 }

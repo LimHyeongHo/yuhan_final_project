@@ -73,12 +73,16 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   const [sellerProfile, setSellerProfile] = useState(null);
   // 안전거래 안내 모달
   const [safetyOpen, setSafetyOpen] = useState(false);
+  // 좌측 목록 폭 — 상품명/이름 길이 등 콘텐츠로는 절대 안 바뀌고, 사용자가 구분선을 드래그할 때만 바뀐다
+  const [listWidth, setListWidth] = useState(360);
 
   const fileInputRef = useRef(null);
   const stompClientRef = useRef(null);
   const allSubscriptionsRef = useRef({});  // roomId → subscription
   const activeRoomRef = useRef(null);      // 스테일 클로저 방지
   const messagesEndRef = useRef(null);
+  const asideRef = useRef(null);
+  const isResizingRef = useRef(false);
 
   const currentEmail = localStorage.getItem('email');
   const fetchOptions = { credentials: 'include' };
@@ -216,17 +220,20 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
           }
 
           // 방 목록 업데이트 (lastMessage + 미읽음). 열어 둔 방이면 창 포커스와 무관하게 미읽음 0
+          // [QA-6] 새 CHAT/IMAGE 메시지(수신·발신 모두)는 서버도 lastSentAt을 갱신하는 케이스이므로
+          // 해당 방을 목록 맨 위로 올린다. DELETE/JOIN/LEAVE는 서버가 lastSentAt을 안 건드리므로 재정렬 대상 아님.
           const isMine = msg.senderEmail === currentEmail;
-          setRooms(prev =>
-            prev.map(r => {
-              if (r.roomId !== room.roomId) return r;
-              return {
-                ...r,
-                lastMessage: msg.type === 'IMAGE' ? '[사진]' : msg.content,
-                unreadCount: isThisRoomActive ? 0 : (!isMine ? r.unreadCount + 1 : r.unreadCount),
-              };
-            })
-          );
+          setRooms(prev => {
+            const idx = prev.findIndex(r => r.roomId === room.roomId);
+            if (idx === -1) return prev;
+            const updated = {
+              ...prev[idx],
+              lastMessage: msg.type === 'IMAGE' ? '[사진]' : msg.content,
+              unreadCount: isThisRoomActive ? 0 : (!isMine ? prev[idx].unreadCount + 1 : prev[idx].unreadCount),
+            };
+            const rest = prev.filter((_, i) => i !== idx);
+            return [updated, ...rest];
+          });
 
           // 활성 방이면 메시지 추가 + 읽음 처리 (헤더/전역 배지도 chat-read로 같이 정리됨)
           if (isThisRoomActive) {
@@ -293,6 +300,35 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     return () => window.dispatchEvent(new CustomEvent('chat-active-room', { detail: { roomId: null } }));
   }, [activeRoom?.roomId]);
 
+  // ── 좌측 목록 폭 드래그 리사이즈 — 콘텐츠 길이로는 절대 안 바뀌고 이 핸들 조작으로만 바뀐다 ──
+  const handleResizeMouseDown = (e) => {
+    e.preventDefault();
+    isResizingRef.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizingRef.current || !asideRef.current) return;
+      const left = asideRef.current.getBoundingClientRect().left;
+      const newWidth = e.clientX - left;
+      setListWidth(Math.min(600, Math.max(260, newWidth)));
+    };
+    const handleMouseUp = () => {
+      if (!isResizingRef.current) return;
+      isResizingRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
   // ── 초기 로드 ─────────────────────────────────────────────────
   useEffect(() => { loadRooms(); }, [loadRooms]);
 
@@ -324,6 +360,8 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
 
   // [CHAT-RQ-001] 채팅방 나가기 — 구매자는 영구(복구 불가), 판매자는 다시 열면 재입장
   const isSeller = userRole === 'SELLER';
+  // 탈퇴한 상대 표시 문구 — 판매자 화면에선 상대가 구매자이므로 "탈퇴한 구매자", 구매자 화면에선 "탈퇴한 판매자"
+  const withdrawnLabel = isSeller ? '탈퇴한 구매자' : '탈퇴한 판매자';
   const handleLeaveRoom = async () => {
     if (!activeRoom) return;
     setRoomMenuOpen(false);
@@ -469,10 +507,16 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       )}
 
       {/* 메인 채팅 레이아웃 (좌측 리스트 + 우측 대화창) */}
-      <main className="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 pb-8 md:pb-12 flex gap-4 overflow-hidden min-h-0">
-        
-        {/* 좌측: 채팅방 목록 */}
-        <aside className="w-full md:w-1/3 bg-white rounded-2xl border border-gray-200 shadow-sm flex-col overflow-hidden h-full hidden md:flex">
+      {/* 상품명/이름 등 콘텐츠 길이로 레이아웃 폭이 흔들리던 문제 — 목록 폭을 고정값(state)으로 관리하고
+          사용자가 구분선을 드래그할 때만 바뀌도록 함. 텍스트는 그 안에서 말줄임(truncate)으로만 줄어든다. */}
+      <main className="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 pb-8 md:pb-12 flex overflow-hidden min-h-0">
+
+        {/* 좌측: 채팅방 목록 — 폭 고정, 드래그로만 조절 */}
+        <aside
+          ref={asideRef}
+          style={{ width: listWidth }}
+          className="shrink-0 bg-white rounded-2xl border border-gray-200 shadow-sm flex-col overflow-hidden h-full hidden md:flex"
+        >
           <div className="p-4 border-b border-gray-100 bg-gray-50/50">
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -492,7 +536,37 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                 채팅방이 없습니다
               </div>
             ) : (
-              filteredRooms.map((room) => (
+              filteredRooms.map((room) => {
+                // [QA-5] 구매자는 같은 판매자와 여러 방이 있을 때 상품으로 구분하는 게 더 유용하므로
+                // 굵은 제목 줄엔 상품명, 보조 줄엔 상대 이름을 표시 (판매자 목록은 기존 그대로: 이름이 제목)
+                const nameContent = (
+                  <>
+                    {/* 탈퇴/나감 상태는 아래 공구제목(보조 줄)과 같은 톤(text-gray-500)으로 맞춤 */}
+                    <span className={`truncate min-w-0 ${(room.targetWithdrawn || room.iLeft) ? 'text-gray-500' : ''}`}>{room.targetWithdrawn ? withdrawnLabel : room.targetName}</span>
+                    {room.iLeft && (
+                      <span className="shrink-0 text-[10px] font-medium text-gray-400">
+                        나감
+                      </span>
+                    )}
+                  </>
+                );
+                const productContent = (
+                  <>
+                    <span className={`truncate min-w-0 ${room.productDeleted ? 'line-through text-gray-500' : ''}`}>{room.productName}</span>
+                    {room.productDeleted && (
+                      <span className="shrink-0 text-[10px] font-medium text-gray-400">
+                        삭제됨
+                      </span>
+                    )}
+                  </>
+                );
+                const titleContent = userRole === 'BUYER' ? productContent : nameContent;
+                const subtitleContent = userRole === 'BUYER' ? nameContent : productContent;
+                // [QA-5] 구매자 목록은 제목이 상품명이니 아바타도 상품 썸네일로 — 삭제/탈퇴 상태는 아이콘이 더 명확하므로 폴백
+                const showProductThumb = userRole === 'BUYER' && !!room.productImageUrl
+                  && !room.productDeleted && !room.targetWithdrawn;
+
+                return (
                 <div
                   key={room.roomId}
                   onClick={() => setActiveRoom(room)}
@@ -503,31 +577,30 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                     activeRoom?.roomId === room.roomId ? 'bg-blue-50/50' : 'hover:bg-gray-50'
                   }`}
                 >
-                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 flex-shrink-0">
-                    <User size={20} />
+                  {/* [QA-5] 구매자 쪽은 이미지 유무와 무관하게 항상 "상품" 맥락(사각형 + 상점 아이콘 폴백), 판매자 쪽은 기존 "사람"(원형) 유지 */}
+                  <div className={`w-10 h-10 bg-gray-200 flex items-center justify-center text-gray-500 flex-shrink-0 overflow-hidden ${
+                    userRole === 'BUYER' ? 'rounded-md' : 'rounded-full'
+                  }`}>
+                    {showProductThumb ? (
+                      <img src={room.productImageUrl} alt="" className="w-full h-full object-cover" />
+                    ) : userRole === 'BUYER' ? (
+                      <Store size={18} />
+                    ) : (
+                      <User size={20} />
+                    )}
                   </div>
-                  <div className="flex flex-col flex-grow overflow-hidden">
+                  {/* 상품명/이름 길이에 따라 행 너비가 늘었다 줄었다 하던 문제 — min-w-0로 flex 축소를 허용해 말줄임이 실제로 동작하게 고정 */}
+                  <div className="flex flex-col flex-grow min-w-0 overflow-hidden">
                     <div className="flex justify-between items-center mb-0.5">
-                      <h4 className="text-sm font-bold text-gray-900 truncate flex items-center gap-1.5">
-                        <span className="truncate">{room.targetWithdrawn ? '탈퇴한 유저' : room.targetName}</span>
-                        {room.iLeft && (
-                          <span className="shrink-0 text-[10px] font-bold text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded-full">
-                            나감
-                          </span>
-                        )}
+                      <h4 className="text-sm font-bold text-gray-900 truncate flex items-center gap-1.5 min-w-0">
+                        {titleContent}
                       </h4>
-                      <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap ml-2">
+                      <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap ml-2 shrink-0">
                         {formatTime(room.lastSentAt)}
                       </span>
                     </div>
-                    {/* [CHAT-RQ-003] 삭제된 상품(productDeleted)도 iLeft와 같은 흐림+배지 패턴 — 상품명은 유지, "삭제됨" 배지 + 미리보기만 회색조 */}
-                    <p className="text-xs font-medium text-gray-500 truncate mb-1 flex items-center gap-1.5">
-                      <span className={`truncate ${room.productDeleted ? 'line-through' : ''}`}>{room.productName}</span>
-                      {room.productDeleted && (
-                        <span className="shrink-0 text-[10px] font-bold text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded-full">
-                          삭제됨
-                        </span>
-                      )}
+                    <p className="text-xs font-medium text-gray-500 truncate mb-1 flex items-center gap-1.5 min-w-0">
+                      {subtitleContent}
                     </p>
                     <p className={`text-xs truncate ${
                       room.productDeleted ? 'text-gray-400' : (room.unreadCount > 0 ? 'text-gray-900 font-bold' : 'text-gray-500')
@@ -541,13 +614,23 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                     </div>
                   )}
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         </aside>
 
+        {/* 좌측 목록과 대화창 사이 드래그 구분선 — 이걸로 조작할 때만 목록 폭이 바뀐다 */}
+        <div
+          onMouseDown={handleResizeMouseDown}
+          className="hidden md:flex items-center justify-center w-4 shrink-0 cursor-col-resize group"
+          title="드래그해서 목록 너비 조절"
+        >
+          <div className="w-1 h-10 rounded-full bg-gray-200 group-hover:bg-blue-400 transition" />
+        </div>
+
         {/* 우측: 대화창 */}
-        <section className="flex-grow bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden h-full">
+        <section className="flex-grow min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden h-full">
           {!activeRoom ? (
             <div className="flex-grow flex items-center justify-center text-sm text-gray-400">
               채팅방을 선택해주세요
@@ -556,13 +639,21 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
             <>
               {/* 대화창 헤더 */}
               <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 shrink-0">
-                    <Store size={20} />
+                {/* 상품명 길이에 따라 헤더 너비가 늘었다 줄었다 하던 문제 — flex-1 min-w-0로 폭을 고정하고 말줄임이 실제로 동작하게 함 */}
+                <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
+                  {/* [QA-5] 구매자 헤더는 상대 자리가 상품명이니 아이콘도 상품 썸네일로 — 삭제/탈퇴 상태는 아이콘이 더 명확하므로 폴백 */}
+                  <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 shrink-0 overflow-hidden">
+                    {userRole === 'BUYER' && activeRoom.productImageUrl
+                      && !activeRoom.productDeleted && !activeRoom.targetWithdrawn ? (
+                      <img src={activeRoom.productImageUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <Store size={20} />
+                    )}
                   </div>
-                  <div className="flex flex-col truncate">
-                    <span className="text-[11px] font-bold text-gray-500">
-                      {activeRoom.targetWithdrawn ? '탈퇴한 유저' : activeRoom.targetName}
+                  {/* flex-1이 빠져있어서 짧은 제목일 땐 컬럼이 좁게, 긴 제목일 땐 넓게(가용 공간까지) 늘어나 헤더 폭 자체가 들쭉날쭉했던 부분 — flex-1로 항상 가용 폭을 꽉 채우게 고정 */}
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-[11px] font-bold text-gray-500 truncate">
+                      {activeRoom.targetWithdrawn ? withdrawnLabel : activeRoom.targetName}
                     </span>
                     {/* [CHAT-RQ-003] 물리 삭제된 상품이면 배너로 대체(클릭 비활성화), 판매 종료 등은 그대로 상품명 유지 */}
                     {activeRoom.productDeleted ? (
@@ -573,9 +664,9 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                       <button
                         onClick={handleGoToProduct}
                         title="상품 상세 보기"
-                        className="group flex items-center gap-0.5 text-sm font-extrabold text-gray-900 truncate hover:text-blue-600 hover:underline transition"
+                        className="group flex items-center gap-0.5 text-sm font-extrabold text-gray-900 hover:text-blue-600 hover:underline transition min-w-0"
                       >
-                        <span className="truncate">{activeRoom.productName}</span>
+                        <span className="truncate min-w-0">{activeRoom.productName}</span>
                         <ChevronRight size={14} className="shrink-0 text-gray-300 group-hover:text-blue-600" />
                       </button>
                     )}
@@ -627,7 +718,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
 
               {/* 메시지 목록 */}
               <div className="flex-grow overflow-y-auto p-4 flex flex-col gap-4 bg-gray-50/30">
-                {/* 구매자 화면: 상단에 판매자 프로필 요약 카드 (탈퇴한 판매자는 통계 카드 대신 헤더의 "탈퇴한 유저" 표시로 대체) */}
+                {/* 구매자 화면: 상단에 판매자 프로필 요약 카드 (탈퇴한 판매자는 통계 카드 대신 헤더의 "탈퇴한 판매자" 표시로 대체) */}
                 {userRole === 'BUYER' && sellerProfile && !activeRoom.targetWithdrawn && (
                   <div className="flex flex-col items-center gap-1.5 py-4">
                     <div className="w-16 h-16 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-black text-2xl">
@@ -699,7 +790,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                             {!isMe && (
                               <span className="text-[11px] font-medium text-gray-500 px-1">
                                 {/* [CHAT-RQ-001] 1:1 채팅방이라 !isMe면 항상 activeRoom의 상대이므로 targetWithdrawn 재사용 */}
-                                {activeRoom.targetWithdrawn ? '탈퇴한 유저' : msg.senderNickname}
+                                {activeRoom.targetWithdrawn ? withdrawnLabel : msg.senderNickname}
                               </span>
                             )}
                             <div className="flex items-end gap-1">

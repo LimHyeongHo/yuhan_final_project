@@ -49,7 +49,10 @@ public class ChatRoomService {
                             : Optional.empty();
                     boolean productDeleted = room.getProductId() != null && product.isEmpty();
                     String productStatus = product.map(Product::getStatus).orElse(null);
-                    return ChatRoomResponse.of(room, myEmail, targetNickname, targetWithdrawn, productDeleted, productStatus);
+                    // [QA-5] 구매자 목록/헤더의 상대 자리 썸네일용 — 이미지 없으면 null(프론트가 아이콘으로 폴백)
+                    String productImageUrl = product.map(Product::getImageUrl).orElse(null);
+                    return ChatRoomResponse.of(room, myEmail, targetNickname, targetWithdrawn, productDeleted,
+                            productStatus, productImageUrl);
                 })
                 .collect(Collectors.toList());
     }
