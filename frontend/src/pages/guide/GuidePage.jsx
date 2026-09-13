@@ -1,6 +1,6 @@
 // [UI-RQ-006][feature/ui-fixes] 이용 가이드 페이지 — 구매자/판매자 핵심 흐름 안내
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { UserPlus, ShieldCheck, Users, CreditCard, Store, ArrowRight } from 'lucide-react';
 import Header from '../../components/layout/Header';
 
@@ -31,6 +31,14 @@ const StepCard = ({ icon: Icon, title, desc }) => (
 );
 
 const GuidePage = () => {
+  const navigate = useNavigate();
+
+  // [fix/seller-page] QA-1: 비로그인 시 등록 페이지 대신 로그인 페이지로 보냄
+  const goToSellerProducts = () => {
+    const loggedIn = !!localStorage.getItem('user_nickname');
+    navigate(loggedIn ? '/seller/products' : '/login');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
       <Header />
@@ -61,9 +69,13 @@ const GuidePage = () => {
               <StepCard key={step.title} {...step} />
             ))}
           </div>
-          <Link to="/seller/products" className="self-start flex items-center gap-1 text-sm font-bold text-blue-600 hover:underline mt-1">
+          <button
+            type="button"
+            onClick={goToSellerProducts}
+            className="self-start flex items-center gap-1 text-sm font-bold text-blue-600 hover:underline mt-1"
+          >
             상품 등록하러 가기 <ArrowRight size={14} />
-          </Link>
+          </button>
         </section>
       </main>
     </div>
