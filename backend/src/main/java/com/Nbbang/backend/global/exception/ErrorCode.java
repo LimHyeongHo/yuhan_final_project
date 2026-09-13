@@ -65,9 +65,13 @@ public enum ErrorCode {
   
     // ===== 0906 문건우 수정 =====
     // PRD-RQ-004/005: 가격·목표인원 수정 정책 및 숫자 입력 검증
-    PRODUCT_PRICE_INCREASE_NOT_ALLOWED(400, "가격은 인상할 수 없습니다"),
+    // [수정][fix/exception-nfr] NFR-001: 요청값을 기존 저장된 가격(상태)과 비교해 거부하는
+    // 리소스 상태 충돌이므로 400→409로 재분류 (형제 코드 PRODUCT_PRICE_CHANGE_HAS_PARTICIPANTS와 동일 패턴)
+    PRODUCT_PRICE_INCREASE_NOT_ALLOWED(409, "가격은 인상할 수 없습니다"),
     PRODUCT_PRICE_CHANGE_HAS_PARTICIPANTS(409, "이미 결제가 완료된 참여자가 있어 가격을 수정할 수 없습니다"),
-    PRODUCT_TARGET_COUNT_BELOW_CURRENT(400, "목표 인원은 현재 참여 인원보다 적게 설정할 수 없습니다"),
+    // [수정][fix/exception-nfr] NFR-001: 요청값을 현재 참여 인원(상태)과 비교해 거부하는
+    // 리소스 상태 충돌이므로 400→409로 재분류
+    PRODUCT_TARGET_COUNT_BELOW_CURRENT(409, "목표 인원은 현재 참여 인원보다 적게 설정할 수 없습니다"),
     PRODUCT_PRICE_INVALID_UNIT(400, "가격은 100원 단위로 입력해주세요"),
     PRODUCT_SELLER_WITHDRAWN(409, "판매자가 탈퇴하여 더 이상 참여할 수 없는 상품입니다"),
 
@@ -93,8 +97,10 @@ public enum ErrorCode {
     ADMIN_CHART_LOAD_FAILED(500, "차트 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
     ADMIN_SYNC_FAILED(500, "서버 동기화에 실패했습니다. 잠시 후 다시 시도해주세요"),
     ADMIN_PRODUCT_LIST_LOAD_FAILED(500, "상품 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
-    ADMIN_TRANSACTION_APPROVE_FAILED(500, "거래 승인에 실패했습니다. 다시 시도해주세요"),
-    ADMIN_TRANSACTION_REJECT_FAILED(500, "거래 거절에 실패했습니다. 다시 시도해주세요"),
+    // [수정][fix/exception-nfr] NFR-001: SettlementService에서 findById().orElseThrow()로 던져지는
+    // "존재하지 않는 출금 요청" 케이스였음 — 서버 내부 오류가 아니라 리소스 없음이므로 500→404로 재분류
+    ADMIN_TRANSACTION_APPROVE_FAILED(404, "존재하지 않는 출금 요청입니다"),
+    ADMIN_TRANSACTION_REJECT_FAILED(404, "존재하지 않는 출금 요청입니다"),
     ADMIN_HISTORY_LOAD_FAILED(500, "히스토리를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
     ADMIN_ANOMALY_DETAIL_LOAD_FAILED(500, "이상 감지 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
     ADMIN_SYNC_LOG_LOAD_FAILED(500, "동기화 로그를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
@@ -123,7 +129,9 @@ public enum ErrorCode {
     MYPAGE_SCRAP_DELETE_FAILED(500, "스크랩 삭제에 실패했습니다. 잠시 후 다시 시도해주세요"),
     MYPAGE_SETTINGS_UPDATE_FAILED(500, "변경사항 저장에 실패했습니다. 잠시 후 다시 시도해주세요"),
     MYPAGE_SETTLEMENT_LOAD_FAILED(500, "정산 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
-    MYPAGE_SETTLEMENT_NO_ACCOUNT(400, "출금을 위한 정산 계좌가 등록되어 있지 않습니다"),
+    // [수정][fix/exception-nfr] NFR-001: SettlementService에서 findBySellerEmail().orElseThrow()로
+    // 던져지는 "정산 계좌 없음" 케이스이므로 400→404로 재분류
+    MYPAGE_SETTLEMENT_NO_ACCOUNT(404, "출금을 위한 정산 계좌가 등록되어 있지 않습니다"),
     MYPAGE_SETTLEMENT_WITHDRAW_FAILED(500, "출금 신청에 실패했습니다. 잠시 후 다시 시도해주세요"),
     MYPAGE_SETTLEMENT_ACCOUNT_UPDATE_FAILED(500, "계좌 변경에 실패했습니다. 잠시 후 다시 시도해주세요"),
 
