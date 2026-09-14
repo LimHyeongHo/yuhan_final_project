@@ -35,7 +35,7 @@ class KakaoBookSearchServiceTest {
     }
 
     @Test
-    void searchesByTitleAndMapsMetadataWithoutThumbnail() {
+    void searchesByTitleAndMapsKakaoThumbnailImmediately() {
         server.expect(request -> {
                     Map<String, String> params = UriComponentsBuilder.fromUri(request.getURI())
                             .build()
@@ -57,7 +57,7 @@ class KakaoBookSearchServiceTest {
                             "isbn": "123456789X 9781234567897",
                             "price": 35000,
                             "contents": "전공 도서 설명",
-                            "thumbnail": "https://example.com/cover.jpg"
+                            "thumbnail": "https://search1.kakaocdn.net/thumb/R120x174.q85/?fname=cover.jpg"
                           }]
                         }
                         """, MediaType.APPLICATION_JSON));
@@ -70,7 +70,7 @@ class KakaoBookSearchServiceTest {
                 .containsEntry("maker", "유한출판사")
                 .containsEntry("price", "35000")
                 .containsEntry("isbn", "9781234567897")
-                .containsEntry("image", "");
+                .containsEntry("image", "https://search1.kakaocdn.net/thumb/R500x0.q85/?fname=cover.jpg");
         server.verify();
     }
 

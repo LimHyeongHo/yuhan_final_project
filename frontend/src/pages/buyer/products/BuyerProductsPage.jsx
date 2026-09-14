@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 // 🛠️ LayoutGrid, List 아이콘이 추가되었습니다.
 import { Search, SlidersHorizontal, BookOpen, Users, ChevronDown, Filter, Clock, Image as ImageIcon, LayoutGrid, List, CheckCircle } from 'lucide-react';
 import Header from '../../../components/layout/Header';
+import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
 
 
 const BuyerProductsPage = () => {
@@ -44,7 +45,7 @@ const BuyerProductsPage = () => {
           price: item.price.toLocaleString() + '원',
           status: item.status === 'OPEN' ? '모집 중' : '마감됨',
           deadline: item.deadline ? item.deadline.split('T')[0] : '기한 없음',
-          thumbnail: item.imageUrl || null,
+          thumbnail: getDisplayProductImageUrl(item.imageUrl),
           description: item.description || ''
         }));
         setProductList(formattedData);
@@ -272,13 +273,17 @@ const BuyerProductsPage = () => {
                 <div className={`bg-gray-100 relative overflow-hidden flex items-center justify-center shrink-0 ${
                   viewMode === 'GRID' ? 'w-full h-48' : 'w-32 md:w-48'
                 }`}>
-                  {item.thumbnail ? (
-                    <img src={item.thumbnail} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 text-gray-400">
-                      <ImageIcon size={32} />
-                      <span className="text-xs font-bold">이미지 없음</span>
-                    </div>
+                  <div className="flex flex-col items-center gap-2 text-gray-400">
+                    <ImageIcon size={32} />
+                    <span className="text-xs font-bold">이미지 없음</span>
+                  </div>
+                  {item.thumbnail && (
+                    <img
+                      src={item.thumbnail}
+                      alt=""
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      className={`absolute inset-0 w-full h-full bg-white group-hover:scale-105 transition-transform duration-500 ${item.type === 'BOOK' ? 'object-contain' : 'object-cover'}`}
+                    />
                   )}
                   <span className={`absolute top-3 left-3 text-[11px] font-black px-2.5 py-1 rounded-md shadow-sm z-10 ${
                     item.status === '모집 중' ? 'bg-blue-500 text-white' : 'bg-orange-500 text-white'

@@ -158,16 +158,17 @@ public class KakaoBookSearchService {
         }
 
         for (KakaoBookDocument document : responseBody.documents()) {
+            String isbn = normalizeIsbn(document.isbn());
             Map<String, String> book = new LinkedHashMap<>();
             book.put("title", cleanText(document.title()));
             book.put("category", "");
             book.put("author", joinAuthors(document.authors()));
             book.put("maker", cleanText(document.publisher()));
             book.put("brand", "");
-            book.put("image", "");
+            book.put("image", normalizeImageUrl(document.thumbnail()));
             book.put("description", cleanText(document.contents()));
             book.put("price", document.price() == null ? "" : document.price().toString());
-            book.put("isbn", normalizeIsbn(document.isbn()));
+            book.put("isbn", isbn);
             results.add(book);
         }
         return results;
@@ -227,6 +228,20 @@ public class KakaoBookSearchService {
         return HtmlUtils.htmlUnescape(withoutTags).trim();
     }
 
+    private static String normalizeImageUrl(String imageUrl) {
+        if (imageUrl == null || imageUrl.isBlank()) {
+            return "";
+        }
+        String normalized = imageUrl.trim().replaceFirst("^http://", "https://");
+        if (normalized.matches("^https://[^/]+\\.kakaocdn\\.net/thumb/.*")) {
+            return normalized.replaceFirst(
+                    "/thumb/R\\d+x\\d+(?:\\.q\\d+)?/",
+                    "/thumb/R500x0.q85/"
+            );
+        }
+        return normalized;
+    }
+
     private BookSearchException mapClientError(HttpClientErrorException e) {
         int status = e.getStatusCode().value();
         if (status == HttpStatus.UNAUTHORIZED.value() || status == HttpStatus.FORBIDDEN.value()) {
@@ -273,7 +288,8 @@ public class KakaoBookSearchService {
             String publisher,
             String isbn,
             Integer price,
-            String contents
+            String contents,
+            String thumbnail
     ) {
     }
 }

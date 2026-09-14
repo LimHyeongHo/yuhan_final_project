@@ -6,6 +6,7 @@ import Header from '../../../components/layout/Header';
 const ProductRegisterPage = () => {
   const navigate = useNavigate();
   const submitLockRef = useRef(false);
+  const bookMetadataRequestRef = useRef(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 1. 등록 유형 상태 관리 ('BOOK' 또는 'ITEM')
@@ -18,6 +19,7 @@ const ProductRegisterPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleSelectProduct = (data) => {
+    const requestId = ++bookMetadataRequestRef.current;
     setFormData(prev => ({
       ...prev,
       title: data.title || '',
@@ -26,17 +28,46 @@ const ProductRegisterPage = () => {
       price: data.price || '',
       description: data.description || '',
       category: data.category || '',
-      /// [*] 카카오 api가 주는 책 표시 이미지를 무시하고 책이 아닐 경우에만 저장.
-      /// [+] 책의 표지 이미지의 경우에는 고해상도로 출력하기 위해 구글 책 이미지를 가지고 올 예정
+      imageUrl: data.image || '',
       isbn: data.isbn || '',
       originalPrice: data.price || '',
-      ...(productType === 'BOOK' ? {} : { imageUrl: data.image || '' }),
     }));
-    if (productType !== 'BOOK') {
-      setImagePreview(data.image || null);
-    }
+    setImageFile(null);
+    setImagePreview(data.image || null);
     setIsModalOpen(false);
     setSearchResults([]);
+
+    if (productType === 'BOOK' && data.isbn) {
+      const params = new URLSearchParams({ isbn: data.isbn });
+      fetch(`http://localhost:8080/api/search/book-metadata?${params}`, {
+        credentials: 'include',
+      })
+        .then(response => response.ok ? response.json() : null)
+        .then(metadata => {
+          if (!metadata || requestId !== bookMetadataRequestRef.current) return;
+          setFormData(prev => prev.isbn === data.isbn ? {
+            ...prev,
+            category: metadata.category || prev.category,
+          } : prev);
+
+          if (metadata.image) {
+            const imageProbe = new Image();
+            imageProbe.onload = () => {
+              if (requestId !== bookMetadataRequestRef.current) return;
+              setFormData(prev => prev.isbn === data.isbn ? {
+                ...prev,
+                imageUrl: metadata.image,
+              } : prev);
+              setImagePreview(metadata.image);
+            };
+            // Google 표지를 불러오지 못하면 카카오 썸네일을 그대로 유지한다.
+            imageProbe.src = metadata.image;
+          }
+        })
+        .catch(() => {
+          // Google Books 조회 실패 시 이미 표시한 카카오 표지를 유지한다.
+        });
+    }
   };
 
   const handleBarcodeKeyDown = async (e) => {
@@ -99,12 +130,14 @@ const ProductRegisterPage = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      bookMetadataRequestRef.current += 1;
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
     }
   };
 
   const handleRemoveImage = () => {
+    bookMetadataRequestRef.current += 1;
     setImageFile(null);
     setImagePreview(null);
   };
@@ -124,6 +157,7 @@ const ProductRegisterPage = () => {
       return;
     }
 
+    bookMetadataRequestRef.current += 1;
     setProductType(type);
     setFormData({
       title: '',
@@ -382,7 +416,15 @@ const ProductRegisterPage = () => {
               {/* 🌟 수정된 부분: 미리보기가 있으면 이미지를, 없으면 업로드 박스를 보여줍니다 */}
               {imagePreview ? (
                 <div className="relative w-full sm:w-1/2 md:w-1/3 aspect-[4/3] rounded-2xl overflow-hidden border border-gray-200 group">
-                  <img src={imagePreview} alt="미리보기" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400 text-sm font-medium">
+                    이미지 없음
+                  </div>
+                  <img
+                    src={imagePreview}
+                    alt=""
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    className={`relative w-full h-full ${productType === 'BOOK' ? 'object-contain bg-white' : 'object-cover'}`}
+                  />
                   <button
                     type="button"
                     onClick={handleRemoveImage}
@@ -476,13 +518,17 @@ const ProductRegisterPage = () => {
                   onClick={() => handleSelectProduct(item)}
                   className="flex gap-5 p-4 border border-gray-100 rounded-2xl hover:border-blue-400 hover:shadow-md hover:bg-blue-50/40 cursor-pointer transition-all group"
                 >
-                  {item.image ? (
-                    <img src={item.image} alt={item.title} className="w-[72px] h-[96px] object-contain rounded-lg border border-gray-200 bg-white" />
-                  ) : (
-                    <div className="w-[72px] h-[96px] bg-gray-50 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 text-xs font-medium">
-                      No Img
-                    </div>
-                  )}
+                  <div className="relative flex-none w-[72px] h-[96px] bg-gray-50 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 text-xs font-medium overflow-hidden">
+                    No Img
+                    {item.image && (
+                      <img
+                        src={item.image}
+                        alt=""
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        className="absolute inset-0 w-full h-full object-contain bg-white"
+                      />
+                    )}
+                  </div>
                   <div className="flex flex-col flex-1 justify-center gap-1.5">
                     <h4 className="text-[15px] font-extrabold text-gray-900 group-hover:text-blue-700 leading-snug">{item.title}</h4>
                     <p className="text-sm font-medium text-gray-500">

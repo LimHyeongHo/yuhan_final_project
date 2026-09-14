@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Flame, TrendingUp, Clock, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import Header from '../../components/layout/Header';
+import { getDisplayProductImageUrl } from '../../utils/productImageUrl';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -48,6 +49,7 @@ const HomePage = () => {
           return {
             id: item.productId,
             title: item.title,
+            type: item.type,
             major: item.type === 'BOOK' ? '전공서적' : '기타',
             author: item.author || '저자 미상',
             current: item.currentCount,
@@ -57,7 +59,7 @@ const HomePage = () => {
             dDay: dDayStr,
             diffDays: diffDays,
             progress: progress,
-            thumbnail: item.imageUrl || null
+            thumbnail: getDisplayProductImageUrl(item.imageUrl)
           };
         });
 
@@ -130,10 +132,14 @@ const HomePage = () => {
               urgentProducts.map((item) => (
                 <Link key={item.id} to={`/buyer/products/${item.id}`} className="bg-white rounded-[24px] border border-gray-200 shadow-sm flex flex-col hover:border-blue-300 hover:shadow-xl transition-all cursor-pointer group overflow-hidden">
                   <div className="w-full h-48 bg-gray-100 relative overflow-hidden flex items-center justify-center">
-                    {item.thumbnail ? (
-                      <img src={item.thumbnail} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    ) : (
-                      <span className="text-gray-400 text-sm font-semibold">이미지 없음</span>
+                    <span className="text-gray-400 text-sm font-semibold">이미지 없음</span>
+                    {item.thumbnail && (
+                      <img
+                        src={item.thumbnail}
+                        alt=""
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        className={`absolute inset-0 w-full h-full bg-white group-hover:scale-105 transition-transform duration-500 ${item.type === 'BOOK' ? 'object-contain' : 'object-cover'}`}
+                      />
                     )}
                     <span className="absolute top-3 left-3 text-[11px] font-black px-2.5 py-1 rounded-md shadow-sm z-10 bg-red-500 text-white">
                       {item.dDay}
@@ -191,7 +197,15 @@ const HomePage = () => {
               popularProducts.map((item) => (
                 <Link key={`popular-${item.id}`} to={`/buyer/products/${item.id}`} className="bg-white rounded-[24px] border border-gray-200 shadow-sm flex flex-col hover:border-blue-300 hover:shadow-xl transition-all cursor-pointer group overflow-hidden">
                   <div className="w-full h-48 bg-gray-100 relative overflow-hidden flex items-center justify-center">
-                    <img src={item.thumbnail} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <span className="text-gray-400 text-sm font-semibold">이미지 없음</span>
+                    {item.thumbnail && (
+                      <img
+                        src={item.thumbnail}
+                        alt=""
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        className={`absolute inset-0 w-full h-full bg-white group-hover:scale-105 transition-transform duration-500 ${item.type === 'BOOK' ? 'object-contain' : 'object-cover'}`}
+                      />
+                    )}
                     {/* 인기 공구는 빨간 D-Day 대신 파란색 '모집 중' 뱃지로 변경 가능 */}
                     <span className="absolute top-3 left-3 text-[11px] font-black px-2.5 py-1 rounded-md shadow-sm z-10 bg-blue-500 text-white">
                       모집 중
