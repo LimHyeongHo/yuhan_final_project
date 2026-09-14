@@ -45,6 +45,10 @@ public class ProductController {
         if (userId == null) {
             throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
         }
+        // [SEC-RQ-004] 상품 생성은 ROLE_SELLER만 허용 (SettlementController.requireSellerEmail()과 동일 패턴)
+        if (!"ROLE_SELLER".equals(session.getAttribute("role"))) {
+            throw new CustomException(ErrorCode.AUTH_ACCESS_DENIED);
+        }
         // 중복 등록 방지를 위한 멱등성 키 검사
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             String requestKey = userId + ":" + idempotencyKey.trim();
