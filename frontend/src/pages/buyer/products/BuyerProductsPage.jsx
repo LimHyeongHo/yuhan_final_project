@@ -23,6 +23,11 @@ const BuyerProductsPage = () => {
 
   const [productList, setProductList] = useState([]);
 
+  // [QA-3][fix/seller-page] '더보기' 버튼이 클릭해도 아무 동작 안 하던 문제 — 원래 목적인 10개 단위
+  // 페이지네이션 state/로직이 아예 없이 라벨만 남아있었음. 10개씩 더 보여주는 방식으로 구현.
+  const PAGE_SIZE = 10;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
   // [UI-RQ-004][feature/ui-fixes] 다른 검색어로 재진입 시 최신 쿼리로 갱신
   React.useEffect(() => {
     setSearchQuery(searchParams.get('q') || '');
@@ -102,6 +107,13 @@ const BuyerProductsPage = () => {
       return 0;
     });
   }, [productList, searchQuery, searchTarget, typeFilter, categoryFilter, sortFilter, showClosed]);
+
+  // [QA-3][fix/seller-page] 검색/필터/정렬이 바뀌면 다시 첫 페이지(10개)부터 보여준다
+  React.useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [filteredList]);
+
+  const visibleList = filteredList.slice(0, visibleCount);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
@@ -259,7 +271,7 @@ const BuyerProductsPage = () => {
 
           {/* 🌟 선택된 뷰 모드에 따라 레이아웃 동적 변경 */}
           <div className={viewMode === 'GRID' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" : "flex flex-col gap-4"}>
-            {filteredList.map((item) => (
+            {visibleList.map((item) => (
               <Link 
                 key={item.id} 
                 to={`/buyer/products/${item.id}`}
@@ -336,11 +348,14 @@ const BuyerProductsPage = () => {
             ))}
           </div>
           
-          {/* 데이터가 많을 때만 더보기 버튼 표시되도록 동적 처리 (현재는 10개 초과 시 표시) */}
-          {filteredList.length > 10 && (
+          {/* [QA-3][fix/seller-page] 클릭 시 10개씩 더 보여주도록 동작 연결 (기존엔 onClick이 아예 없었음) */}
+          {visibleCount < filteredList.length && (
             <div className="flex justify-center mt-6">
-              <button className="px-6 py-2.5 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-bold rounded-full transition shadow-sm">
-                더보기 (1 / {Math.ceil(filteredList.length / 10)})
+              <button
+                onClick={() => setVisibleCount((v) => v + PAGE_SIZE)}
+                className="px-6 py-2.5 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-bold rounded-full transition shadow-sm"
+              >
+                더보기 ({Math.ceil(visibleCount / PAGE_SIZE)} / {Math.ceil(filteredList.length / PAGE_SIZE)})
               </button>
             </div>
           )}

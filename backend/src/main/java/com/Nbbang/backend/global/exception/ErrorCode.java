@@ -27,6 +27,8 @@ public enum ErrorCode {
     MEMBER_DUPLICATE_EMAIL(409, "이미 사용 중인 이메일입니다"),
     MEMBER_DUPLICATE_CI(409, "이미 가입된 계정입니다"),
     MEMBER_NOT_FOUND(404, "존재하지 않는 회원입니다"),
+    // [UI-RQ-002][fix/seller-page] 탈퇴 회원(soft-delete, status=WITHDRAWN)과 미존재 회원을 프론트에서 다른 안내로 구분하기 위한 별도 코드
+    MEMBER_WITHDRAWN(404, "탈퇴한 회원입니다"),
 
     // ========== 공동구매 (PURCHASE) ==========
     // _LOAD_FAILED 계열은 DB 연결 실패 등 서버 내부 오류로 조회 자체가 불가능할 때만 사용

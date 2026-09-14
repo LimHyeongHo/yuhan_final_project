@@ -38,14 +38,22 @@ const BuyerProductDetailPage = () => {
         return res.json();
       })
       .then(data => {
-        // D-Day 계산 로직
-        let dDayText = '기한 없음';
-        if (data.deadline) {
+        // [버그수정][fix/seller-page] D-day 배지가 status를 무시하고 deadline 날짜만으로 계산되어,
+        // 목표 달성 후 마감일 전에 CLOSED_SUCCESS로 전환된 상품(#94 등)에서 본문(status 기반)과
+        // 상단 배지(date 기반)가 서로 다른 값을 보여주던 문제 수정. status가 OPEN이 아니면
+        // 날짜 계산 대신 상태 기반 라벨을 우선한다.
+        let dDayBadge;
+        if (data.status !== 'OPEN') {
+          dDayBadge = data.status === 'CLOSED_SUCCESS' ? '모집 완료' : '마감';
+        } else if (data.deadline) {
           const deadlineDate = new Date(data.deadline);
           const today = new Date();
           const diffTime = deadlineDate - today;
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          dDayText = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? 'D-Day' : '마감');
+          const dDayText = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? 'D-Day' : '마감');
+          dDayBadge = `${dDayText} 마감`;
+        } else {
+          dDayBadge = '기한 없음';
         }
 
         setProduct({
@@ -59,7 +67,7 @@ const BuyerProductDetailPage = () => {
           currentCount: data.currentCount,
           targetCount: data.targetCount,
           deadline: data.deadline ? data.deadline.split('T')[0].replace(/-/g, '.') : '기한 없음',
-          dDay: dDayText,
+          dDayBadge,
           status: data.status === 'OPEN' ? '모집 중' : '마감됨',
 
           // PRD-RQ-002: 버튼 비활성화 판단용 원본 상태값 보존
@@ -388,7 +396,7 @@ const BuyerProductDetailPage = () => {
             <div className="bg-white rounded-[32px] border border-gray-200 p-4 md:p-6 shadow-sm flex items-center justify-center aspect-[4/3] md:aspect-[16/10] overflow-hidden relative">
               <img src={product.thumbnail} alt={product.title} className="w-full h-full object-cover rounded-2xl" />
               <span className="absolute top-8 left-8 bg-red-500 text-white text-xs font-black px-3 py-1.5 rounded-md shadow-md">
-                {product.dDay} 마감
+                {product.dDayBadge}
               </span>
             </div>
 
