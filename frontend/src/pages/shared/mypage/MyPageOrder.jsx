@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Package, ChevronRight, Clock, Star, X, ThumbsUp, Minus, ThumbsDown } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const API_BASE = 'http://localhost:8080/api';
 
@@ -111,6 +111,8 @@ const ReviewFormModal = ({ target, onClose, onSaved }) => {
 
 const MyPageOrders = () => {
   const navigate = useNavigate();
+  // [신규] 채팅방 "후기 작성 유도" 배너에서 ?openReview={productId}로 넘어오면 해당 상품의 후기 작성 모달을 자동으로 연다
+  const [searchParams, setSearchParams] = useSearchParams();
   const [orderList, setOrderList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviewMap, setReviewMap] = useState({}); // { [productId]: { eligible, myReview, reason } }
@@ -179,6 +181,34 @@ const MyPageOrders = () => {
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  // [신규] ?openReview={productId} 처리 — orderList/reviewMap이 로드된 뒤 자격을 다시 확인하고 연다.
+  // (배너를 띄운 시점과 이 페이지에 도착한 시점 사이에 상태가 바뀌었을 수 있어 그대로 신뢰하지 않는다)
+  useEffect(() => {
+    const raw = searchParams.get('openReview');
+    if (!raw || loading) return;
+    const productId = Number(raw);
+    const order = orderList.find((o) => o.productId === productId);
+
+    // 파라미터는 처리 결과와 무관하게 한 번 소비하고 지운다 (뒤로가기/새로고침 시 재오픈 방지)
+    const consumeParam = () => {
+      const next = new URLSearchParams(searchParams);
+      next.delete('openReview');
+      setSearchParams(next, { replace: true });
+    };
+
+    if (!order) {
+      consumeParam();
+      return;
+    }
+    const state = reviewMap[productId];
+    if (!state) return; // 해당 상품의 자격 조회가 아직 안 끝남 — reviewMap 갱신을 기다린다
+
+    if (state.eligible && !state.myReview) {
+      setActiveForm({ productId, title: order.title, mode: 'create' });
+    }
+    consumeParam();
+  }, [searchParams, orderList, reviewMap, loading, setSearchParams]);
 
   // [신규] PRD-RQ-001: 마이페이지에서도 참여 취소 가능 (기존엔 상세 페이지의 죽은 토글 버튼뿐이었음)
   const handleCancel = async (order) => {

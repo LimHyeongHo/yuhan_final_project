@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Store, Send, Image as ImageIcon, MoreVertical, Search, User, Calendar, X, LogOut, Trash2, ChevronRight, ShieldCheck } from 'lucide-react';
+import { Store, Send, Image as ImageIcon, MoreVertical, Search, User, Calendar, X, LogOut, Trash2, ChevronRight, ShieldCheck, Star } from 'lucide-react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -71,6 +71,8 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   // 구매자 화면에서 상단에 보여줄 판매자 프로필 요약 (만족도/거래횟수/후기)
   const [sellerProfile, setSellerProfile] = useState(null);
+  // [신규] 정산 완료(CLOSED_SUCCESS)된 방에서 후기 작성 유도 배너를 띄우기 위한 자격 조회 결과
+  const [reviewEligibility, setReviewEligibility] = useState(null);
   // 안전거래 안내 모달
   const [safetyOpen, setSafetyOpen] = useState(false);
   // 좌측 목록 폭 — 상품명/이름 길이 등 콘텐츠로는 절대 안 바뀌고, 사용자가 구분선을 드래그할 때만 바뀐다
@@ -279,6 +281,17 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       .catch(() => {});
   }, [activeRoom?.roomId, activeRoom?.targetEmail, userRole]);
 
+  // [신규] 구매자 화면: 방이 정산 완료(CLOSED_SUCCESS) 상품과 연결되어 있으면 후기 작성 자격을 조회해
+  // 아래 "후기 작성 유도" 배너 노출 여부를 결정한다. 방마다 독립적으로 조회되므로 방을 바꿔도 정확히 갱신된다.
+  useEffect(() => {
+    setReviewEligibility(null);
+    if (userRole !== 'BUYER' || !activeRoom?.productId || activeRoom.productStatus !== 'CLOSED_SUCCESS') return;
+    fetch(`${API_BASE}/reviews/eligibility?productId=${activeRoom.productId}`, fetchOptions)
+      .then(res => (res.ok ? res.json() : null))
+      .then(elig => elig && setReviewEligibility(elig))
+      .catch(() => {});
+  }, [activeRoom?.roomId, activeRoom?.productId, activeRoom?.productStatus, userRole]);
+
   // ── 새 메시지 → 스크롤 맨 아래 ────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -427,6 +440,12 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     } catch (e) {
       alert('삭제되었거나 판매가 종료된 상품입니다.');
     }
+  };
+
+  // [신규] 후기 작성 유도 배너 클릭 → 마이페이지 참여 내역 탭으로 이동해 후기 작성 모달을 바로 연다
+  const handleGoToReview = () => {
+    if (!activeRoom?.productId) return;
+    navigate(`/buyer/mypage/orders?openReview=${activeRoom.productId}`);
   };
 
   // ── 이미지 첨부 ───────────────────────────────────────────────
@@ -715,6 +734,18 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                 <span className="flex-grow text-left">공동구매 외 개인 거래·선입금 요청은 주의하세요</span>
                 <ChevronRight size={16} className="shrink-0 text-blue-400" />
               </button>
+
+              {/* [신규] 후기 작성 유도 배너 — 정산 완료 + 결제 완료 + 미작성 상태일 때만 노출 */}
+              {userRole === 'BUYER' && reviewEligibility?.eligible && !reviewEligibility?.myReview && (
+                <button
+                  onClick={handleGoToReview}
+                  className="mx-4 mt-2 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-amber-50 text-amber-700 text-xs font-bold shrink-0 hover:bg-amber-100 transition"
+                >
+                  <Star size={16} className="shrink-0 text-amber-500" />
+                  <span className="flex-grow text-left">공동구매가 성공적으로 끝났어요! 판매자에게 거래 후기를 남겨주세요</span>
+                  <ChevronRight size={16} className="shrink-0 text-amber-400" />
+                </button>
+              )}
 
               {/* 메시지 목록 */}
               <div className="flex-grow overflow-y-auto p-4 flex flex-col gap-4 bg-gray-50/30">
