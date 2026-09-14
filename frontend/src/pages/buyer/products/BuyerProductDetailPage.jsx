@@ -51,6 +51,7 @@ const BuyerProductDetailPage = () => {
         setProduct({
           id: String(data.productId),
           title: data.title,
+          type: data.type,
           major: data.type === 'BOOK' ? '전공 도서' : '학과 물품',
           author: data.author || '',
           publisher: data.publisher || '',
@@ -386,7 +387,13 @@ const BuyerProductDetailPage = () => {
           <div className="lg:col-span-7 flex flex-col gap-6">
             {/* 큰 이미지 박스 */}
             <div className="bg-white rounded-[32px] border border-gray-200 p-4 md:p-6 shadow-sm flex items-center justify-center aspect-[4/3] md:aspect-[16/10] overflow-hidden relative">
-              <img src={product.thumbnail} alt={product.title} className="w-full h-full object-cover rounded-2xl" />
+              <img
+                src={product.thumbnail}
+                alt={product.title}
+                className={product.type === 'BOOK'
+                  ? 'w-[70%] h-[70%] object-contain rounded-2xl'
+                  : 'w-full h-full object-cover rounded-2xl'}
+              />
               <span className="absolute top-8 left-8 bg-red-500 text-white text-xs font-black px-3 py-1.5 rounded-md shadow-md">
                 {product.dDay} 마감
               </span>

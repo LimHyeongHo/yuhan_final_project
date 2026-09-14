@@ -25,10 +25,10 @@ public class AladinSearchService {
         boolean isBarcode = query.matches("^[0-9]{10}$") || query.matches("^[0-9]{13}$");
         
         if (isBarcode) {
-            url = "https://www.aladin.co.kr/ttb/api/ItemLookUp.aspx?ttbkey={ttbkey}&ItemIdType=ISBN13&ItemId={query}&output=js&Version=20131101";
+            url = "https://www.aladin.co.kr/ttb/api/ItemLookUp.aspx?ttbkey={ttbkey}&ItemIdType=ISBN13&ItemId={query}&Cover=Big&output=js&Version=20131101";
         } else {
             // 결과 10개까지 가져오도록 변경
-            url = "https://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey={ttbkey}&Query={query}&QueryType=Keyword&MaxResults=10&start=1&SearchTarget=Book&output=js&Version=20131101";
+            url = "https://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey={ttbkey}&Query={query}&QueryType=Keyword&MaxResults=10&start=1&SearchTarget=Book&Cover=Big&output=js&Version=20131101";
         }
 
         try {

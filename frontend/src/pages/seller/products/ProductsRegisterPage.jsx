@@ -46,7 +46,9 @@ const ProductRegisterPage = () => {
       
       setIsSearching(true);
       try {
-        const response = await fetch(`http://localhost:8080/api/search/product?query=${barcode}&type=${productType}`);
+        const response = await fetch(`http://localhost:8080/api/search/product?query=${barcode}&type=${productType}`, {
+          credentials: 'include',
+        });
         if (response.ok) {
           const dataList = await response.json();
           if (dataList.length === 1) {
