@@ -10,64 +10,69 @@ const ProductsEditPage = () => {
   // 1. 등록 유형 상태 관리 ('BOOK' 또는 'ITEM')
   const [productType, setProductType] = useState('BOOK');
 
-  // [신규] 바코드 관련 상태 및 감지 로직
+  // 학과 물품 검색 상태 및 감지 로직 (전공 도서는 등록 후 검색하지 않음)
   const [barcode, setBarcode] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleSelectProduct = (data) => {
+    setFormData(prev => ({
+      ...prev,
+      title: data.title || '',
+      publisher: data.brand || data.maker || data.mallName || '',
+      author: data.author || '',
+      price: data.price || '',
+      description: data.description || '',
+      category: data.category || '',
+      isbn: data.isbn || '',
+      originalPrice: data.price || '',
+      ...(productType === 'BOOK' ? {} : { imageUrl: data.image || '' }),
+    }));
+    if (productType !== 'BOOK') {
+      setImagePreview(data.image || null);
+    }
+    setIsModalOpen(false);
+    setSearchResults([]);
+  };
 
   const handleBarcodeKeyDown = async (e) => {
     if (e.key === 'Enter') {
-      e.preventDefault(); 
+      e.preventDefault();
+      if (productType === 'BOOK') return;
       if (!barcode.trim()) return;
-      
+
       setIsSearching(true);
       try {
-        const response = await fetch(`http://localhost:8080/api/search/product?query=${barcode}&type=${productType}`, {
+        const searchParams = new URLSearchParams({ query: barcode.trim(), type: productType });
+        const response = await fetch(`http://localhost:8080/api/search/product?${searchParams}`, {
           credentials: 'include',
         });
         if (response.ok) {
-          const data = await response.json();
-          setFormData(prev => ({
-            ...prev,
-            title: data.title || '',
-            publisher: data.brand || data.maker || data.mallName || '',
-            author: data.author || '',
-            imageUrl: data.image || '',
-            price: data.price || '',
-            description: data.description || '',
-          }));
-          if (data.image) {
-            setImagePreview(data.image); // 검색된 이미지를 미리보기 화면에 띄움
+          const dataList = await response.json();
+          if (dataList.length === 1) {
+            handleSelectProduct(dataList[0]);
+            alert("검색 완료! 항목이 새로 채워졌습니다.");
+          } else if (dataList.length > 1) {
+            setSearchResults(dataList);
+            setIsModalOpen(true);
           } else {
-            setImagePreview(null);
+            alert("검색 결과가 없습니다.");
           }
-          alert("바코드 검색 완료! 항목이 새로 채워졌습니다.");
         } else {
-          // 검색 실패 시 이전 데이터 싹 지우기
-          setFormData(prev => ({
-            ...prev,
-            title: '',
-            publisher: '',
-            author: '',
-            imageUrl: '',
-          }));
-          setImagePreview(null);
-          
           try {
             const errorData = await response.json();
-            if (errorData.error) {
-              alert(errorData.error);
-            } else {
-              alert("상품을 찾을 수 없습니다. 직접 입력해 주세요.");
-            }
-          } catch(e) {
+            const errorMessage = Array.isArray(errorData) ? errorData[0]?.error : errorData.error;
+            alert(errorMessage || "상품을 찾을 수 없습니다. 직접 입력해 주세요.");
+          } catch (e) {
             alert("상품을 찾을 수 없습니다. 직접 입력해 주세요.");
           }
         }
-      } catch(error) {
+      } catch (error) {
         alert("검색 중 오류가 발생했습니다. 백엔드 서버를 확인해 주세요.");
       } finally {
         setIsSearching(false);
-        setBarcode(''); 
+        setBarcode('');
       }
     }
   };
@@ -81,7 +86,9 @@ const ProductsEditPage = () => {
     targetCount: '',
     description: '',
     category: '',
-    imageUrl: '',     // [신규] 네이버 등에서 가져온 외부 이미지 URL 저장용
+    imageUrl: '',     // 사용자가 선택한 외부 이미지 URL 저장용
+    isbn: '',
+    originalPrice: '',
   });
   // 2-1. 이미지 업로드용 함수
   const [imageFile, setImageFile] = useState(null);
@@ -102,6 +109,8 @@ const ProductsEditPage = () => {
           description: data.description || '',
           category: data.category || '',
           imageUrl: data.imageUrl || '',
+          isbn: data.isbn || '',
+          originalPrice: data.originalPrice || '',
         });
         if (data.imageUrl) {
           setImagePreview(data.imageUrl);
@@ -146,6 +155,8 @@ const ProductsEditPage = () => {
       targetCount: '',
       description: '',
       imageUrl: '',
+      isbn: '',
+      originalPrice: '',
     });
     setImagePreview(null); // 유형 변경 시 이미지 미리보기도 초기화
   };
@@ -162,23 +173,23 @@ const ProductsEditPage = () => {
       return;
     }
 
-    // 🌟 이미지가 포함된 데이터를 보낼 때는 FormData를 사용합니다
+    // BOOK은 수정 가능한 필드만 전송하고, ITEM은 기존 수정 필드를 유지합니다.
     const submitData = new FormData();
-    submitData.append('type', productType);
-    submitData.append('title', formData.title);
     submitData.append('price', formData.price);
     submitData.append('targetCount', formData.targetCount);
     submitData.append('description', formData.description);
-    if (formData.category) submitData.append('category', formData.category);
-    if (formData.imageUrl) submitData.append('imageUrl', formData.imageUrl); // URL 이미지 추가
 
-    if (productType === 'BOOK') {
-      submitData.append('author', formData.author);
-    }
-    submitData.append('publisher', formData.publisher);
+    if (productType !== 'BOOK') {
+      submitData.append('type', productType);
+      submitData.append('title', formData.title);
+      if (formData.category) submitData.append('category', formData.category);
+      if (formData.imageUrl) submitData.append('imageUrl', formData.imageUrl);
+      if (formData.originalPrice) submitData.append('originalPrice', formData.originalPrice);
+      submitData.append('publisher', formData.publisher);
 
-    if (imageFile) {
-      submitData.append('image', imageFile); // 파일 객체 담기
+      if (imageFile) {
+        submitData.append('image', imageFile);
+      }
     }
 
     try {
@@ -250,31 +261,32 @@ const ProductsEditPage = () => {
               {productType === 'BOOK' ? '도서 기본 정보' : '물품 기본 정보'}
             </h3>
 
-            {/* [신규] 바코드 스캔 영역 */}
-            <div className="flex flex-col gap-1.5 mb-2 bg-blue-50 p-4 rounded-xl border border-blue-100">
-              <label htmlFor="barcode" className="text-sm font-bold text-blue-800 flex items-center gap-2">
-                <Search size={16} /> {productType === 'BOOK' ? '바코드 스캔 (또는 직접 입력 후 검색)' : '상품 이름 검색'}
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text" id="barcode"
-                  value={barcode} 
-                  onChange={(e) => setBarcode(e.target.value)}
-                  onKeyDown={handleBarcodeKeyDown}
-                  placeholder={productType === 'BOOK' ? "스캐너로 찍거나, 직접 상품명 입력 후 우측 검색 버튼 클릭" : "직접 상품명 입력 후 우측 검색 버튼 클릭"}
-                  className="flex-grow p-3.5 rounded-xl border border-blue-200 bg-white focus:ring-2 focus:ring-blue-500 outline-none transition text-base font-bold text-gray-900 disabled:bg-gray-100 disabled:text-gray-400"
-                  disabled={productType === 'BOOK' || isSearching}
-                />
-                <button
-                  type="button"
-                  onClick={() => handleBarcodeKeyDown({ key: 'Enter', preventDefault: () => {} })}
-                  disabled={productType === 'BOOK' || isSearching}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-xl font-bold transition whitespace-nowrap disabled:bg-gray-400"
-                >
-                  {isSearching ? '검색 중...' : '검색'}
-                </button>
+            {productType !== 'BOOK' && (
+              <div className="flex flex-col gap-1.5 mb-2 bg-blue-50 p-4 rounded-xl border border-blue-100">
+                <label htmlFor="barcode" className="text-sm font-bold text-blue-800 flex items-center gap-2">
+                  <Search size={16} /> 상품 이름 검색
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text" id="barcode"
+                    value={barcode}
+                    onChange={(e) => setBarcode(e.target.value)}
+                    onKeyDown={handleBarcodeKeyDown}
+                    placeholder="직접 상품명 입력 후 우측 검색 버튼 클릭"
+                    className="flex-grow p-3.5 rounded-xl border border-blue-200 bg-white focus:ring-2 focus:ring-blue-500 outline-none transition text-base font-bold text-gray-900 disabled:bg-gray-100 disabled:text-gray-400"
+                    disabled={isSearching}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleBarcodeKeyDown({ key: 'Enter', preventDefault: () => { } })}
+                    disabled={isSearching}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-xl font-bold transition whitespace-nowrap disabled:bg-gray-400"
+                  >
+                    {isSearching ? '검색 중...' : '검색'}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* 제목/물품명 */}
             <div className="flex flex-col gap-1.5">
@@ -317,6 +329,28 @@ const ProductsEditPage = () => {
                 />
               </div>
             </div>
+            {productType === 'BOOK' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="isbn" className="text-sm font-bold text-gray-700">ISBN</label>
+                  <input
+                    type="text" id="isbn"
+                    value={formData.isbn}
+                    disabled
+                    className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-200 outline-none text-base font-medium text-gray-500"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="originalPrice" className="text-sm font-bold text-gray-700">도서 정가 (₩)</label>
+                  <input
+                    type="number" id="originalPrice"
+                    value={formData.originalPrice}
+                    disabled
+                    className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-200 outline-none text-base font-medium text-gray-500"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 섹션 2: 가격 및 조건 */}
@@ -335,7 +369,6 @@ const ProductsEditPage = () => {
                     value={formData.price} onChange={handleChange}
                     onWheel={(e) => e.currentTarget.blur()}
                     placeholder="예) 35000"
-                    disabled={productType === 'BOOK'}
                     className="w-full p-3.5 pl-9 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-semibold disabled:bg-gray-200 disabled:text-gray-500"
                   />
                 </div>
@@ -349,7 +382,6 @@ const ProductsEditPage = () => {
                     value={formData.targetCount} onChange={handleChange}
                     onWheel={(e) => e.currentTarget.blur()}
                     placeholder="예) 10"
-                    disabled={productType === 'BOOK'}
                     className="w-full p-3.5 pl-11 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-semibold disabled:bg-gray-200 disabled:text-gray-500"
                   />
                 </div>
@@ -365,10 +397,19 @@ const ProductsEditPage = () => {
 
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-bold text-gray-700">
-                {productType === 'BOOK' ? '도서 실물 이미지 등록' : '물품 실물 이미지 등록'} (최대 1장)
+                {productType === 'BOOK' ? '등록된 도서 이미지' : '물품 실물 이미지 등록 (최대 1장)'}
               </label>
-              {/* 🌟 수정된 부분: 미리보기가 있으면 이미지를, 없으면 업로드 박스를 보여줍니다 */}
-              {imagePreview ? (
+              {productType === 'BOOK' ? (
+                imagePreview ? (
+                  <div className="w-full sm:w-1/2 md:w-1/3 aspect-[4/3] rounded-2xl overflow-hidden border border-gray-200 bg-gray-50">
+                    <img src={imagePreview} alt="등록된 도서" className="w-full h-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-6 text-center text-sm font-medium text-gray-500">
+                    등록된 도서 이미지가 없습니다.
+                  </div>
+                )
+              ) : imagePreview ? (
                 <div className="relative w-full sm:w-1/2 md:w-1/3 aspect-[4/3] rounded-2xl overflow-hidden border border-gray-200 group">
                   <img src={imagePreview} alt="미리보기" className="w-full h-full object-cover" />
                   <button
@@ -385,7 +426,7 @@ const ProductsEditPage = () => {
                     <Upload size={18} />
                   </div>
                   <span className="text-xs font-bold text-gray-700 mt-1 group-hover:text-blue-600 transition">
-                    {productType === 'BOOK' ? '클릭하여 전공책 앞표지 업로드' : '클릭하여 물품의 전체 형태가 보이는 사진 업로드'}
+                    클릭하여 물품의 전체 형태가 보이는 사진 업로드
                   </span>
                   <span className="text-[10px] text-gray-400">PNG, JPG 파일 지원 (최대 5MB)</span>
 
@@ -423,15 +464,15 @@ const ProductsEditPage = () => {
 
           {/* 버튼 영역 */}
           <div className="pt-6 flex gap-4">
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => navigate(-1)}
               className="flex-1 py-4 bg-gray-100 text-gray-700 font-bold rounded-2xl hover:bg-gray-200 transition text-lg"
             >
               취소
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="flex-[2] py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 text-lg flex items-center justify-center gap-2"
             >
               <Edit2 size={20} />
@@ -440,6 +481,46 @@ const ProductsEditPage = () => {
           </div>
         </form>
       </main>
+      {productType !== 'BOOK' && isModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/80">
+              <h3 className="text-xl font-extrabold text-gray-950 flex items-center gap-2">
+                <Search size={22} className="text-blue-600" />
+                검색 결과 선택
+              </h3>
+              <button
+                type="button"
+                onClick={() => { setIsModalOpen(false); setSearchResults([]); }}
+                className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-4 flex flex-col gap-3">
+              {searchResults.map((item, idx) => (
+                <button
+                  type="button"
+                  key={`${item.isbn || item.title}-${idx}`}
+                  onClick={() => handleSelectProduct(item)}
+                  className="text-left flex flex-col gap-1.5 p-4 border border-gray-100 rounded-2xl hover:border-blue-400 hover:shadow-md hover:bg-blue-50/40 transition-all group"
+                >
+                  <span className="text-[15px] font-extrabold text-gray-900 group-hover:text-blue-700 leading-snug">
+                    {item.title}
+                  </span>
+                  <span className="text-sm font-medium text-gray-500">
+                    {productType === 'BOOK' ? item.author : (item.brand || item.maker || item.mallName)}
+                  </span>
+                  <span className="text-sm font-black text-gray-900 mt-0.5">
+                    {Number(item.price).toLocaleString()}원
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

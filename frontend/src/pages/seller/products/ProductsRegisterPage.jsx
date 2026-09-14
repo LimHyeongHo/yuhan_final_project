@@ -23,17 +23,17 @@ const ProductRegisterPage = () => {
       title: data.title || '',
       publisher: data.brand || data.maker || data.mallName || '',
       author: data.author || '',
-      imageUrl: data.image || '',
       price: data.price || '',
       description: data.description || '',
       category: data.category || '',
-      isbn: data.isbn || '', // [신규] 바코드 검색 결과에서 ISBN 저장
-      originalPrice: data.price || '', // [신규] 원가(정가) 저장
+      /// [*] 카카오 api가 주는 책 표시 이미지를 무시하고 책이 아닐 경우에만 저장.
+      /// [+] 책의 표지 이미지의 경우에는 고해상도로 출력하기 위해 구글 책 이미지를 가지고 올 예정
+      isbn: data.isbn || '',
+      originalPrice: data.price || '',
+      ...(productType === 'BOOK' ? {} : { imageUrl: data.image || '' }),
     }));
-    if (data.image) {
-      setImagePreview(data.image); // 검색된 이미지를 미리보기 화면에 띄움
-    } else {
-      setImagePreview(null);
+    if (productType !== 'BOOK') {
+      setImagePreview(data.image || null);
     }
     setIsModalOpen(false);
     setSearchResults([]);
@@ -41,12 +41,13 @@ const ProductRegisterPage = () => {
 
   const handleBarcodeKeyDown = async (e) => {
     if (e.key === 'Enter') {
-      e.preventDefault(); 
+      e.preventDefault();
       if (!barcode.trim()) return;
-      
+
       setIsSearching(true);
       try {
-        const response = await fetch(`http://localhost:8080/api/search/product?query=${barcode}&type=${productType}`, {
+        const searchParams = new URLSearchParams({ query: barcode.trim(), type: productType });
+        const response = await fetch(`http://localhost:8080/api/search/product?${searchParams}`, {
           credentials: 'include',
         });
         if (response.ok) {
@@ -61,32 +62,19 @@ const ProductRegisterPage = () => {
             alert("검색 결과가 없습니다.");
           }
         } else {
-          // 검색 실패 시 이전 데이터 싹 지우기
-          setFormData(prev => ({
-            ...prev,
-            title: '',
-            publisher: '',
-            author: '',
-            imageUrl: '',
-          }));
-          setImagePreview(null);
-          
           try {
             const errorData = await response.json();
-            if (errorData.length > 0 && errorData[0].error) {
-              alert(errorData[0].error);
-            } else {
-              alert("상품을 찾을 수 없습니다. 직접 입력해 주세요.");
-            }
-          } catch(e) {
+            const errorMessage = Array.isArray(errorData) ? errorData[0]?.error : errorData.error;
+            alert(errorMessage || "상품을 찾을 수 없습니다. 직접 입력해 주세요.");
+          } catch (e) {
             alert("상품을 찾을 수 없습니다. 직접 입력해 주세요.");
           }
         }
-      } catch(error) {
+      } catch (error) {
         alert("검색 중 오류가 발생했습니다. 백엔드 서버를 확인해 주세요.");
       } finally {
         setIsSearching(false);
-        setBarcode(''); 
+        setBarcode('');
       }
     }
   };
@@ -99,9 +87,9 @@ const ProductRegisterPage = () => {
     price: '',
     targetCount: '',
     description: '',
-    imageUrl: '',     // [신규] 네이버 등에서 가져온 외부 이미지 URL 저장용
+    imageUrl: '',     // 사용자가 선택한 외부 이미지 URL 저장용
     category: '',     // [신규] API에서 추출된 카테고리 정보
-    isbn: '',         // [신규] 알라딘 및 블록체인 검증용 ISBN
+    isbn: '',         // 도서 API 및 블록체인 검증용 ISBN
     originalPrice: '', // [신규] 정가
   });
   // 2-1. 이미지 업로드용 함수
@@ -276,7 +264,7 @@ const ProductRegisterPage = () => {
               <div className="flex gap-2">
                 <input
                   type="text" id="barcode"
-                  value={barcode} 
+                  value={barcode}
                   onChange={(e) => setBarcode(e.target.value)}
                   onKeyDown={handleBarcodeKeyDown}
                   placeholder={productType === 'BOOK' ? "스캐너로 찍거나, 직접 상품명 입력 후 우측 검색 버튼 클릭" : "직접 상품명 입력 후 우측 검색 버튼 클릭"}
@@ -285,7 +273,7 @@ const ProductRegisterPage = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => handleBarcodeKeyDown({ key: 'Enter', preventDefault: () => {} })}
+                  onClick={() => handleBarcodeKeyDown({ key: 'Enter', preventDefault: () => { } })}
                   disabled={isSearching}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-xl font-bold transition whitespace-nowrap"
                 >
@@ -472,7 +460,7 @@ const ProductRegisterPage = () => {
                 <Search size={22} className="text-blue-600" />
                 검색 결과 선택
               </h3>
-              <button 
+              <button
                 onClick={() => { setIsModalOpen(false); setSearchResults([]); }}
                 className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                 type="button"
@@ -480,10 +468,10 @@ const ProductRegisterPage = () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="overflow-y-auto p-4 flex flex-col gap-3 custom-scrollbar">
               {searchResults.map((item, idx) => (
-                <div 
+                <div
                   key={idx}
                   onClick={() => handleSelectProduct(item)}
                   className="flex gap-5 p-4 border border-gray-100 rounded-2xl hover:border-blue-400 hover:shadow-md hover:bg-blue-50/40 cursor-pointer transition-all group"

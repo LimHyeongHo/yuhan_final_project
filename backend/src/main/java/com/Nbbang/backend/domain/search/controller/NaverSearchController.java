@@ -1,6 +1,8 @@
 package com.Nbbang.backend.domain.search.controller;
 
-import com.Nbbang.backend.domain.search.service.AladinSearchService;
+import com.Nbbang.backend.domain.search.service.BookSearchException;
+import com.Nbbang.backend.domain.search.service.KakaoBookSearchService;
+/// [-] 네이버 검색 api를 사용할 수 없기 때문에 삭제 고려
 import com.Nbbang.backend.domain.search.service.NaverSearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,17 +17,30 @@ import java.util.Map;
 @CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class NaverSearchController {
 
+    /// [-] 네이버 검색 api 사용 불가능으로 인해 삭제 고려중
     private final NaverSearchService naverSearchService;
-    private final AladinSearchService aladinSearchService;
+    private final KakaoBookSearchService kakaoBookSearchService;
 
+    /// [*] 에러 검출 및 응답 반환 가능하게 변경
     @GetMapping("/product")
-    public ResponseEntity<List<Map<String, String>>> searchProduct(@RequestParam String query, @RequestParam String type) {
-        List<Map<String, String>> result;
+    public ResponseEntity<?> searchProduct(@RequestParam String query, @RequestParam String type) {
         if ("BOOK".equals(type)) {
-            result = aladinSearchService.searchBook(query);
-        } else {
-            result = naverSearchService.search(query);
+            try {
+                return ResponseEntity.ok(kakaoBookSearchService.searchBook(query));
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "code", "INVALID_SEARCH_QUERY",
+                        "error", e.getMessage()
+                ));
+            } catch (BookSearchException e) {
+                return ResponseEntity.status(e.getStatus()).body(Map.of(
+                        "code", e.getCode(),
+                        "error", e.getMessage()
+                ));
+            }
         }
+
+        List<Map<String, String>> result = naverSearchService.search(query);
         if (!result.isEmpty() && result.get(0).containsKey("error")) {
             return ResponseEntity.badRequest().body(result);
         }
