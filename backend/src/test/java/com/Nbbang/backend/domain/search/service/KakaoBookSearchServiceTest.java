@@ -1,16 +1,20 @@
 package com.Nbbang.backend.domain.search.service;
 
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.net.SocketTimeoutException;
 import java.util.List;
 import java.util.Map;
 
@@ -137,8 +141,8 @@ class KakaoBookSearchServiceTest {
     @Test
     void rejectsBlankQueryWithoutCallingKakao() {
         assertThatThrownBy(() -> service.searchBook("   "))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("검색어를 입력해 주세요.");
+                .isInstanceOfSatisfying(CustomException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOOK_SEARCH_INVALID_QUERY));
         server.verify();
     }
 
@@ -147,9 +151,8 @@ class KakaoBookSearchServiceTest {
         KakaoBookSearchService unconfiguredService = new KakaoBookSearchService(restTemplate, "");
 
         assertThatThrownBy(() -> unconfiguredService.searchBook("운영체제"))
-                .isInstanceOfSatisfying(BookSearchException.class, exception -> {
-                    assertThat(exception.getStatus()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-                    assertThat(exception.getCode()).isEqualTo("BOOK_SEARCH_NOT_CONFIGURED");
+                .isInstanceOfSatisfying(CustomException.class, exception -> {
+                    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOOK_SEARCH_NOT_CONFIGURED);
                     assertThat(exception.getMessage()).doesNotContain("KakaoAK");
                 });
         server.verify();
@@ -161,10 +164,8 @@ class KakaoBookSearchServiceTest {
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
 
         assertThatThrownBy(() -> service.searchBook("운영체제"))
-                .isInstanceOfSatisfying(BookSearchException.class, exception -> {
-                    assertThat(exception.getStatus()).isEqualTo(HttpStatus.BAD_GATEWAY);
-                    assertThat(exception.getCode()).isEqualTo("BOOK_SEARCH_AUTH_ERROR");
-                });
+                .isInstanceOfSatisfying(CustomException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOOK_SEARCH_AUTH_ERROR));
         server.verify();
 
         setUp();
@@ -172,9 +173,35 @@ class KakaoBookSearchServiceTest {
                 .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
 
         assertThatThrownBy(() -> service.searchBook("운영체제"))
-                .isInstanceOfSatisfying(BookSearchException.class, exception -> {
-                    assertThat(exception.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
-                    assertThat(exception.getCode()).isEqualTo("BOOK_SEARCH_QUOTA_EXCEEDED");
+                .isInstanceOfSatisfying(CustomException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOOK_SEARCH_QUOTA_EXCEEDED));
+        server.verify();
+    }
+
+    @Test
+    void mapsKakaoServerErrorsToTheFixedUpstreamError() {
+        server.expect(request -> assertThat(request.getURI().getHost()).isEqualTo("dapi.kakao.com"))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        assertThatThrownBy(() -> service.searchBook("운영체제"))
+                .isInstanceOfSatisfying(CustomException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOOK_SEARCH_UPSTREAM_ERROR));
+        server.verify();
+    }
+
+    @Test
+    void mapsSocketTimeoutWithoutExposingTheExternalMessage() {
+        server.expect(request -> assertThat(request.getURI().getHost()).isEqualTo("dapi.kakao.com"))
+                .andRespond(request -> {
+                    throw new ResourceAccessException(
+                            "Authorization KakaoAK secret-key",
+                            new SocketTimeoutException("provider timeout detail"));
+                });
+
+        assertThatThrownBy(() -> service.searchBook("운영체제"))
+                .isInstanceOfSatisfying(CustomException.class, exception -> {
+                    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOOK_SEARCH_TIMEOUT);
+                    assertThat(exception.getMessage()).doesNotContain("secret-key", "provider timeout detail");
                 });
         server.verify();
     }

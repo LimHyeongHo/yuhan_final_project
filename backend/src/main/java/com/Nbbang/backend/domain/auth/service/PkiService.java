@@ -2,6 +2,9 @@ package com.Nbbang.backend.domain.auth.service;
 
 import com.Nbbang.backend.domain.auth.entity.DeviceCert;
 import com.Nbbang.backend.domain.auth.repository.DeviceCertRepository;
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -23,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@Slf4j
 public class PkiService {
 
     @Autowired
@@ -43,7 +47,7 @@ public class PkiService {
     // 1. CI Hash 생성 (HMAC-SHA256)
     public String generateCiHash(String ci) {
         if (ci == null || ci.trim().isEmpty()) {
-            throw new RuntimeException("CI 값이 비어있습니다. 본인인증을 다시 진행해주세요.");
+            throw new CustomException(ErrorCode.VALIDATION_FAILED);
         }
         try {
             Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
@@ -51,8 +55,8 @@ public class PkiService {
             sha256_HMAC.init(secret_key);
             return Base64.getEncoder().encodeToString(sha256_HMAC.doFinal(ci.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException("CI Hash 생성 중 오류 발생: " + e.getMessage(), e);
+            log.error("CI hash generation failed: type={}", e.getClass().getSimpleName());
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -91,7 +95,7 @@ public class PkiService {
             byte[] encrypted = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(encrypted);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.warn("PKI public-key encryption failed: type={}", e.getClass().getSimpleName());
             return null;
         }
     }
@@ -106,7 +110,7 @@ public class PkiService {
 
         // 1. DB에서 폐기 여부 확인
         if (cert.isRevoked()) {
-            System.out.println("로그인 실패: DB상에서 폐기된 인증서입니다.");
+            log.warn("PKI challenge rejected: certificate is revoked in DB");
             return false;
         }
 
@@ -114,11 +118,11 @@ public class PkiService {
         try {
             boolean isRevoked = caService.isRevoked(new BigInteger(cert.getCertificateSerialNumber()));
             if (isRevoked) {
-                System.out.println("로그인 실패: CA 서비스에서 폐기된 인증서입니다.");
+                log.warn("PKI challenge rejected: certificate is revoked by CA");
                 return false;
             }
         } catch (Exception e) {
-            System.err.println("CA 서비스 검증 중 오류 발생: " + e.getMessage());
+            log.warn("CA revocation lookup failed: type={}", e.getClass().getSimpleName());
         }
 
         boolean isValid = originalChallenge.equals(answerPlaintext);

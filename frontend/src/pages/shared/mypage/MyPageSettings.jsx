@@ -22,7 +22,7 @@ const MyPageSettings = () => {
           setInfo(data);
           setNickname(data.nickname);
         } else {
-          throw new Error(data.error || '회원 정보를 불러오지 못했습니다.');
+          throw new Error(data.message || data.error || '회원 정보를 불러오지 못했습니다.');
         }
       } catch (e) {
         alert('회원 정보 조회 오류: ' + e.message);
@@ -76,7 +76,7 @@ const MyPageSettings = () => {
         setErrors({ password: '', passwordConfirm: '' });
         alert('변경사항이 저장되었습니다.');
       } else {
-        throw new Error(data.error || '저장 중 오류가 발생했습니다.');
+        throw new Error(data.message || data.error || '저장 중 오류가 발생했습니다.');
       }
     } catch (e) {
       alert('오류: ' + e.message);

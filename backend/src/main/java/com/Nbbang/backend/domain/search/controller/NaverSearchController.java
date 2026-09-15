@@ -1,6 +1,5 @@
 package com.Nbbang.backend.domain.search.controller;
 
-import com.Nbbang.backend.domain.search.service.BookSearchException;
 import com.Nbbang.backend.domain.search.service.GoogleBooksService;
 import com.Nbbang.backend.domain.search.service.KakaoBookSearchService;
 /// [-] 네이버 검색 api를 사용할 수 없기 때문에 삭제 고려
@@ -27,25 +26,10 @@ public class NaverSearchController {
     @GetMapping("/product")
     public ResponseEntity<?> searchProduct(@RequestParam String query, @RequestParam String type) {
         if ("BOOK".equals(type)) {
-            try {
-                return ResponseEntity.ok(kakaoBookSearchService.searchBook(query));
-            } catch (IllegalArgumentException e) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "code", "INVALID_SEARCH_QUERY",
-                        "error", e.getMessage()
-                ));
-            } catch (BookSearchException e) {
-                return ResponseEntity.status(e.getStatus()).body(Map.of(
-                        "code", e.getCode(),
-                        "error", e.getMessage()
-                ));
-            }
+            return ResponseEntity.ok(kakaoBookSearchService.searchBook(query));
         }
 
         List<Map<String, String>> result = naverSearchService.search(query);
-        if (!result.isEmpty() && result.get(0).containsKey("error")) {
-            return ResponseEntity.badRequest().body(result);
-        }
         if (result.isEmpty()) {
             return ResponseEntity.notFound().build();
         }

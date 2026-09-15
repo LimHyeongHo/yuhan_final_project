@@ -12,9 +12,11 @@ import com.Nbbang.backend.domain.product.repository.ProductPriceHistoryRepositor
 import com.Nbbang.backend.domain.product.repository.ScrapRepository;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
+import com.Nbbang.backend.domain.search.service.KakaoBookSearchService;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -37,6 +39,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class ProductService {
 
@@ -45,7 +48,7 @@ public class ProductService {
     private final ScrapRepository scrapRepository;
     private final UserAccountRepository userAccountRepository;
     private final ProductHashService productHashService;
-    private final AladdinApiService aladdinApiService;
+    private final KakaoBookSearchService kakaoBookSearchService;
     private final BlockchainService blockchainService;
     private final VerificationService verificationService;
     private final PaymentRepository paymentRepository;
@@ -70,12 +73,12 @@ public class ProductService {
             product.setOriginalPrice(product.getPrice());
         }
 
-        // 도서의 기준가는 클라이언트 입력값보다 ISBN 기반 알라딘 공식 정가를 우선한다.
+        // 도서의 기준가는 클라이언트 입력값보다 ISBN 기반 카카오 도서 정가를 우선한다.
         // API가 일시적으로 실패하면 상품 등록은 계속하되, 검증 시 다시 조회한다.
         if (product.getIsbn() != null && !product.getIsbn().isBlank()) {
-            BigDecimal officialPrice = aladdinApiService.fetchAladdinPrice(product.getIsbn());
+            BigDecimal officialPrice = kakaoBookSearchService.fetchOfficialPrice(product.getIsbn());
             if (officialPrice != null) {
-                product.setAladdinPrice(officialPrice);
+                product.setOfficialPrice(officialPrice);
                 product.setOriginalPrice(officialPrice);
             }
         }
@@ -100,8 +103,7 @@ public class ProductService {
                 // 프론트엔드에서 접근할 수 있는 URL 경로 저장 (WebMvcConfigurer 연결 필요)
                 product.setImageUrl("http://localhost:8080/uploads/" + savedFilename);
             } catch (IOException e) {
-                e.printStackTrace();
-                // 실제 서비스에서는 커스텀 예외 처리가 필요함
+                log.warn("상품 이미지 저장 실패: type={}", e.getClass().getSimpleName());
             }
         }
 
@@ -340,7 +342,7 @@ public class ProductService {
 
                 product.setImageUrl("http://localhost:8080/uploads/" + savedFilename);
             } catch (IOException e) {
-                e.printStackTrace();
+                log.warn("상품 이미지 갱신 실패: type={}", e.getClass().getSimpleName());
             }
         }
         /// [*] 기존에는 가격이 변경될 때마 블록체인 해시를 기록했으나 가격 또는 ISBN이 변경될 때 해시를 재생성 및 기록

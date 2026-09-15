@@ -1,6 +1,7 @@
 package com.Nbbang.backend.domain.auth.service;
 
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
@@ -21,6 +22,7 @@ import java.util.Date;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Service
+@Slf4j
 public class CAService {
     private KeyPair rootKeyPair;
     private X509Certificate rootCertificate;
@@ -54,7 +56,7 @@ public class CAService {
         X509CertificateHolder certHolder = certBuilder.build(contentSigner);
         this.rootCertificate = new JcaX509CertificateConverter().setProvider("BC").getCertificate(certHolder);
         
-        System.out.println("Root CA initialized successfully.");
+        log.info("Root CA initialized successfully");
     }
 
     public X509Certificate issueDeviceCertificate(PublicKey devicePublicKey, String deviceId) throws Exception {

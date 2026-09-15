@@ -1,10 +1,11 @@
 package com.Nbbang.backend.domain.notification.controller;
 
 import com.Nbbang.backend.domain.notification.service.NotificationService;
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,7 +25,7 @@ public class NotificationController {
     public ResponseEntity<?> getMyNotifications(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("userId") == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("로그인이 필요합니다.");
+            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
         }
         
         String email = (String) session.getAttribute("userId");
@@ -36,15 +37,11 @@ public class NotificationController {
     public ResponseEntity<?> deleteNotification(HttpServletRequest request, @org.springframework.web.bind.annotation.PathVariable Long id) {
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("userId") == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("로그인이 필요합니다.");
+            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
         }
         
         String email = (String) session.getAttribute("userId");
-        try {
-            notificationService.deleteNotification(id, email);
-            return ResponseEntity.ok("알림이 삭제되었습니다.");
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        notificationService.deleteNotification(id, email);
+        return ResponseEntity.ok("알림이 삭제되었습니다.");
     }
 }

@@ -7,11 +7,13 @@ import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
 import com.Nbbang.backend.domain.auth.service.CAService;
 import com.Nbbang.backend.domain.auth.service.PkiService;
 import com.Nbbang.backend.domain.member.service.CertificateSessionService;
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.Cookie;
@@ -30,6 +32,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/pki")
+@Slf4j
 // [수정] 세션 쿠키(JSESSIONID)를 자격증명 포함 CORS로 처리하기 위해 SecurityConfig의 CorsConfigurationSource로 일원화 (와일드카드 CrossOrigin 제거)
 public class PkiController {
 
@@ -82,14 +85,12 @@ public class PkiController {
                     .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
                     .block();
 
-            System.out.println("PortOne API Response for " + identityVerificationId + ": " + response);
-
             if (response != null && "VERIFIED".equals(response.get("status"))) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> verifiedCustomer = (Map<String, Object>) response.get("verifiedCustomer");
                 
                 if (verifiedCustomer == null) {
-                    throw new RuntimeException("인증 데이터(verifiedCustomer)가 응답에 포함되어 있지 않습니다.");
+                    throw new CustomException(ErrorCode.AUTH_PORTONE_SERVER_ERROR);
                 }
 
                 String name = (String) verifiedCustomer.get("name");
@@ -104,7 +105,7 @@ public class PkiController {
                 // 버리고 name+birthDate+phoneNumber로 우리가 직접 안정적인 식별값을 만든다.
                 // (라이브 채널로 전환하면 isTestChannel이 false가 되어 PG의 실제 ci를 그대로 신뢰한다.)
                 if (isTestChannel || ci == null || ci.trim().isEmpty()) {
-                    System.out.println("⚠️ [테스트 채널] name/birthDate/phoneNumber 기반 안정 CI를 생성합니다.");
+                    log.info("PortOne test channel response received; generating a stable test CI");
 
                     String birthday = (String) verifiedCustomer.get("birthDate");
                     String phone = (String) verifiedCustomer.get("phoneNumber");
@@ -130,14 +131,13 @@ public class PkiController {
 
                 return ResponseEntity.ok(result);
             } else {
-                String reason = response != null ? String.valueOf(response.get("cancellationReason")) : "알 수 없음";
-                throw new RuntimeException("본인인증 미완료 상태입니다. (사유: " + reason + ")");
+                throw new CustomException(ErrorCode.AUTH_PORTONE_SERVER_ERROR);
             }
+        } catch (CustomException e) {
+            throw e;
         } catch (Exception e) {
-            System.err.println("PortOne verification failed: " + e.getMessage());
-            Map<String, String> error = new HashMap<>();
-            error.put("error", "포트원 검증 실패: " + e.getMessage());
-            return ResponseEntity.internalServerError().body(error);
+            log.warn("PortOne verification failed: type={}", e.getClass().getSimpleName());
+            throw new CustomException(ErrorCode.AUTH_PORTONE_SERVER_ERROR);
         }
     }
 
@@ -172,9 +172,7 @@ public class PkiController {
         if (!requestedRole.isEmpty()
                 && !"ROLE_BUYER".equals(requestedRole)
                 && !"ROLE_SELLER".equals(requestedRole)) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", "허용되지 않은 회원 유형입니다.");
-            return ResponseEntity.badRequest().body(error);
+            throw new CustomException(ErrorCode.VALIDATION_FAILED);
         }
         try {
             String email = request.get("email") != null ? request.get("email").replaceAll("\\s", "") : null;
@@ -188,9 +186,7 @@ public class PkiController {
             String publicKey = request.get("publicKey");
             String deviceId = request.get("deviceId") != null ? request.get("deviceId").replaceAll("\\s", "") : email;
 
-            if (email == null || email.isEmpty()) throw new RuntimeException("이메일을 입력해주세요.");
-
-            System.out.println("Processing registration/update for: [" + email + "]");
+            if (email == null || email.isEmpty()) throw new CustomException(ErrorCode.VALIDATION_FAILED);
 
             // --- 중복 가입 방지 로직 (1인 1계정 정책) ---
             // [MEM-RQ-001] 이 CI로 이미 가입된 계정이 있어도, 그 계정이 탈퇴(WITHDRAWN)한 상태라면
@@ -203,7 +199,7 @@ public class PkiController {
                             .map(acc -> "WITHDRAWN".equals(acc.getStatus()))
                             .orElse(false);
                     if (!linkedAccountWithdrawn) {
-                        throw new RuntimeException("이미 이 본인인증 정보로 가입된 다른 계정(" + existingCert.getUserId() + ")이 존재합니다.");
+                        throw new CustomException(ErrorCode.MEMBER_DUPLICATE_CI);
                     }
                 }
             });
@@ -216,14 +212,14 @@ public class PkiController {
             // [MEM-RQ-001] 탈퇴(WITHDRAWN)한 이메일은 감사 이력 보존을 위해 영구적으로 재가입/기기 재등록 모두 불가.
             // (row 자체는 남아있어 isNewUser=false로 잡히므로, "이미 사용 중" 분기보다 먼저 명확히 구분해서 안내한다.)
             if (!isNewUser && "WITHDRAWN".equals(userAccount.getStatus())) {
-                throw new RuntimeException("탈퇴한 계정입니다. 이 이메일로는 다시 가입할 수 없습니다.");
+                throw new CustomException(ErrorCode.AUTH_WITHDRAWN_ACCOUNT);
             }
 
             if (isNewUser) {
                 // 신규 가입은 닉네임이 반드시 필요함. 재발급 요청(닉네임 빈 값)이
                 // 미가입 이메일로 들어오면 NOT NULL 위반 대신 명확한 에러로 안내.
                 if (nickname == null || nickname.trim().isEmpty()) {
-                    throw new RuntimeException("가입되지 않은 계정입니다. 회원가입을 먼저 진행해주세요.");
+                    throw new CustomException(ErrorCode.MEMBER_NOT_FOUND);
                 }
                 userAccount = new UserAccount();
                 userAccount.setEmail(email);
@@ -233,13 +229,13 @@ public class PkiController {
             } else if (nickname != null && !nickname.trim().isEmpty()) {
                 // 이미 가입된 이메일로 신규 회원가입(닉네임 포함) 요청이 들어온 경우.
                 // 기존에는 여기서 그대로 통과시켜 기존 계정의 비밀번호를 덮어썼음(계정 탈취 가능) -> 거부로 변경.
-                throw new RuntimeException("이미 사용 중인 이메일입니다.");
+                throw new CustomException(ErrorCode.MEMBER_DUPLICATE_EMAIL);
             } else {
                 // 재발급/기기 재등록: 닉네임 없이 기존 계정에 대한 요청.
                 // 기존 비밀번호와 일치하는지 반드시 확인해야 함 - 확인 없이 통과시키면
                 // 이메일만 알아도 아무 비밀번호로 계정을 탈취할 수 있는 심각한 취약점이 됨.
                 if (password == null || !passwordEncoder.matches(password, userAccount.getPassword())) {
-                    throw new RuntimeException("비밀번호가 일치하지 않습니다.");
+                    throw new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS);
                 }
                 // 검증 용도로만 사용하고, 재발급 과정에서 비밀번호 자체는 변경하지 않음.
 
@@ -247,7 +243,7 @@ public class PkiController {
                 // 다르면 다른 사람의 신원으로 통과한 것이므로 기기 재등록(로그인)을 거부한다.
                 deviceCertRepository.findByUserId(email).ifPresent(existing -> {
                     if (existing.getCiHash() != null && !existing.getCiHash().equals(ciHash)) {
-                        throw new RuntimeException("본인인증 정보가 기존 계정과 일치하지 않습니다.");
+                        throw new CustomException(ErrorCode.AUTH_SIGNATURE_VERIFICATION_FAILED);
                     }
                 });
             }
@@ -277,7 +273,7 @@ public class PkiController {
                             .map(acc -> "WITHDRAWN".equals(acc.getStatus()))
                             .orElse(true);
                     if (!ownerWithdrawnOrGone) {
-                        throw new RuntimeException("이 기기는 이미 다른 계정에 등록되어 있습니다.");
+                        throw new CustomException(ErrorCode.AUTH_ACCESS_DENIED);
                     }
                     cert = existingByDevice;
                 } else {
@@ -285,8 +281,6 @@ public class PkiController {
                 }
             }
 
-            System.out.println("Updating device cert for: " + email + " -> New Device: " + deviceId);
-            
             cert.setUserId(email);
             cert.setDeviceId(deviceId);
             cert.setPublicKey(publicKey);
@@ -297,17 +291,12 @@ public class PkiController {
             cert.setCertificateExpiresAt(toLocalDateTime(certificate.getNotAfter()));
             deviceCertRepository.saveAndFlush(cert);
 
-            System.out.println("Successfully updated policy in DB: " + email + " (Active Device: " + deviceId + ")");
             return ResponseEntity.ok(caResponse);
+        } catch (CustomException e) {
+            throw e;
         } catch (Exception e) {
-            // [MEM-RQ-001] @Transactional 메서드 안에서 예외를 잡아 정상 응답으로 바꾸면
-            // 스프링이 롤백 시점을 놓쳐 계정만 저장되고 기기 인증서는 누락되는 등 일부만 커밋될 수 있다.
-            // 명시적으로 rollback-only로 표시해 전체가 원자적으로 롤백되도록 한다.
-            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-            System.err.println("Registration failed: " + e.getMessage());
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.internalServerError().body(error);
+            log.error("PKI registration failed: type={}", e.getClass().getSimpleName());
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -324,43 +313,33 @@ public class PkiController {
         String email = request.get("email");
         String password = request.get("password");
 
-        try {
-            UserAccount user = userAccountRepository.findById(email)
-                    .orElseThrow(() -> new RuntimeException("존재하지 않는 계정입니다."));
+        UserAccount user = userAccountRepository.findById(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
-            if (!TEST_LOGIN_ACCOUNTS.contains(email)) {
-                throw new RuntimeException("테스트 전용 계정만 이 방식으로 로그인할 수 있습니다.");
-            }
-
-            // [MEM-RQ-001] 탈퇴(WITHDRAWN)한 계정은 재로그인 불가
-            if ("WITHDRAWN".equals(user.getStatus())) {
-                throw new RuntimeException("탈퇴한 계정입니다.");
-            }
-
-            if (!passwordEncoder.matches(password, user.getPassword())) {
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", false);
-                response.put("message", "비밀번호가 일치하지 않습니다.");
-                return ResponseEntity.status(401).body(response);
-            }
-
-            HttpSession session = httpRequest.getSession(true);
-            session.setAttribute("userId", user.getEmail());
-            session.setAttribute("nickname", user.getNickname());
-            session.setAttribute("role", user.getRole());
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("nickname", user.getNickname());
-            response.put("role", user.getRole());
-            response.put("message", user.getNickname() + "님 테스트 로그인 성공!");
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", e.getMessage());
-            return ResponseEntity.status(401).body(response);
+        if (!TEST_LOGIN_ACCOUNTS.contains(email)) {
+            throw new CustomException(ErrorCode.AUTH_ACCESS_DENIED);
         }
+
+        // [MEM-RQ-001] 탈퇴(WITHDRAWN)한 계정은 재로그인 불가
+        if ("WITHDRAWN".equals(user.getStatus())) {
+            throw new CustomException(ErrorCode.AUTH_WITHDRAWN_ACCOUNT);
+        }
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS);
+        }
+
+        HttpSession session = httpRequest.getSession(true);
+        session.setAttribute("userId", user.getEmail());
+        session.setAttribute("nickname", user.getNickname());
+        session.setAttribute("role", user.getRole());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("nickname", user.getNickname());
+        response.put("role", user.getRole());
+        response.put("message", user.getNickname() + "님 테스트 로그인 성공!");
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/login/challenge")
@@ -370,9 +349,7 @@ public class PkiController {
         String encryptedChallenge = pkiService.createEncryptedChallenge(normalizedDeviceId);
 
         if (encryptedChallenge == null) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", "기기 인증 정보가 없습니다.");
-            return ResponseEntity.status(404).body(error);
+            throw new CustomException(ErrorCode.AUTH_UNREGISTERED_DEVICE);
         }
 
         Map<String, String> response = new HashMap<>();
@@ -388,73 +365,52 @@ public class PkiController {
         String answer = request.get("answer");
         String ci = request.get("ci");
 
-        System.out.println("Login verification attempt for device: [" + deviceId + "]");
+        // 1. PKI 서명 검증 및 기기 정보 조회
+        DeviceCert cert = deviceCertRepository.findByDeviceId(deviceId)
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_UNREGISTERED_DEVICE));
 
-        try {
-            // 1. PKI 서명 검증 및 기기 정보 조회
-            DeviceCert cert = deviceCertRepository.findByDeviceId(deviceId)
-                    .orElseThrow(() -> new RuntimeException("기기 인증 정보가 없습니다."));
+        // 2. 해당 기기와 연결된 사용자 계정 및 비밀번호 확인
+        UserAccount user = userAccountRepository.findById(cert.getUserId())
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
-            // 2. 해당 기기와 연결된 사용자 계정 및 비밀번호 확인
-            UserAccount user = userAccountRepository.findById(cert.getUserId())
-                    .orElseThrow(() -> new RuntimeException("등록되지 않은 사용자입니다."));
+        // [MEM-RQ-001] 탈퇴(WITHDRAWN)한 계정은 재로그인 불가
+        if ("WITHDRAWN".equals(user.getStatus())) {
+            throw new CustomException(ErrorCode.AUTH_WITHDRAWN_ACCOUNT);
+        }
 
-            // [MEM-RQ-001] 탈퇴(WITHDRAWN)한 계정은 재로그인 불가
-            if ("WITHDRAWN".equals(user.getStatus())) {
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", false);
-                response.put("message", "탈퇴한 계정입니다.");
-                return ResponseEntity.status(403).body(response);
-            }
-
-            if (!passwordEncoder.matches(password, user.getPassword())) {
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", false);
-                response.put("message", "비밀번호가 일치하지 않습니다.");
-                return ResponseEntity.status(401).body(response);
-            }
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS);
+        }
 
             // 2-1. 이번 로그인 시도에서 방금 수행한 본인인증(ci)이 이 기기/계정에 등록된
             // 본인인증 정보와 다르면, 비밀번호와 기기서명이 맞아도 로그인을 거부한다.
             // (그렇지 않으면 본인인증 단계는 isVerified 플래그만 켜는 장식으로 전락해
             //  아무 이름/생년월일/전화번호로 인증해도 로그인이 통과됨)
-            if (ci == null || ci.trim().isEmpty() || cert.getCiHash() == null
-                    || !cert.getCiHash().equals(pkiService.generateCiHash(ci))) {
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", false);
-                response.put("message", "본인인증 정보가 계정 소유자와 일치하지 않습니다.");
-                return ResponseEntity.status(401).body(response);
-            }
-
-            // 3. PKI 챌린지 복호화 결과 검증 (기기 인증)
-            boolean isValid = pkiService.validateChallenge(deviceId, answer);
-
-            Map<String, Object> response = new HashMap<>();
-            if (isValid) {
-                HttpSession session = httpRequest.getSession(true);
-                session.setAttribute("userId", user.getEmail());
-                session.setAttribute("nickname", user.getNickname());
-                session.setAttribute("role", user.getRole());
-
-                // 로그인 성공 시 인증서 유효 타이머(기본 10분) 시작
-                certificateSessionService.startSession(user.getEmail());
-
-                response.put("success", true);
-                response.put("nickname", user.getNickname());
-                response.put("role", user.getRole());
-                response.put("message", "기기 인증 및 로그인 성공!");
-                return ResponseEntity.ok(response);
-            } else {
-                response.put("success", false);
-                response.put("message", "기기 인증 실패: 폐기된 인증서이거나 챌린지 응답이 올바르지 않습니다.");
-                return ResponseEntity.status(401).body(response);
-            }
-        } catch (Exception e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "로그인 오류: " + e.getMessage());
-            return ResponseEntity.internalServerError().body(response);
+        if (ci == null || ci.trim().isEmpty() || cert.getCiHash() == null
+                || !cert.getCiHash().equals(pkiService.generateCiHash(ci))) {
+            throw new CustomException(ErrorCode.AUTH_SIGNATURE_VERIFICATION_FAILED);
         }
+
+        // 3. PKI 챌린지 복호화 결과 검증 (기기 인증)
+        boolean isValid = pkiService.validateChallenge(deviceId, answer);
+        if (!isValid) {
+            throw new CustomException(ErrorCode.AUTH_SIGNATURE_VERIFICATION_FAILED);
+        }
+
+        HttpSession session = httpRequest.getSession(true);
+        session.setAttribute("userId", user.getEmail());
+        session.setAttribute("nickname", user.getNickname());
+        session.setAttribute("role", user.getRole());
+
+        // 로그인 성공 시 인증서 유효 타이머(기본 10분) 시작
+        certificateSessionService.startSession(user.getEmail());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("nickname", user.getNickname());
+        response.put("role", user.getRole());
+        response.put("message", "기기 인증 및 로그인 성공!");
+        return ResponseEntity.ok(response);
     }
 
     // [SEC-RQ-002] 서버 로그아웃: 현재 HTTP 세션을 무효화하고 JSESSIONID 쿠키를 명시적으로 만료시킨다.
@@ -481,41 +437,31 @@ public class PkiController {
 
     @PostMapping("/revoke")
     public ResponseEntity<Map<String, String>> revoke(@RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
-        try {
-            String deviceId = request.get("deviceId");
-            DeviceCert cert = deviceCertRepository.findByDeviceId(deviceId)
-                    .orElseThrow(() -> new RuntimeException("해당 기기의 인증서 정보를 찾을 수 없습니다."));
+        String deviceId = request.get("deviceId");
+        DeviceCert cert = deviceCertRepository.findByDeviceId(deviceId)
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_UNREGISTERED_DEVICE));
 
             // [SEC-RQ-005] body의 deviceId만 믿고 폐기하면 deviceId만 아는 제3자가 남의 기기 인증서를
             // 무력화할 수 있으므로, 로그인 세션의 소유자 본인이거나 관리자일 때만 폐기를 허용한다.
-            HttpSession session = httpRequest.getSession(false);
-            String sessionUserId = session != null ? (String) session.getAttribute("userId") : null;
-            String sessionRole = session != null ? (String) session.getAttribute("role") : null;
-            if (sessionUserId == null) {
-                Map<String, String> error = new HashMap<>();
-                error.put("error", "로그인이 필요합니다.");
-                return ResponseEntity.status(401).body(error);
-            }
-            if (!sessionUserId.equals(cert.getUserId()) && !"ROLE_ADMIN".equals(sessionRole)) {
-                Map<String, String> error = new HashMap<>();
-                error.put("error", "본인 또는 관리자만 인증서를 폐기할 수 있습니다.");
-                return ResponseEntity.status(403).body(error);
-            }
+        HttpSession session = httpRequest.getSession(false);
+        String sessionUserId = session != null ? (String) session.getAttribute("userId") : null;
+        String sessionRole = session != null ? (String) session.getAttribute("role") : null;
+        if (sessionUserId == null) {
+            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
+        }
+        if (!sessionUserId.equals(cert.getUserId()) && !"ROLE_ADMIN".equals(sessionRole)) {
+            throw new CustomException(ErrorCode.AUTH_ACCESS_DENIED);
+        }
 
             // 로컬 caService 직접 호출하여 인증서 폐기
-            caService.revokeCertificate(new BigInteger(cert.getCertificateSerialNumber()));
+        caService.revokeCertificate(new BigInteger(cert.getCertificateSerialNumber()));
 
-            cert.setRevoked(true);
-            deviceCertRepository.save(cert);
+        cert.setRevoked(true);
+        deviceCertRepository.save(cert);
 
-            Map<String, String> response = new HashMap<>();
-            response.put("message", "기기 인증서가 성공적으로 폐기되었습니다.");
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.internalServerError().body(error);
-        }
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "기기 인증서가 성공적으로 폐기되었습니다.");
+        return ResponseEntity.ok(response);
     }
 
     private static LocalDateTime toLocalDateTime(Date date) {

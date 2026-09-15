@@ -2,6 +2,8 @@ package com.Nbbang.backend.domain.notification.service;
 
 import com.Nbbang.backend.domain.notification.entity.Notification;
 import com.Nbbang.backend.domain.notification.repository.NotificationRepository;
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,10 +34,10 @@ public class NotificationService {
     @Transactional
     public void deleteNotification(Long id, String userEmail) {
         Notification notification = notificationRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 알림입니다."));
+            .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
         
         if (!notification.getUserEmail().equals(userEmail)) {
-            throw new IllegalArgumentException("권한이 없습니다.");
+            throw new CustomException(ErrorCode.AUTH_ACCESS_DENIED);
         }
         
         notificationRepository.delete(notification);

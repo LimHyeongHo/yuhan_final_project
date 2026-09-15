@@ -18,7 +18,7 @@ public class VerificationController {
     private final VerificationService verificationService;
 
     /**
-     * 특정 상품의 블록체인 및 알라딘 정가 이중 교차 검증을 수행합니다.
+     * 특정 상품의 블록체인 및 카카오 도서 정가 이중 교차 검증을 수행합니다.
      * @param id 상품 ID
      * @return 검증 상태 (VALID, GOOD_DEAL, ANCHORING_WARNING, FORGED, PENDING, UNAVAILABLE, FAILED, ERROR)
      */

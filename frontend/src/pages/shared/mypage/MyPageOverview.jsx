@@ -164,7 +164,7 @@ const MyPageOverview = ({ userRole = 'BUYER' }) => {
       if (res.ok) {
         setInfo(data);
       } else {
-        throw new Error(data.error || '회원 정보를 불러오지 못했습니다.');
+        throw new Error(data.message || data.error || '회원 정보를 불러오지 못했습니다.');
       }
     } catch (e) {
       alert('회원 정보 조회 오류: ' + e.message);
@@ -246,7 +246,7 @@ const MyPageOverview = ({ userRole = 'BUYER' }) => {
         await syncStatus(); // 헤더/마이페이지 타이머를 새 10분으로 즉시 반영
         alert('인증서가 재발급되었습니다.');
       } else {
-        throw new Error(data.error || '인증서 재발급 중 오류가 발생했습니다.');
+        throw new Error(data.message || data.error || '인증서 재발급 중 오류가 발생했습니다.');
       }
     } catch (e) {
       alert('오류: ' + e.message);
@@ -271,7 +271,7 @@ const MyPageOverview = ({ userRole = 'BUYER' }) => {
         alert('회원 탈퇴가 완료되었습니다.');
         navigate('/login');
       } else {
-        throw new Error(data.error || '회원 탈퇴 중 오류가 발생했습니다.');
+        throw new Error(data.message || data.error || '회원 탈퇴 중 오류가 발생했습니다.');
       }
     } catch (e) {
       alert('오류: ' + e.message);

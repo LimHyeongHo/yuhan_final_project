@@ -68,25 +68,41 @@ public class PaymentController {
                     + "&method=" + URLEncoder.encode(
                             result.getMethod() != null ? result.getMethod() : "", StandardCharsets.UTF_8));
         } catch (CustomException e) {
-            log.warn("결제 성공 콜백 처리 실패: orderId={}", orderId, e);
-            response.sendRedirect(frontendUrl + "/payment/fail?message="
-                    + URLEncoder.encode(e.getMessage(), StandardCharsets.UTF_8));
+            ErrorCode errorCode = paymentRedirectError(e.getErrorCode());
+            log.warn("결제 성공 콜백 처리 실패: orderId={}, code={}", orderId, errorCode.name());
+            response.sendRedirect(frontendUrl + "/payment/fail?code=" + errorCode.name());
         } catch (Exception e) {
-            log.error("결제 성공 콜백 처리 중 예상치 못한 오류: orderId={}", orderId, e);
-            response.sendRedirect(frontendUrl + "/payment/fail?message="
-                    + URLEncoder.encode("결제 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요", StandardCharsets.UTF_8));
+            log.error("결제 성공 콜백 처리 중 예상치 못한 오류: orderId={}, type={}",
+                    orderId, e.getClass().getSimpleName());
+            response.sendRedirect(frontendUrl + "/payment/fail?code="
+                    + ErrorCode.PAYMENT_CONFIRM_FAILED.name());
         }
     }
 
     // 토스페이먼츠 → 백엔드 콜백 (결제 실패)
     @GetMapping("/fail")
     public void paymentFail(
-            @RequestParam(required = false, defaultValue = "결제가 취소되었습니다.") String message,
             @RequestParam(required = false, defaultValue = "") String code,
             HttpServletResponse response) throws IOException {
 
-        response.sendRedirect(frontendUrl + "/payment/fail"
-                + "?message=" + URLEncoder.encode(message, StandardCharsets.UTF_8)
-                + "&code=" + code);
+        ErrorCode errorCode = "PAY_PROCESS_CANCELED".equals(code)
+                ? ErrorCode.PAYMENT_CANCELLED
+                : ErrorCode.PAYMENT_CONFIRM_FAILED;
+        response.sendRedirect(frontendUrl + "/payment/fail?code=" + errorCode.name());
+    }
+
+    private ErrorCode paymentRedirectError(ErrorCode errorCode) {
+        return switch (errorCode) {
+            case PAYMENT_INVALID_AMOUNT,
+                 PAYMENT_ORDER_NOT_FOUND,
+                 PAYMENT_AMOUNT_MISMATCH,
+                 PAYMENT_CANCELLED,
+                 PAYMENT_CONFIRM_FAILED,
+                 PAYMENT_REFUND_FAILED,
+                 PAYMENT_JOIN_FAILED,
+                 PAYMENT_CANCEL_IN_PROGRESS,
+                 PAYMENT_LOOKUP_FAILED -> errorCode;
+            default -> ErrorCode.PAYMENT_CONFIRM_FAILED;
+        };
     }
 }

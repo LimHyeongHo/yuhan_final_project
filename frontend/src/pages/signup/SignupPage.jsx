@@ -301,7 +301,7 @@ const SignupPage = () => {
         navigate('/login');
       } else {
         const data = await res.json();
-        throw new Error(data.error || "회원가입 중 오류 발생");
+        throw new Error(data.message || data.error || "회원가입 중 오류 발생");
       }
     } catch (e) {
       alert("오류: " + e.message);

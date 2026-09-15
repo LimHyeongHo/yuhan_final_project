@@ -40,34 +40,22 @@ public class CertificateSessionController {
     @PatchMapping("/extend")
     public ResponseEntity<Map<String, Object>> extend(@RequestBody Map<String, Integer> request,
                                                         HttpServletRequest httpRequest) {
-        try {
-            String userId = requireUserId(httpRequest);
-            int deltaMinutes = request.getOrDefault("deltaMinutes", 0);
-            CertificateSession session = certificateSessionService.extend(userId, deltaMinutes);
-            return ResponseEntity.ok(toResponse(session));
-        } catch (Exception e) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.internalServerError().body(error);
-        }
+        String userId = requireUserId(httpRequest);
+        int deltaMinutes = request.getOrDefault("deltaMinutes", 0);
+        CertificateSession session = certificateSessionService.extend(userId, deltaMinutes);
+        return ResponseEntity.ok(toResponse(session));
     }
 
     // 인증서 폐기 + 로그아웃 (프론트 타이머가 00:00에 도달했을 때 호출)
     @PostMapping("/revoke")
     public ResponseEntity<Map<String, String>> revoke(HttpServletRequest request) {
-        try {
-            String userId = requireUserId(request);
-            certificateSessionService.revoke(userId);
-            request.getSession().invalidate();
+        String userId = requireUserId(request);
+        certificateSessionService.revoke(userId);
+        request.getSession().invalidate();
 
-            Map<String, String> response = new HashMap<>();
-            response.put("message", "인증서가 폐기되고 로그아웃되었습니다.");
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.internalServerError().body(error);
-        }
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "인증서가 폐기되고 로그아웃되었습니다.");
+        return ResponseEntity.ok(response);
     }
 
     private String requireUserId(HttpServletRequest request) {

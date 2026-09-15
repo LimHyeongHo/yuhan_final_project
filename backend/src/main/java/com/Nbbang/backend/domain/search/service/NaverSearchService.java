@@ -1,5 +1,8 @@
 package com.Nbbang.backend.domain.search.service;
 
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -14,6 +17,7 @@ import java.util.Map;
 import java.util.ArrayList;
 
 @Service
+@Slf4j
 public class NaverSearchService {
 
     @Value("${naver.client.id}")
@@ -53,13 +57,8 @@ public class NaverSearchService {
             }
             return results;
         } catch (Exception e) {
-            System.err.println("Naver API Error: " + e.getMessage());
-            e.printStackTrace();
-            List<Map<String, String>> errorResults = new ArrayList<>();
-            Map<String, String> errorResult = new HashMap<>();
-            errorResult.put("error", "Naver API 연동 오류: " + e.getMessage());
-            errorResults.add(errorResult);
-            return errorResults;
+            log.warn("Naver product search failed: type={}", e.getClass().getSimpleName());
+            throw new CustomException(ErrorCode.PRODUCT_SEARCH_UPSTREAM_ERROR);
         }
     }
 }

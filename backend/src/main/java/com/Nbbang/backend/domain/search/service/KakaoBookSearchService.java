@@ -1,5 +1,7 @@
 package com.Nbbang.backend.domain.search.service;
 
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,7 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -22,6 +23,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -71,8 +73,8 @@ public class KakaoBookSearchService {
                     return BigDecimal.valueOf(document.price());
                 }
             }
-        } catch (BookSearchException e) {
-            log.warn("Kakao official price lookup failed: code={}", e.getCode());
+        } catch (CustomException e) {
+            log.warn("Kakao official price lookup failed: code={}", e.getErrorCode().name());
         }
 
         return null;
@@ -105,42 +107,30 @@ public class KakaoBookSearchService {
             throw mapClientError(e);
         } catch (HttpServerErrorException e) {
             log.warn("Kakao book search server error: status={}", e.getStatusCode().value());
-            throw new BookSearchException(
-                    HttpStatus.BAD_GATEWAY,
-                    "BOOK_SEARCH_UPSTREAM_ERROR",
-                    "도서 검색 서비스에 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
-            );
+            throw new CustomException(ErrorCode.BOOK_SEARCH_UPSTREAM_ERROR);
         } catch (ResourceAccessException e) {
-            log.warn("Kakao book search timed out or could not be reached");
-            throw new BookSearchException(
-                    HttpStatus.GATEWAY_TIMEOUT,
-                    "BOOK_SEARCH_TIMEOUT",
-                    "도서 검색 서비스 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요."
-            );
+            ErrorCode errorCode = causedByTimeout(e)
+                    ? ErrorCode.BOOK_SEARCH_TIMEOUT
+                    : ErrorCode.BOOK_SEARCH_UPSTREAM_ERROR;
+            log.warn("Kakao book search connection failed: code={}, type={}",
+                    errorCode.name(), e.getClass().getSimpleName());
+            throw new CustomException(errorCode);
         } catch (RestClientException e) {
             log.warn("Kakao book search request failed: type={}", e.getClass().getSimpleName());
-            throw new BookSearchException(
-                    HttpStatus.BAD_GATEWAY,
-                    "BOOK_SEARCH_UPSTREAM_ERROR",
-                    "도서 검색 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."
-            );
+            throw new CustomException(ErrorCode.BOOK_SEARCH_UPSTREAM_ERROR);
         }
     }
 
     private void validateApiKey() {
         if (restApiKey.isBlank()) {
             log.error("Kakao book search REST API key is not configured");
-            throw new BookSearchException(
-                    HttpStatus.SERVICE_UNAVAILABLE,
-                    "BOOK_SEARCH_NOT_CONFIGURED",
-                    "도서 검색 서비스가 설정되지 않았습니다. 관리자에게 문의해 주세요."
-            );
+            throw new CustomException(ErrorCode.BOOK_SEARCH_NOT_CONFIGURED);
         }
     }
 
     private SearchRequest createSearchRequest(String query) {
         if (query == null || query.trim().isEmpty()) {
-            throw new IllegalArgumentException("검색어를 입력해 주세요.");
+            throw new CustomException(ErrorCode.BOOK_SEARCH_INVALID_QUERY);
         }
 
         String trimmedQuery = query.trim();
@@ -242,31 +232,30 @@ public class KakaoBookSearchService {
         return normalized;
     }
 
-    private BookSearchException mapClientError(HttpClientErrorException e) {
+    private CustomException mapClientError(HttpClientErrorException e) {
         int status = e.getStatusCode().value();
-        if (status == HttpStatus.UNAUTHORIZED.value() || status == HttpStatus.FORBIDDEN.value()) {
+        if (status == 401 || status == 403) {
             log.warn("Kakao book search authentication failed: status={}", status);
-            return new BookSearchException(
-                    HttpStatus.BAD_GATEWAY,
-                    "BOOK_SEARCH_AUTH_ERROR",
-                    "도서 검색 서비스 인증에 실패했습니다. 관리자에게 문의해 주세요."
-            );
+            return new CustomException(ErrorCode.BOOK_SEARCH_AUTH_ERROR);
         }
-        if (status == HttpStatus.TOO_MANY_REQUESTS.value()) {
+        if (status == 429) {
             log.warn("Kakao book search quota exceeded");
-            return new BookSearchException(
-                    HttpStatus.TOO_MANY_REQUESTS,
-                    "BOOK_SEARCH_QUOTA_EXCEEDED",
-                    "오늘 사용할 수 있는 도서 검색 횟수를 초과했습니다. 잠시 후 다시 시도해 주세요."
-            );
+            return new CustomException(ErrorCode.BOOK_SEARCH_QUOTA_EXCEEDED);
         }
 
         log.warn("Kakao book search client error: status={}", status);
-        return new BookSearchException(
-                HttpStatus.BAD_GATEWAY,
-                "BOOK_SEARCH_UPSTREAM_ERROR",
-                "도서 검색 요청을 처리할 수 없습니다. 잠시 후 다시 시도해 주세요."
-        );
+        return new CustomException(ErrorCode.BOOK_SEARCH_UPSTREAM_ERROR);
+    }
+
+    private boolean causedByTimeout(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SocketTimeoutException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private static RestTemplate createRestTemplate() {

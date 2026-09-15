@@ -45,6 +45,7 @@ public enum ErrorCode {
     PAYMENT_INVALID_AMOUNT(400, "결제 금액이 올바르지 않습니다"),
     PAYMENT_ORDER_NOT_FOUND(404, "유효하지 않은 주문입니다"),
     PAYMENT_AMOUNT_MISMATCH(400, "결제 금액이 일치하지 않습니다"),
+    PAYMENT_CANCELLED(400, "결제가 취소되었습니다."),
     PAYMENT_CONFIRM_FAILED(502, "결제 승인에 실패했습니다. 잠시 후 다시 시도해주세요"),
     // ===== 0906 문건우 수정 시작 =====
     // PAY-RQ-001: Toss 취소 API 호출 실패 (네트워크 오류/명시적 거부 모두 포함, 재시도 가능)
@@ -65,6 +66,7 @@ public enum ErrorCode {
     PRODUCT_INVALID_DEADLINE(400, "마감일은 오늘 이후여야 합니다"),
     PRODUCT_INVALID_CATEGORY(400, "올바른 학과 분류를 선택해주세요"),
     PRODUCT_BARCODE_API_ERROR(502, "도서 정보를 불러오지 못했습니다. 직접 입력해주세요"),
+    PRODUCT_SEARCH_UPSTREAM_ERROR(502, "상품 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
     PRODUCT_DUPLICATE(409, "이미 등록된 상품입니다"),
     PRODUCT_REGISTER_FAILED(500, "상품 등록에 실패했습니다. 잠시 후 다시 시도해주세요"),
     PRODUCT_DELETE_FAILED(500, "삭제에 실패했습니다. 잠시 후 다시 시도해주세요"),
@@ -85,10 +87,19 @@ public enum ErrorCode {
     PRODUCT_SELLER_WITHDRAWN(409, "판매자가 탈퇴하여 더 이상 참여할 수 없는 상품입니다"),
     PRODUCT_INTEGRITY_TAMPERED(409, "상품 데이터 무결성 검증에 실패하여 공동구매에 참여할 수 없습니다"),
 
+    // ========== 도서 검색 (BOOK SEARCH) ==========
+    BOOK_SEARCH_INVALID_QUERY(400, "검색어를 입력해 주세요."),
+    BOOK_SEARCH_NOT_CONFIGURED(503, "도서 검색 서비스가 설정되지 않았습니다. 관리자에게 문의해 주세요."),
+    BOOK_SEARCH_AUTH_ERROR(502, "도서 검색 서비스 인증에 실패했습니다. 관리자에게 문의해 주세요."),
+    BOOK_SEARCH_QUOTA_EXCEEDED(429, "도서 검색 요청이 많아 일시적으로 제한되었습니다. 잠시 후 다시 시도해 주세요."),
+    BOOK_SEARCH_UPSTREAM_ERROR(502, "도서 검색 서비스에 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."),
+    BOOK_SEARCH_TIMEOUT(504, "도서 검색 서비스 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요."),
+
     // ========== 판매자 (SELLER) ==========
     SELLER_STATISTICS_LOAD_FAILED(500, "통계 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
     SELLER_SALES_LIST_LOAD_FAILED(500, "판매 현황을 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
     SELLER_NOTIFICATION_LOAD_FAILED(500, "알림을 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
+    NOTIFICATION_NOT_FOUND(404, "존재하지 않는 알림입니다"),
     SELLER_PRODUCT_LIST_LOAD_FAILED(500, "목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
     SELLER_ANALYTICS_LOAD_FAILED(500, "데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
 

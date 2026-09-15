@@ -13,16 +13,18 @@ import com.Nbbang.backend.domain.product.entity.Participation;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ParticipationRepository;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.KeyFactory;
 import java.security.PublicKey;
+import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
 import java.security.spec.X509EncodedKeySpec;
 import java.time.LocalDateTime;
@@ -80,32 +82,26 @@ public class MemberInfoController {
     // 마이페이지 "회원 정보 개요"에 표시할 실제 계정 정보 + CA 인증서 시리얼 번호 조회
     @GetMapping("/info")
     public ResponseEntity<Map<String, Object>> info(HttpServletRequest request) {
-        try {
-            String userId = requireUserId(request);
-            UserAccount user = userAccountRepository.findById(userId)
-                    .orElseThrow(() -> new RuntimeException("존재하지 않는 계정입니다."));
+        String userId = requireUserId(request);
+        UserAccount user = userAccountRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
-            Map<String, Object> body = new HashMap<>();
-            body.put("email", user.getEmail());
-            body.put("nickname", user.getNickname());
-            body.put("role", user.getRole());
-            body.put("createdAt", user.getCreatedAt().format(CREATED_AT_FORMAT));
-            deviceCertRepository.findByUserId(userId).ifPresent(cert -> {
-                body.put("certificateSerialNumber", cert.getCertificateSerialNumber());
-                if (cert.getCertificateIssuedAt() != null) {
-                    body.put("certificateIssuedAt", cert.getCertificateIssuedAt().toString());
-                }
-                if (cert.getCertificateExpiresAt() != null) {
-                    body.put("certificateExpiresAt", cert.getCertificateExpiresAt().toString());
-                }
-            });
+        Map<String, Object> body = new HashMap<>();
+        body.put("email", user.getEmail());
+        body.put("nickname", user.getNickname());
+        body.put("role", user.getRole());
+        body.put("createdAt", user.getCreatedAt().format(CREATED_AT_FORMAT));
+        deviceCertRepository.findByUserId(userId).ifPresent(cert -> {
+            body.put("certificateSerialNumber", cert.getCertificateSerialNumber());
+            if (cert.getCertificateIssuedAt() != null) {
+                body.put("certificateIssuedAt", cert.getCertificateIssuedAt().toString());
+            }
+            if (cert.getCertificateExpiresAt() != null) {
+                body.put("certificateExpiresAt", cert.getCertificateExpiresAt().toString());
+            }
+        });
 
-            return ResponseEntity.ok(body);
-        } catch (Exception e) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.internalServerError().body(error);
-        }
+        return ResponseEntity.ok(body);
     }
 
     // [UI-RQ-001] 프론트 라우트 가드(PrivateRoute/AdminRoute)가 localStorage(위변조 가능) 대신
@@ -131,36 +127,30 @@ public class MemberInfoController {
     @PatchMapping("/profile")
     public ResponseEntity<Map<String, Object>> updateProfile(@RequestBody Map<String, String> request,
                                                                HttpServletRequest httpRequest) {
-        try {
-            String userId = requireUserId(httpRequest);
-            UserAccount user = userAccountRepository.findById(userId)
-                    .orElseThrow(() -> new RuntimeException("존재하지 않는 계정입니다."));
+        String userId = requireUserId(httpRequest);
+        UserAccount user = userAccountRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
-            String nickname = request.get("nickname");
-            if (nickname != null && !nickname.trim().isEmpty()) {
-                user.setNickname(nickname.trim());
-            }
-
-            String newPassword = request.get("newPassword");
-            if (newPassword != null && !newPassword.isEmpty()) {
-                if (newPassword.length() < 8 || !PASSWORD_COMPOSITION_REGEX.matcher(newPassword).matches()) {
-                    throw new RuntimeException("비밀번호는 8자 이상, 영문/숫자/특수문자를 모두 포함해야 합니다.");
-                }
-                user.setPassword(passwordEncoder.encode(newPassword));
-            }
-
-            userAccountRepository.save(user);
-            httpRequest.getSession().setAttribute("nickname", user.getNickname());
-
-            Map<String, Object> body = new HashMap<>();
-            body.put("nickname", user.getNickname());
-            body.put("message", "회원 정보가 수정되었습니다.");
-            return ResponseEntity.ok(body);
-        } catch (Exception e) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.internalServerError().body(error);
+        String nickname = request.get("nickname");
+        if (nickname != null && !nickname.trim().isEmpty()) {
+            user.setNickname(nickname.trim());
         }
+
+        String newPassword = request.get("newPassword");
+        if (newPassword != null && !newPassword.isEmpty()) {
+            if (newPassword.length() < 8 || !PASSWORD_COMPOSITION_REGEX.matcher(newPassword).matches()) {
+                throw new CustomException(ErrorCode.VALIDATION_FAILED);
+            }
+            user.setPassword(passwordEncoder.encode(newPassword));
+        }
+
+        userAccountRepository.save(user);
+        httpRequest.getSession().setAttribute("nickname", user.getNickname());
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("nickname", user.getNickname());
+        body.put("message", "회원 정보가 수정되었습니다.");
+        return ResponseEntity.ok(body);
     }
 
     // 마이페이지에서 로그인된 상태로 바로 인증서 재발급 (본인인증 재실행 없이, 이미 저장된 ci_hash를 그대로 유지)
@@ -168,49 +158,38 @@ public class MemberInfoController {
     @Transactional
     public ResponseEntity<Map<String, Object>> reissueCertificate(@RequestBody Map<String, String> request,
                                                                     HttpServletRequest httpRequest) {
-        try {
-            String userId = requireUserId(httpRequest);
-            String publicKey = request.get("publicKey");
-            String deviceId = request.get("deviceId");
-            if (publicKey == null || publicKey.isEmpty()) throw new RuntimeException("공개키가 필요합니다.");
-            if (deviceId == null || deviceId.isEmpty()) throw new RuntimeException("기기 ID가 필요합니다.");
-
-            DeviceCert cert = deviceCertRepository.findByUserId(userId)
-                    .orElseThrow(() -> new RuntimeException("발급된 인증서가 없습니다."));
-
-            byte[] encodedPublicKey = Base64.getDecoder().decode(publicKey);
-            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-            PublicKey devicePublicKey = keyFactory.generatePublic(new X509EncodedKeySpec(encodedPublicKey));
-            X509Certificate certificate = caService.issueDeviceCertificate(devicePublicKey, deviceId);
-            String serialNumber = certificate.getSerialNumber().toString();
-
-            LocalDateTime certIssuedAt = toLocalDateTime(certificate.getNotBefore());
-            LocalDateTime certExpiresAt = toLocalDateTime(certificate.getNotAfter());
-
-            cert.setDeviceId(deviceId);
-            cert.setPublicKey(publicKey);
-            cert.setCertificateSerialNumber(serialNumber);
-            cert.setRevoked(false);
-            cert.setCertificateIssuedAt(certIssuedAt);
-            cert.setCertificateExpiresAt(certExpiresAt);
-            deviceCertRepository.save(cert);
-
-            certificateSessionService.startSession(userId); // 10분 유효 타이머 재시작
-
-            Map<String, Object> body = new HashMap<>();
-            body.put("certificateSerialNumber", serialNumber);
-            body.put("certificateIssuedAt", certIssuedAt.toString());
-            body.put("certificateExpiresAt", certExpiresAt.toString());
-            body.put("message", "인증서가 재발급되었습니다.");
-            return ResponseEntity.ok(body);
-        } catch (Exception e) {
-            // [MEM-RQ-001] @Transactional 메서드 안에서 예외를 삼키면 스프링이 롤백 시점을 놓친다.
-            // (DeviceCert 저장 후 타이머 시작에서 실패하면 인증서만 갱신된 채 커밋될 수 있음)
-            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.internalServerError().body(error);
+        String userId = requireUserId(httpRequest);
+        String publicKey = request.get("publicKey");
+        String deviceId = request.get("deviceId");
+        if (publicKey == null || publicKey.isEmpty() || deviceId == null || deviceId.isEmpty()) {
+            throw new CustomException(ErrorCode.VALIDATION_FAILED);
         }
+
+        DeviceCert cert = deviceCertRepository.findByUserId(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_UNREGISTERED_DEVICE));
+
+        X509Certificate certificate = issueDeviceCertificate(publicKey, deviceId);
+        String serialNumber = certificate.getSerialNumber().toString();
+
+        LocalDateTime certIssuedAt = toLocalDateTime(certificate.getNotBefore());
+        LocalDateTime certExpiresAt = toLocalDateTime(certificate.getNotAfter());
+
+        cert.setDeviceId(deviceId);
+        cert.setPublicKey(publicKey);
+        cert.setCertificateSerialNumber(serialNumber);
+        cert.setRevoked(false);
+        cert.setCertificateIssuedAt(certIssuedAt);
+        cert.setCertificateExpiresAt(certExpiresAt);
+        deviceCertRepository.save(cert);
+
+        certificateSessionService.startSession(userId); // 10분 유효 타이머 재시작
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("certificateSerialNumber", serialNumber);
+        body.put("certificateIssuedAt", certIssuedAt.toString());
+        body.put("certificateExpiresAt", certExpiresAt.toString());
+        body.put("message", "인증서가 재발급되었습니다.");
+        return ResponseEntity.ok(body);
     }
 
     // 회원 탈퇴 (MEM-RQ-001, MEM-RQ-002)
@@ -222,46 +201,49 @@ public class MemberInfoController {
     @DeleteMapping("/withdraw")
     @Transactional
     public ResponseEntity<Map<String, String>> withdraw(HttpServletRequest request) {
+        String userId = requireUserId(request);
+        UserAccount user = userAccountRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+
+        certificateSessionService.revoke(userId);
+
+        for (Product product : productRepository.findBySellerEmailOrderByCreatedAtDesc(userId)) {
+            if ("OPEN".equals(product.getStatus()) || "FULL".equals(product.getStatus())) {
+                product.setStatus("SELLER_WITHDRAWN");
+            }
+        }
+
+        // [MEM-RQ-001] 참여/결제 기록(감사 데이터)은 그대로 두되, 화면에 노출되는 닉네임 스냅샷만 익명화
+        for (Participation participation : participationRepository.findByMember_EmailOrderByJoinDateDesc(userId)) {
+            participation.setBuyerName(ANONYMIZED_DISPLAY_NAME);
+        }
+        for (Payment payment : paymentRepository.findByMember_Email(userId)) {
+            payment.setBuyerName(ANONYMIZED_DISPLAY_NAME);
+        }
+
+        user.setStatus("WITHDRAWN");
+        userAccountRepository.save(user);
+
+        // [NFR-002] 회원 탈퇴는 감사 로그 대상
+        systemLogService.log("MEMBER", "SUCCESS", "회원 탈퇴: " + userId);
+
+        request.getSession().invalidate();
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "회원 탈퇴가 완료되었습니다.");
+        return ResponseEntity.ok(response);
+    }
+
+    private X509Certificate issueDeviceCertificate(String encodedKey, String deviceId) {
         try {
-            String userId = requireUserId(request);
-            UserAccount user = userAccountRepository.findById(userId)
-                    .orElseThrow(() -> new RuntimeException("존재하지 않는 계정입니다."));
-
-            certificateSessionService.revoke(userId);
-
-            for (Product product : productRepository.findBySellerEmailOrderByCreatedAtDesc(userId)) {
-                if ("OPEN".equals(product.getStatus()) || "FULL".equals(product.getStatus())) {
-                    product.setStatus("SELLER_WITHDRAWN");
-                }
-            }
-
-            // [MEM-RQ-001] 참여/결제 기록(감사 데이터)은 그대로 두되, 화면에 노출되는 닉네임 스냅샷만 익명화
-            for (Participation participation : participationRepository.findByMember_EmailOrderByJoinDateDesc(userId)) {
-                participation.setBuyerName(ANONYMIZED_DISPLAY_NAME);
-            }
-            for (Payment payment : paymentRepository.findByMember_Email(userId)) {
-                payment.setBuyerName(ANONYMIZED_DISPLAY_NAME);
-            }
-
-            user.setStatus("WITHDRAWN");
-            userAccountRepository.save(user);
-
-            // [NFR-002] 회원 탈퇴는 감사 로그 대상
-            systemLogService.log("MEMBER", "SUCCESS", "회원 탈퇴: " + userId);
-
-            request.getSession().invalidate();
-
-            Map<String, String> response = new HashMap<>();
-            response.put("message", "회원 탈퇴가 완료되었습니다.");
-            return ResponseEntity.ok(response);
+            byte[] encodedPublicKey = Base64.getDecoder().decode(encodedKey);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            PublicKey devicePublicKey = keyFactory.generatePublic(new X509EncodedKeySpec(encodedPublicKey));
+            return caService.issueDeviceCertificate(devicePublicKey, deviceId);
+        } catch (IllegalArgumentException | GeneralSecurityException e) {
+            throw new CustomException(ErrorCode.VALIDATION_FAILED);
         } catch (Exception e) {
-            // [MEM-RQ-001] @Transactional 메서드 안에서 예외를 잡아 정상 응답으로 바꾸면
-            // 스프링이 롤백 시점을 놓쳐 상품 상태 전환/닉네임 익명화 등 일부만 커밋될 수 있다.
-            // 명시적으로 rollback-only로 표시해 전체가 원자적으로 롤백되도록 한다.
-            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.internalServerError().body(error);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -272,7 +254,7 @@ public class MemberInfoController {
     private String requireUserId(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("userId") == null) {
-            throw new RuntimeException("로그인이 필요합니다.");
+            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
         }
         return (String) session.getAttribute("userId");
     }

@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
+import java.util.UUID;
+
 /**
  * 전역 예외 처리 핸들러.
  * 어디서든 예외가 발생하면 자동으로 잡아서 ErrorResponse 형태로 프론트에 응답합니다.
@@ -60,7 +62,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(final Exception e, final HttpServletRequest request) {
-        log.error("처리되지 않은 예외 발생: path={}", request.getRequestURI(), e);
+        String errorId = UUID.randomUUID().toString();
+        log.error("처리되지 않은 예외 발생: errorId={}, path={}, type={}",
+                errorId, request.getRequestURI(), e.getClass().getSimpleName());
         return ResponseEntity
                 .status(500)
                 .body(ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR, request.getRequestURI()));

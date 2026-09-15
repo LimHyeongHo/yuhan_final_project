@@ -8,6 +8,7 @@ import com.Nbbang.backend.domain.product.repository.ParticipationRepository;
 import com.Nbbang.backend.domain.product.repository.ProductPriceHistoryRepository;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
 import com.Nbbang.backend.domain.product.repository.ScrapRepository;
+import com.Nbbang.backend.domain.search.service.KakaoBookSearchService;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,7 +50,9 @@ class ProductServiceTest {
                 mock(ScrapRepository.class),
                 mock(UserAccountRepository.class),
                 productHashService,
+                mock(KakaoBookSearchService.class),
                 blockchainService,
+                mock(VerificationService.class),
                 paymentRepository,
                 productPriceHistoryRepository);
     }

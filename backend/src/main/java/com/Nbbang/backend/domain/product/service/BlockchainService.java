@@ -111,9 +111,9 @@ public class BlockchainService {
                 }
             } catch (RuntimeException e) {
                 updateJobState(product.getProductId(), BlockchainJobStatus.FAILED_FINAL,
-                        null, product.getBlockchainRetryCount(), errorMessage(e));
-                log.error("Failed to resume blockchain job. productId={}",
-                        product.getProductId(), e);
+                        null, product.getBlockchainRetryCount(), safeErrorMessage(e));
+                log.error("Failed to resume blockchain job. productId={}, type={}",
+                        product.getProductId(), e.getClass().getSimpleName());
             }
         }
     }
@@ -128,8 +128,9 @@ public class BlockchainService {
                         productId, result.code(), result.message());
             }
         } catch (RuntimeException e) {
-            updateJobState(productId, BlockchainJobStatus.FAILED_FINAL, null, 0, errorMessage(e));
-            log.error("Unexpected blockchain anchoring failure. productId={}", productId, e);
+            updateJobState(productId, BlockchainJobStatus.FAILED_FINAL, null, 0, safeErrorMessage(e));
+            log.error("Unexpected blockchain anchoring failure. productId={}, type={}",
+                    productId, e.getClass().getSimpleName());
         }
     }
 
@@ -165,10 +166,11 @@ public class BlockchainService {
             result = waitForConfirmation(
                     web3j, productId, dataHash, submission.result().txHash());
         } catch (Exception e) {
-            String message = errorMessage(e);
-            result = isReceiptTimeout(message) || classifyRpcError(message) == RpcErrorType.NETWORK
-                    ? BlockchainWriteResult.timeout(submission.result().txHash(), message)
-                    : BlockchainWriteResult.failure(submission.result().txHash(), message);
+            String rawMessage = rawErrorMessage(e);
+            String safeMessage = safeErrorMessage(e);
+            result = isReceiptTimeout(rawMessage) || classifyRpcError(rawMessage) == RpcErrorType.NETWORK
+                    ? BlockchainWriteResult.timeout(submission.result().txHash(), safeMessage)
+                    : BlockchainWriteResult.failure(submission.result().txHash(), safeMessage);
         } finally {
             shutdown(web3j);
         }
@@ -201,17 +203,18 @@ public class BlockchainService {
                     gasPrice = gasPrice(web3j);
                     break;
                 } catch (Exception e) {
-                    String message = errorMessage(e);
-                    if (classifyRpcError(message) != RpcErrorType.NETWORK
+                    String rawMessage = rawErrorMessage(e);
+                    String safeMessage = safeErrorMessage(e);
+                    if (classifyRpcError(rawMessage) != RpcErrorType.NETWORK
                             || setupAttempt >= maxRetryAttempts) {
-                        BlockchainWriteResult failure = BlockchainWriteResult.failure(null, message);
+                        BlockchainWriteResult failure = BlockchainWriteResult.failure(null, safeMessage);
                         int totalRetryCount = initialRetryCount + setupAttempt;
                         applyWriteResult(productId, failure, totalRetryCount);
                         return SubmissionResult.rejected(failure, totalRetryCount);
                     }
                     setupRetryCount = setupAttempt + 1;
                     updateJobState(productId, BlockchainJobStatus.FAILED_RETRYABLE,
-                            null, initialRetryCount + setupRetryCount, message);
+                            null, initialRetryCount + setupRetryCount, safeMessage);
                     pauseBeforeRetry();
                 }
             }
@@ -243,10 +246,11 @@ public class BlockchainService {
                         return SubmissionResult.accepted(txHash, totalRetryCount);
                     }
 
-                    String message = response.getError() == null
+                    String rawMessage = response.getError() == null
                             ? "트랜잭션 전송 RPC가 오류를 반환했습니다."
                             : response.getError().getMessage();
-                    RpcErrorType errorType = classifyRpcError(message);
+                    RpcErrorType errorType = classifyRpcError(rawMessage);
+                    String safeMessage = safeRpcErrorMessage(errorType);
                     if (errorType == RpcErrorType.ALREADY_KNOWN
                             || (ambiguousNetworkFailure && errorType == RpcErrorType.NONCE_TOO_LOW)) {
                         int totalRetryCount = initialRetryCount + setupRetryCount + retryCount;
@@ -255,8 +259,7 @@ public class BlockchainService {
                         return SubmissionResult.accepted(localTxHash, totalRetryCount);
                     }
                     if (!errorType.retryable() || retryCount >= maxRetryAttempts) {
-                        BlockchainWriteResult failure = BlockchainWriteResult.failure(null,
-                                "트랜잭션 전송 오류: " + message);
+                        BlockchainWriteResult failure = BlockchainWriteResult.failure(null, safeMessage);
                         int totalRetryCount = initialRetryCount + setupRetryCount + retryCount;
                         applyWriteResult(productId, failure, totalRetryCount);
                         return SubmissionResult.rejected(failure, totalRetryCount);
@@ -264,7 +267,7 @@ public class BlockchainService {
 
                     int nextRetryCount = initialRetryCount + setupRetryCount + retryCount + 1;
                     updateJobState(productId, BlockchainJobStatus.FAILED_RETRYABLE,
-                            null, nextRetryCount, message);
+                            null, nextRetryCount, safeMessage);
                     if (errorType == RpcErrorType.NONCE_TOO_LOW) {
                         nonce = pendingNonce(web3j, credentials);
                     } else if (errorType == RpcErrorType.REPLACEMENT_UNDERPRICED) {
@@ -273,17 +276,18 @@ public class BlockchainService {
                     }
                     pauseBeforeRetry();
                 } catch (Exception e) {
-                    String message = errorMessage(e);
-                    if (classifyRpcError(message) != RpcErrorType.NETWORK
+                    String rawMessage = rawErrorMessage(e);
+                    String safeMessage = safeErrorMessage(e);
+                    if (classifyRpcError(rawMessage) != RpcErrorType.NETWORK
                             || retryCount >= maxRetryAttempts) {
-                        BlockchainWriteResult failure = BlockchainWriteResult.failure(null, message);
+                        BlockchainWriteResult failure = BlockchainWriteResult.failure(null, safeMessage);
                         int totalRetryCount = initialRetryCount + setupRetryCount + retryCount;
                         applyWriteResult(productId, failure, totalRetryCount);
                         return SubmissionResult.rejected(failure, totalRetryCount);
                     }
                     ambiguousNetworkFailure = true;
                     updateJobState(productId, BlockchainJobStatus.FAILED_RETRYABLE,
-                            null, initialRetryCount + setupRetryCount + retryCount + 1, message);
+                            null, initialRetryCount + setupRetryCount + retryCount + 1, safeMessage);
                     pauseBeforeRetry();
                 }
             }
@@ -294,7 +298,7 @@ public class BlockchainService {
             applyWriteResult(productId, failure, totalRetryCount);
             return SubmissionResult.rejected(failure, totalRetryCount);
         } catch (Exception e) {
-            BlockchainWriteResult failure = BlockchainWriteResult.failure(null, errorMessage(e));
+            BlockchainWriteResult failure = BlockchainWriteResult.failure(null, safeErrorMessage(e));
             applyWriteResult(productId, failure, initialRetryCount);
             return SubmissionResult.rejected(failure, initialRetryCount);
         } finally {
@@ -321,7 +325,7 @@ public class BlockchainService {
             EthGetTransactionReceipt response = web3j.ethGetTransactionReceipt(txHash).send();
             if (response.hasError()) {
                 result = BlockchainWriteResult.unavailable(
-                        txHash, "트랜잭션 영수증 조회 오류: " + response.getError().getMessage());
+                        txHash, "블록체인 트랜잭션 상태를 확인하지 못했습니다.");
             } else if (response.getTransactionReceipt().isEmpty()) {
                 result = BlockchainWriteResult.pending(txHash);
             } else {
@@ -330,7 +334,7 @@ public class BlockchainService {
                         response.getTransactionReceipt().get());
             }
         } catch (Exception e) {
-            result = BlockchainWriteResult.unavailable(txHash, errorMessage(e));
+            result = BlockchainWriteResult.unavailable(txHash, safeErrorMessage(e));
         } finally {
             shutdown(web3j);
         }
@@ -388,7 +392,7 @@ public class BlockchainService {
             web3j = createWeb3j();
             return readHash(web3j, productId);
         } catch (Exception e) {
-            return BlockchainReadResult.unavailable(errorMessage(e));
+            return BlockchainReadResult.unavailable(safeErrorMessage(e));
         } finally {
             shutdown(web3j);
         }
@@ -406,7 +410,7 @@ public class BlockchainService {
                 .send();
 
         if (response.hasError()) {
-            return BlockchainReadResult.unavailable(response.getError().getMessage());
+            return BlockchainReadResult.unavailable("블록체인 조회 응답에 오류가 발생했습니다.");
         }
         if (response.getValue() == null || response.getValue().equals("0x")) {
             return BlockchainReadResult.notFound("컨트랙트 호출 결과가 비어 있습니다.");
@@ -434,7 +438,7 @@ public class BlockchainService {
         EthGetTransactionCount response = web3j.ethGetTransactionCount(
                         credentials.getAddress(), DefaultBlockParameterName.PENDING).send();
         if (response.hasError()) {
-            throw new IOException("Pending nonce 조회 실패: " + response.getError().getMessage());
+            throw new IOException(response.getError().getMessage());
         }
         if (response.getTransactionCount() == null) {
             throw new IOException("Pending nonce 응답이 비어 있습니다.");
@@ -445,7 +449,7 @@ public class BlockchainService {
     private BigInteger gasPrice(Web3j web3j) throws IOException {
         EthGasPrice response = web3j.ethGasPrice().send();
         if (response.hasError()) {
-            throw new IOException("Gas price 조회 실패: " + response.getError().getMessage());
+            throw new IOException(response.getError().getMessage());
         }
         if (response.getGasPrice() == null) {
             throw new IOException("Gas price 응답이 비어 있습니다.");
@@ -550,7 +554,7 @@ public class BlockchainService {
         return message == null ? "" : message.toLowerCase(Locale.ROOT);
     }
 
-    private String errorMessage(Throwable throwable) {
+    private String rawErrorMessage(Throwable throwable) {
         Throwable current = throwable;
         while (current.getCause() != null && current.getCause() != current) {
             current = current.getCause();
@@ -559,6 +563,25 @@ public class BlockchainService {
         return message == null || message.isBlank()
                 ? current.getClass().getSimpleName()
                 : message;
+    }
+
+    private String safeErrorMessage(Throwable throwable) {
+        String rawMessage = rawErrorMessage(throwable);
+        if (isReceiptTimeout(rawMessage)) {
+            return "블록체인 트랜잭션 확인 시간이 초과되었습니다.";
+        }
+        return safeRpcErrorMessage(classifyRpcError(rawMessage));
+    }
+
+    private String safeRpcErrorMessage(RpcErrorType errorType) {
+        return switch (errorType) {
+            case ALREADY_KNOWN -> "이미 전송된 블록체인 트랜잭션입니다.";
+            case NONCE_TOO_LOW -> "블록체인 트랜잭션 순번이 충돌했습니다.";
+            case REPLACEMENT_UNDERPRICED -> "블록체인 트랜잭션 수수료가 부족합니다.";
+            case TXPOOL_FULL -> "블록체인 트랜잭션 대기열이 가득 찼습니다.";
+            case NETWORK -> "블록체인 네트워크에 일시적으로 연결할 수 없습니다.";
+            case FINAL -> "블록체인 요청 처리에 실패했습니다.";
+        };
     }
 
     private String normalizeHash(String hash) {

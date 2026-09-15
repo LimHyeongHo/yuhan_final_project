@@ -1,5 +1,7 @@
 package com.Nbbang.backend.domain.auth.controller;
 
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
 import org.springframework.web.bind.annotation.*;
 
 import javax.crypto.Cipher;
@@ -50,7 +52,7 @@ public class PkiTestUtilController {
             byte[] decrypted = cipher.doFinal(Base64.getDecoder().decode(challengeBase64));
             answer = new String(decrypted, "UTF-8");
         } catch (Exception e) {
-            throw new RuntimeException("챌린지 복호화 실패: " + e.getMessage());
+            throw new CustomException(ErrorCode.VALIDATION_FAILED);
         }
 
         Map<String, String> result = new HashMap<>();

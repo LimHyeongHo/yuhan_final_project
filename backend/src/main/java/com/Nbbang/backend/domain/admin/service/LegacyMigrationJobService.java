@@ -1,5 +1,7 @@
 package com.Nbbang.backend.domain.admin.service;
 
+import com.Nbbang.backend.global.exception.CustomException;
+import com.Nbbang.backend.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -128,10 +130,12 @@ public class LegacyMigrationJobService {
         }
 
         private synchronized void fail(Exception exception) {
+            ErrorCode errorCode = exception instanceof CustomException customException
+                    ? customException.getErrorCode()
+                    : ErrorCode.ADMIN_SYNC_FAILED;
             state.put("status", "FAILED");
-            state.put("message", exception.getMessage() == null
-                    ? exception.getClass().getSimpleName()
-                    : exception.getMessage());
+            state.put("code", errorCode.name());
+            state.put("message", errorCode.getMessage());
             state.put("currentProductId", null);
             state.put("completedAt", Instant.now().toString());
         }

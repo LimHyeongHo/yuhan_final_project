@@ -1,6 +1,7 @@
 package com.Nbbang.backend.domain.product.service;
 
 import com.Nbbang.backend.domain.log.repository.SystemLogRepository;
+import com.Nbbang.backend.domain.notification.repository.NotificationRepository;
 import com.Nbbang.backend.domain.product.entity.BlockchainJobStatus;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
@@ -27,6 +28,7 @@ class VerificationServiceTest {
     @Mock private ProductHashService productHashService;
     @Mock private KakaoBookSearchService kakaoBookSearchService;
     @Mock private SystemLogRepository systemLogRepository;
+    @Mock private NotificationRepository notificationRepository;
 
     private VerificationService verificationService;
     private Product product;
@@ -38,7 +40,8 @@ class VerificationServiceTest {
                 blockchainService,
                 productHashService,
                 kakaoBookSearchService,
-                systemLogRepository);
+                systemLogRepository,
+                notificationRepository);
         product = new Product();
         product.setProductId(1L);
         product.setBlockchainStatus(BlockchainJobStatus.SUBMITTED);

@@ -34,46 +34,33 @@ public class CAController {
     }
 
     @PostMapping("/issue")
-    public Map<String, String> issueCertificate(@RequestBody Map<String, String> request, HttpSession session) {
+    public Map<String, String> issueCertificate(@RequestBody Map<String, String> request, HttpSession session) throws Exception {
         requireAdmin(session);
-        try {
-            String deviceId = request.get("deviceId");
-            String publicKeyBase64 = request.get("publicKey");
+        String deviceId = request.get("deviceId");
+        String publicKeyBase64 = request.get("publicKey");
 
-            // Base64 공개키 복원
-            byte[] encodedPublicKey = Base64.decode(publicKeyBase64);
-            KeyFactory keyFactory = KeyFactory.getInstance("RSA", "BC");
-            PublicKey devicePublicKey = keyFactory.generatePublic(new X509EncodedKeySpec(encodedPublicKey));
+        // Base64 공개키 복원
+        byte[] encodedPublicKey = Base64.decode(publicKeyBase64);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA", "BC");
+        PublicKey devicePublicKey = keyFactory.generatePublic(new X509EncodedKeySpec(encodedPublicKey));
 
-            // 인증서 발급
-            X509Certificate certificate = caService.issueDeviceCertificate(devicePublicKey, deviceId);
+        // 인증서 발급
+        X509Certificate certificate = caService.issueDeviceCertificate(devicePublicKey, deviceId);
 
-            Map<String, String> response = new HashMap<>();
-            response.put("certificate", Base64.toBase64String(certificate.getEncoded()));
-            response.put("serialNumber", certificate.getSerialNumber().toString());
-            return response;
-        } catch (Exception e) {
-            e.printStackTrace();
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return error;
-        }
+        Map<String, String> response = new HashMap<>();
+        response.put("certificate", Base64.toBase64String(certificate.getEncoded()));
+        response.put("serialNumber", certificate.getSerialNumber().toString());
+        return response;
     }
 
     @PostMapping("/revoke")
     public Map<String, String> revokeCertificate(@RequestBody Map<String, String> request, HttpSession session) {
         requireAdmin(session);
-        try {
-            BigInteger serialNumber = new BigInteger(request.get("serialNumber"));
-            caService.revokeCertificate(serialNumber);
-            Map<String, String> response = new HashMap<>();
-            response.put("status", "revoked");
-            return response;
-        } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return error;
-        }
+        BigInteger serialNumber = new BigInteger(request.get("serialNumber"));
+        caService.revokeCertificate(serialNumber);
+        Map<String, String> response = new HashMap<>();
+        response.put("status", "revoked");
+        return response;
     }
 
     @GetMapping("/verify/{serialNumber}")
@@ -86,16 +73,10 @@ public class CAController {
     }
 
     @GetMapping("/root-cert")
-    public Map<String, String> getRootCertificate() {
-        try {
-            X509Certificate rootCert = caService.getRootCertificate();
-            Map<String, String> response = new HashMap<>();
-            response.put("certificate", Base64.toBase64String(rootCert.getEncoded()));
-            return response;
-        } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return error;
-        }
+    public Map<String, String> getRootCertificate() throws Exception {
+        X509Certificate rootCert = caService.getRootCertificate();
+        Map<String, String> response = new HashMap<>();
+        response.put("certificate", Base64.toBase64String(rootCert.getEncoded()));
+        return response;
     }
 }

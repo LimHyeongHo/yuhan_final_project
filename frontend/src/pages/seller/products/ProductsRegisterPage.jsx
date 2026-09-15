@@ -5,6 +5,23 @@ import Header from '../../../components/layout/Header';
 import { PRODUCT_CATEGORIES } from '../../../constants/productCategories';
 import { getDepartmentBooks } from '../../../constants/departmentBooks';
 
+const BOOK_SEARCH_ERROR_FALLBACKS = {
+  BOOK_SEARCH_INVALID_QUERY: '검색어를 입력해 주세요.',
+  BOOK_SEARCH_NOT_CONFIGURED: '도서 검색 서비스가 설정되지 않았습니다. 관리자에게 문의해 주세요.',
+  BOOK_SEARCH_AUTH_ERROR: '도서 검색 서비스 인증에 실패했습니다. 관리자에게 문의해 주세요.',
+  BOOK_SEARCH_QUOTA_EXCEEDED: '도서 검색 요청이 많아 일시적으로 제한되었습니다. 잠시 후 다시 시도해 주세요.',
+  BOOK_SEARCH_UPSTREAM_ERROR: '도서 검색 서비스에 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+  BOOK_SEARCH_TIMEOUT: '도서 검색 서비스 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.',
+};
+
+const getSearchErrorMessage = (errorData) => {
+  const body = Array.isArray(errorData) ? errorData[0] : errorData;
+  return body?.message
+    || body?.error
+    || BOOK_SEARCH_ERROR_FALLBACKS[body?.code]
+    || '상품을 찾을 수 없습니다. 직접 입력해 주세요.';
+};
+
 const ProductRegisterPage = () => {
   const navigate = useNavigate();
   const submitLockRef = useRef(false);
@@ -91,14 +108,17 @@ const ProductRegisterPage = () => {
       } else {
         try {
           const errorData = await response.json();
-          const errorMessage = Array.isArray(errorData) ? errorData[0]?.error : errorData.error;
-          alert(errorMessage || "상품을 찾을 수 없습니다. 직접 입력해 주세요.");
-        } catch (e) {
-          alert("상품을 찾을 수 없습니다. 직접 입력해 주세요.");
+          alert(getSearchErrorMessage(errorData));
+        } catch {
+          alert("검색 오류 응답을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.");
         }
       }
     } catch (error) {
-      alert("검색 중 오류가 발생했습니다. 백엔드 서버를 확인해 주세요.");
+      if (error?.name === 'AbortError') {
+        alert("검색 요청이 취소되었습니다.");
+      } else {
+        alert("검색 서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+      }
     } finally {
       setIsSearching(false);
     }

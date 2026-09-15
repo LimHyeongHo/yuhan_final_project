@@ -302,7 +302,7 @@ const LoginPage = () => {
         alert("인증서가 성공적으로 재발급되었습니다! 이제 로그인이 가능합니다.");
       } else {
         const data = await res.json();
-        throw new Error(data.error || "재발급 중 오류 발생");
+        throw new Error(data.message || data.error || "재발급 중 오류 발생");
       }
     } catch (e) {
       alert("오류: " + e.message);
