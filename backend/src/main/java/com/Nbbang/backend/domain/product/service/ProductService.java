@@ -5,6 +5,7 @@ import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
 import com.Nbbang.backend.domain.payment.repository.PaymentRepository;
 import com.Nbbang.backend.domain.product.entity.Participation;
 import com.Nbbang.backend.domain.product.entity.ProductPriceHistory;
+import com.Nbbang.backend.domain.product.entity.ProductCategory;
 import com.Nbbang.backend.domain.product.entity.Scrap;
 import com.Nbbang.backend.domain.product.repository.ParticipationRepository;
 import com.Nbbang.backend.domain.product.repository.ProductPriceHistoryRepository;
@@ -29,6 +30,9 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.List;
 import java.util.Map;
+/// [+] 오브젝트 라이브러리 추가
+import java.util.Objects;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -59,6 +63,7 @@ public class ProductService {
 
         // [신규] PRD-RQ-005: 가격은 100원 단위로만 등록 가능
         validatePriceUnit(product.getPrice());
+        product.setCategory(normalizeCategory(product.getCategory()));
 
         // 정가(originalPrice) 정보가 폼에 없어서 null일 경우 공구가와 동일하게 처리
         if (product.getOriginalPrice() == null) {
@@ -226,6 +231,18 @@ public class ProductService {
         }
     }
 
+    private String normalizeCategory(String category) {
+        if (category == null || category.isBlank()) {
+            return ProductCategory.GENERAL.name();
+        }
+
+        String normalized = category.trim().toUpperCase(Locale.ROOT);
+        if (!ProductCategory.supports(normalized)) {
+            throw new CustomException(ErrorCode.PRODUCT_INVALID_CATEGORY);
+        }
+        return normalized;
+    }
+
     // 참여 취소(공용 케이스 없는 취소)는 PaymentService.cancelParticipation으로 이동함
     // (Participation/Payment 상태를 함께 다뤄야 해서 리포지토리를 모두 가진 PaymentService에 둠)
 
@@ -233,6 +250,7 @@ public class ProductService {
     @Transactional
     public Product updateProduct(Long id, Product updatedData, MultipartFile image, String sellerEmail) {
         Product product = getProductById(id);
+        boolean isBook = "BOOK".equals(product.getType());
 
         // [신규] 소유자 확인 — 지금까지 이 엔드포인트엔 소유자 체크가 전혀 없어서 누구나 남의 상품을 수정할 수 있었음
         if (sellerEmail == null || !sellerEmail.equals(product.getSellerEmail())) {
@@ -254,7 +272,10 @@ public class ProductService {
         validatePriceUnit(updatedData.getPrice());
 
         BigDecimal oldPrice = product.getPrice();
+        /// [+] 상품 정보 업데이트 시 기존 ISBN을 가지고 오고 새로운 데이터와 비교하는 코드 추가
+        String oldIsbn = product.getIsbn();
         boolean priceChanged = updatedData.getPrice() != null && oldPrice.compareTo(updatedData.getPrice()) != 0;
+        boolean isbnChanged = !isBook && updatedData.getIsbn() != null && !Objects.equals(oldIsbn, updatedData.getIsbn());
 
         if (priceChanged) {
             // [신규] PRD-RQ-004: 가격 인상은 이번 스코프에서 허용하지 않음
@@ -267,25 +288,44 @@ public class ProductService {
             }
         }
 
-        // 필드 업데이트
-        product.setTitle(updatedData.getTitle());
-        product.setType(updatedData.getType());
-        // product.setCategory(updatedData.getCategory()); // TODO: fix/search_bug 브랜치 병합 후 주석 해제 (category 연동)
-        product.setPrice(updatedData.getPrice());
-        product.setOriginalPrice(updatedData.getOriginalPrice() != null ? updatedData.getOriginalPrice() : updatedData.getPrice());
-        product.setTargetCount(updatedData.getTargetCount());
-        if (updatedData.getDeadline() != null) {
-            product.setDeadline(updatedData.getDeadline());
-        }
-        product.setDescription(updatedData.getDescription());
-        product.setPublisher(updatedData.getPublisher());
-        product.setAuthor(updatedData.getAuthor());
-        if (updatedData.getImageUrl() != null && !updatedData.getImageUrl().isEmpty()) {
-            product.setImageUrl(updatedData.getImageUrl());
+        if (isBook) {
+            // 도서 메타데이터는 보호하고, 학과 분류와 공동구매 조건만 수정한다.
+            if (updatedData.getCategory() != null) {
+                product.setCategory(normalizeCategory(updatedData.getCategory()));
+            }
+            if (updatedData.getPrice() != null) {
+                product.setPrice(updatedData.getPrice());
+            }
+            if (updatedData.getTargetCount() != null) {
+                product.setTargetCount(updatedData.getTargetCount());
+            }
+            if (updatedData.getDescription() != null) {
+                product.setDescription(updatedData.getDescription());
+            }
+        } else {
+            // 학과 물품은 기존 수정 범위를 유지한다.
+            product.setTitle(updatedData.getTitle());
+            product.setType(updatedData.getType());
+            product.setCategory(normalizeCategory(updatedData.getCategory()));
+            product.setPrice(updatedData.getPrice());
+            product.setOriginalPrice(updatedData.getOriginalPrice() != null ? updatedData.getOriginalPrice() : updatedData.getPrice());
+            product.setTargetCount(updatedData.getTargetCount());
+            if (updatedData.getDeadline() != null) {
+                product.setDeadline(updatedData.getDeadline());
+            }
+            product.setDescription(updatedData.getDescription());
+            product.setPublisher(updatedData.getPublisher());
+            product.setAuthor(updatedData.getAuthor());
+            if (updatedData.getIsbn() != null) {
+                product.setIsbn(updatedData.getIsbn());
+            }
+            if (updatedData.getImageUrl() != null && !updatedData.getImageUrl().isEmpty()) {
+                product.setImageUrl(updatedData.getImageUrl());
+            }
         }
 
         // 새 이미지가 있는 경우 업데이트
-        if (image != null && !image.isEmpty()) {
+        if (!isBook && image != null && !image.isEmpty()) {
             try {
                 File directory = new File(uploadDir);
                 if (!directory.exists()) {
@@ -303,18 +343,15 @@ public class ProductService {
                 e.printStackTrace();
             }
         }
+        /// [*] 기존에는 가격이 변경될 때마 블록체인 해시를 기록했으나 가격 또는 ISBN이 변경될 때 해시를 재생성 및 기록
+        String newDataHash = null;
+        if (priceChanged || isbnChanged) {
+            newDataHash = productHashService.calculateHash(product);
+            blockchainService.recordHashAsync(product.getProductId(), newDataHash);
+        }
 
-        // [신규] PRD-RQ-004: 가격이 실제로 바뀐 경우 감사 이력을 남기고, 새 가격 기준 해시를 온체인에 재기록해
-        // VerificationService가 다음 검증 때 정상 가격 변경을 FORGED로 오탐하지 않도록 한다.
-        // [수정] 처음엔 동기(recordHashAndConfirm)로 했다가 실제로 붙여보니 Sepolia 컨펌 지연 때문에
-        // 요청 하나가 2~4분씩 걸리는 걸 확인함 — createProduct와 동일하게 비동기로 전환.
-        // 재기록이 끝나기 전까지 /verify는 FORGED가 아니라 PENDING(정직한 미확인 상태)을 반환하므로
-        // 오탐 없이 안전하고, 판매자는 응답을 바로 받는다.
         if (priceChanged) {
             int newVersion = (product.getPriceVersion() == null ? 1 : product.getPriceVersion()) + 1;
-            String newDataHash = productHashService.calculateHash(product);
-            blockchainService.recordHashAsync(product.getProductId(), newDataHash);
-
             ProductPriceHistory history = new ProductPriceHistory();
             history.setProductId(product.getProductId());
             history.setOldPrice(oldPrice);

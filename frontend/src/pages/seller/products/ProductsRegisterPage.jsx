@@ -2,10 +2,13 @@ import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, PlusCircle, BookOpen, Package, DollarSign, Users, FileText, Upload, AlertCircle, X, Search } from 'lucide-react';
 import Header from '../../../components/layout/Header';
+import { PRODUCT_CATEGORIES } from '../../../constants/productCategories';
+import { getDepartmentBooks } from '../../../constants/departmentBooks';
 
 const ProductRegisterPage = () => {
   const navigate = useNavigate();
   const submitLockRef = useRef(false);
+  const bookMetadataRequestRef = useRef(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 1. 등록 유형 상태 관리 ('BOOK' 또는 'ITEM')
@@ -18,74 +21,94 @@ const ProductRegisterPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleSelectProduct = (data) => {
+    const requestId = ++bookMetadataRequestRef.current;
     setFormData(prev => ({
       ...prev,
       title: data.title || '',
       publisher: data.brand || data.maker || data.mallName || '',
       author: data.author || '',
-      imageUrl: data.image || '',
       price: data.price || '',
       description: data.description || '',
-      category: data.category || '',
-      isbn: data.isbn || '', // [신규] 바코드 검색 결과에서 ISBN 저장
-      originalPrice: data.price || '', // [신규] 원가(정가) 저장
+      imageUrl: data.image || '',
+      isbn: data.isbn || '',
+      originalPrice: data.price || '',
     }));
-    if (data.image) {
-      setImagePreview(data.image); // 검색된 이미지를 미리보기 화면에 띄움
-    } else {
-      setImagePreview(null);
-    }
+    setImageFile(null);
+    setImagePreview(data.image || null);
     setIsModalOpen(false);
     setSearchResults([]);
+
+    if (productType === 'BOOK' && data.isbn) {
+      const params = new URLSearchParams({ isbn: data.isbn });
+      fetch(`http://localhost:8080/api/search/book-metadata?${params}`, {
+        credentials: 'include',
+      })
+        .then(response => response.ok ? response.json() : null)
+        .then(metadata => {
+          if (!metadata || requestId !== bookMetadataRequestRef.current) return;
+
+          if (metadata.image) {
+            const imageProbe = new Image();
+            imageProbe.onload = () => {
+              if (requestId !== bookMetadataRequestRef.current) return;
+              setFormData(prev => prev.isbn === data.isbn ? {
+                ...prev,
+                imageUrl: metadata.image,
+              } : prev);
+              setImagePreview(metadata.image);
+            };
+            // Google 표지를 불러오지 못하면 카카오 썸네일을 그대로 유지한다.
+            imageProbe.src = metadata.image;
+          }
+        })
+        .catch(() => {
+          // Google Books 조회 실패 시 이미 표시한 카카오 표지를 유지한다.
+        });
+    }
+  };
+
+  const searchProduct = async (query) => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery || isSearching) return;
+
+    setIsSearching(true);
+    try {
+      const searchParams = new URLSearchParams({ query: trimmedQuery, type: productType });
+      const response = await fetch(`http://localhost:8080/api/search/product?${searchParams}`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const dataList = await response.json();
+        if (dataList.length === 1) {
+          handleSelectProduct(dataList[0]);
+          alert("검색 완료! 항목이 새로 채워졌습니다.");
+        } else if (dataList.length > 1) {
+          setSearchResults(dataList);
+          setIsModalOpen(true);
+        } else {
+          alert("검색 결과가 없습니다.");
+        }
+      } else {
+        try {
+          const errorData = await response.json();
+          const errorMessage = Array.isArray(errorData) ? errorData[0]?.error : errorData.error;
+          alert(errorMessage || "상품을 찾을 수 없습니다. 직접 입력해 주세요.");
+        } catch (e) {
+          alert("상품을 찾을 수 없습니다. 직접 입력해 주세요.");
+        }
+      }
+    } catch (error) {
+      alert("검색 중 오류가 발생했습니다. 백엔드 서버를 확인해 주세요.");
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const handleBarcodeKeyDown = async (e) => {
     if (e.key === 'Enter') {
-      e.preventDefault(); 
-      if (!barcode.trim()) return;
-      
-      setIsSearching(true);
-      try {
-        const response = await fetch(`http://localhost:8080/api/search/product?query=${barcode}&type=${productType}`);
-        if (response.ok) {
-          const dataList = await response.json();
-          if (dataList.length === 1) {
-            handleSelectProduct(dataList[0]);
-            alert("검색 완료! 항목이 새로 채워졌습니다.");
-          } else if (dataList.length > 1) {
-            setSearchResults(dataList);
-            setIsModalOpen(true);
-          } else {
-            alert("검색 결과가 없습니다.");
-          }
-        } else {
-          // 검색 실패 시 이전 데이터 싹 지우기
-          setFormData(prev => ({
-            ...prev,
-            title: '',
-            publisher: '',
-            author: '',
-            imageUrl: '',
-          }));
-          setImagePreview(null);
-          
-          try {
-            const errorData = await response.json();
-            if (errorData.length > 0 && errorData[0].error) {
-              alert(errorData[0].error);
-            } else {
-              alert("상품을 찾을 수 없습니다. 직접 입력해 주세요.");
-            }
-          } catch(e) {
-            alert("상품을 찾을 수 없습니다. 직접 입력해 주세요.");
-          }
-        }
-      } catch(error) {
-        alert("검색 중 오류가 발생했습니다. 백엔드 서버를 확인해 주세요.");
-      } finally {
-        setIsSearching(false);
-        setBarcode(''); 
-      }
+      e.preventDefault();
+      await searchProduct(barcode);
+      setBarcode('');
     }
   };
 
@@ -97,24 +120,27 @@ const ProductRegisterPage = () => {
     price: '',
     targetCount: '',
     description: '',
-    imageUrl: '',     // [신규] 네이버 등에서 가져온 외부 이미지 URL 저장용
-    category: '',     // [신규] API에서 추출된 카테고리 정보
-    isbn: '',         // [신규] 알라딘 및 블록체인 검증용 ISBN
+    imageUrl: '',     // 사용자가 선택한 외부 이미지 URL 저장용
+    category: 'GENERAL', // 학과 코드 또는 GENERAL
+    isbn: '',         // 도서 API 및 블록체인 검증용 ISBN
     originalPrice: '', // [신규] 정가
   });
   // 2-1. 이미지 업로드용 함수
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const recommendedBooks = getDepartmentBooks(formData.category);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      bookMetadataRequestRef.current += 1;
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
     }
   };
 
   const handleRemoveImage = () => {
+    bookMetadataRequestRef.current += 1;
     setImageFile(null);
     setImagePreview(null);
   };
@@ -134,6 +160,7 @@ const ProductRegisterPage = () => {
       return;
     }
 
+    bookMetadataRequestRef.current += 1;
     setProductType(type);
     setFormData({
       title: '',
@@ -143,7 +170,7 @@ const ProductRegisterPage = () => {
       targetCount: '',
       description: '',
       imageUrl: '',
-      category: '',
+      category: 'GENERAL',
       isbn: '',
       originalPrice: '',
     });
@@ -175,7 +202,7 @@ const ProductRegisterPage = () => {
     submitData.append('targetCount', formData.targetCount);
     submitData.append('description', formData.description);
     if (formData.imageUrl) submitData.append('imageUrl', formData.imageUrl); // URL 이미지 추가
-    if (formData.category) submitData.append('category', formData.category); // 카테고리 추가
+    submitData.append('category', formData.category);
     if (formData.isbn) submitData.append('isbn', formData.isbn); // ISBN 추가
     if (formData.originalPrice) submitData.append('originalPrice', formData.originalPrice); // 정가 추가
 
@@ -274,7 +301,7 @@ const ProductRegisterPage = () => {
               <div className="flex gap-2">
                 <input
                   type="text" id="barcode"
-                  value={barcode} 
+                  value={barcode}
                   onChange={(e) => setBarcode(e.target.value)}
                   onKeyDown={handleBarcodeKeyDown}
                   placeholder={productType === 'BOOK' ? "스캐너로 찍거나, 직접 상품명 입력 후 우측 검색 버튼 클릭" : "직접 상품명 입력 후 우측 검색 버튼 클릭"}
@@ -283,7 +310,7 @@ const ProductRegisterPage = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => handleBarcodeKeyDown({ key: 'Enter', preventDefault: () => {} })}
+                  onClick={() => handleBarcodeKeyDown({ key: 'Enter', preventDefault: () => { } })}
                   disabled={isSearching}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-xl font-bold transition whitespace-nowrap"
                 >
@@ -305,16 +332,53 @@ const ProductRegisterPage = () => {
               />
             </div>
 
-            {/* 분류(카테고리) - 신규 추가 */}
+            {/* 학과 분류 */}
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="category" className="text-sm font-bold text-gray-700">분류 (카테고리)</label>
-              <input
-                type="text" id="category"
+              <label htmlFor="category" className="text-sm font-bold text-gray-700">학과 분류</label>
+              <select
+                id="category"
                 value={formData.category} onChange={handleChange}
-                placeholder="예) 컴퓨터/IT (검색 시 자동 입력됨)"
                 className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
-              />
+                required
+              >
+                {PRODUCT_CATEGORIES.map(({ code, name }) => (
+                  <option key={code} value={code}>{name}</option>
+                ))}
+              </select>
             </div>
+
+            {productType === 'BOOK' && formData.category !== 'GENERAL' && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-gray-700">학과 추천 전공책</span>
+                  <span className="text-xs font-semibold text-gray-400">{recommendedBooks.length}권</span>
+                </div>
+                {recommendedBooks.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {recommendedBooks.map((book) => (
+                      <button
+                        key={book.title}
+                        type="button"
+                        onClick={() => searchProduct(book.title)}
+                        disabled={isSearching}
+                        className="p-3.5 text-left rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 transition"
+                      >
+                        <span className="block text-sm font-extrabold text-gray-900 line-clamp-2">{book.title}</span>
+                        {book.description && (
+                          <span className="block mt-1.5 text-xs font-bold text-blue-600">
+                            {book.description}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 text-center text-xs font-medium text-gray-400">
+                    이 학과에 등록된 추천 전공책이 없습니다.
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 조건부 렌더링: 저자 및 출판사/제조사 */}
             <div className={`grid grid-cols-1 ${productType === 'BOOK' ? 'md:grid-cols-2' : ''} gap-5`}>
@@ -392,7 +456,15 @@ const ProductRegisterPage = () => {
               {/* 🌟 수정된 부분: 미리보기가 있으면 이미지를, 없으면 업로드 박스를 보여줍니다 */}
               {imagePreview ? (
                 <div className="relative w-full sm:w-1/2 md:w-1/3 aspect-[4/3] rounded-2xl overflow-hidden border border-gray-200 group">
-                  <img src={imagePreview} alt="미리보기" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400 text-sm font-medium">
+                    이미지 없음
+                  </div>
+                  <img
+                    src={imagePreview}
+                    alt=""
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    className={`relative w-full h-full ${productType === 'BOOK' ? 'object-contain bg-white' : 'object-cover'}`}
+                  />
                   <button
                     type="button"
                     onClick={handleRemoveImage}
@@ -470,7 +542,7 @@ const ProductRegisterPage = () => {
                 <Search size={22} className="text-blue-600" />
                 검색 결과 선택
               </h3>
-              <button 
+              <button
                 onClick={() => { setIsModalOpen(false); setSearchResults([]); }}
                 className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                 type="button"
@@ -478,21 +550,25 @@ const ProductRegisterPage = () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="overflow-y-auto p-4 flex flex-col gap-3 custom-scrollbar">
               {searchResults.map((item, idx) => (
-                <div 
+                <div
                   key={idx}
                   onClick={() => handleSelectProduct(item)}
                   className="flex gap-5 p-4 border border-gray-100 rounded-2xl hover:border-blue-400 hover:shadow-md hover:bg-blue-50/40 cursor-pointer transition-all group"
                 >
-                  {item.image ? (
-                    <img src={item.image} alt={item.title} className="w-[72px] h-[96px] object-contain rounded-lg border border-gray-200 bg-white" />
-                  ) : (
-                    <div className="w-[72px] h-[96px] bg-gray-50 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 text-xs font-medium">
-                      No Img
-                    </div>
-                  )}
+                  <div className="relative flex-none w-[72px] h-[96px] bg-gray-50 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 text-xs font-medium overflow-hidden">
+                    No Img
+                    {item.image && (
+                      <img
+                        src={item.image}
+                        alt=""
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        className="absolute inset-0 w-full h-full object-contain bg-white"
+                      />
+                    )}
+                  </div>
                   <div className="flex flex-col flex-1 justify-center gap-1.5">
                     <h4 className="text-[15px] font-extrabold text-gray-900 group-hover:text-blue-700 leading-snug">{item.title}</h4>
                     <p className="text-sm font-medium text-gray-500">

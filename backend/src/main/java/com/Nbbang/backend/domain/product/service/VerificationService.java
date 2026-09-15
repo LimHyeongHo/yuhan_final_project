@@ -3,6 +3,7 @@ package com.Nbbang.backend.domain.product.service;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.entity.BlockchainJobStatus;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
+import com.Nbbang.backend.domain.search.service.KakaoBookSearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +24,7 @@ public class VerificationService {
     private final ProductRepository productRepository;
     private final BlockchainService blockchainService;
     private final ProductHashService productHashService;
-    private final AladdinApiService aladdinApiService;
+    private final KakaoBookSearchService kakaoBookSearchService;
     private final SystemLogRepository systemLogRepository;
     private final NotificationRepository notificationRepository;
 
@@ -112,34 +113,34 @@ public class VerificationService {
             return result;
         }
 
-        // 4. 알라딘 공식 정가와 비교 (ANCHORING_WARNING, GOOD_DEAL 판별)
-        BigDecimal aladdinPrice = product.getAladdinPrice();
+        // 4. 카카오 도서 API 정가와 비교 (ANCHORING_WARNING, GOOD_DEAL 판별)
+        BigDecimal officialPrice = product.getOfficialPrice();
         
-        // 캐싱된 정가가 없다면 API 호출
-        if (aladdinPrice == null && product.getIsbn() != null) {
-            aladdinPrice = aladdinApiService.fetchAladdinPrice(product.getIsbn());
-            if (aladdinPrice != null) {
+        // 캐싱된 정가가 없다면 카카오 도서 API 호출
+        if (officialPrice == null && product.getIsbn() != null) {
+            officialPrice = kakaoBookSearchService.fetchOfficialPrice(product.getIsbn());
+            if (officialPrice != null) {
                 // DB에 정가 캐싱 저장
-                product.setAladdinPrice(aladdinPrice);
+                product.setOfficialPrice(officialPrice);
                 productRepository.save(product);
             }
         }
         
         // API 호출 실패 등으로 여전히 null일 경우, DB에 저장된 originalPrice로 대체 (API Block 방어)
-        if (aladdinPrice == null) {
-            aladdinPrice = product.getOriginalPrice();
+        if (officialPrice == null) {
+            officialPrice = product.getOriginalPrice();
         }
 
-        if (aladdinPrice != null) {
-            result.put("aladdinPrice", aladdinPrice);
+        if (officialPrice != null) {
+            result.put("officialPrice", officialPrice);
             double currentPrice = product.getPrice().doubleValue();
-            double officialPrice = aladdinPrice.doubleValue();
+            double officialPriceValue = officialPrice.doubleValue();
 
-            if (currentPrice > officialPrice * 1.1) {
+            if (currentPrice > officialPriceValue * 1.1) {
                 result.put("status", "ANCHORING_WARNING");
                 result.put("message", "공식 정가(10% 초과) 대비 비정상적으로 높게 등록된 가격입니다. 시세 조작에 주의하세요.");
                 return result;
-            } else if (currentPrice <= officialPrice * 0.8) {
+            } else if (currentPrice <= officialPriceValue * 0.8) {
                 result.put("status", "GOOD_DEAL");
                 result.put("message", "평균 금액보다 가격이 저렴합니다!");
                 return result;

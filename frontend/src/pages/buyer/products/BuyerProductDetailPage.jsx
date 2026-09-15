@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 // import { useParams, Link } from 'react-router-dom';
 import { Clock, Users, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon, X, Copy, Heart, Info } from 'lucide-react';
 import Header from '../../../components/layout/Header';
+import { getProductCategoryName } from '../../../constants/productCategories';
+import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
 //[추가]
 // [수정][feature/ui-fixes] "목록으로 돌아가기"를 고정 경로 대신 실제 유입 경로로 되돌아가게 수정
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -59,7 +61,8 @@ const BuyerProductDetailPage = () => {
         setProduct({
           id: String(data.productId),
           title: data.title,
-          major: data.type === 'BOOK' ? '전공 도서' : '학과 물품',
+          type: data.type,
+          major: data.type === 'BOOK' ? getProductCategoryName(data.category) : '학과 물품',
           author: data.author || '',
           publisher: data.publisher || '',
           originalPrice: data.originalPrice || data.price,
@@ -73,7 +76,7 @@ const BuyerProductDetailPage = () => {
           // PRD-RQ-002: 버튼 비활성화 판단용 원본 상태값 보존
           // [MEM-RQ-002] 탈퇴 판매자 상품(SELLER_WITHDRAWN) 판별용 원본 상태값
           rawStatus: data.status,
-          thumbnail: data.imageUrl || null,
+          thumbnail: getDisplayProductImageUrl(data.imageUrl),
           description: data.description,
           sellerEmail: data.sellerEmail // [신규] 문의하기 버튼에서 채팅방 생성 API 호출용
         });
@@ -379,7 +382,23 @@ const BuyerProductDetailPage = () => {
           <div className="lg:col-span-7 flex flex-col gap-6">
             {/* 큰 이미지 박스 */}
             <div className="bg-white rounded-[32px] border border-gray-200 p-4 md:p-6 shadow-sm flex items-center justify-center aspect-[4/3] md:aspect-[16/10] overflow-hidden relative">
-              <img src={product.thumbnail} alt={product.title} className="w-full h-full object-cover rounded-2xl" />
+              <span className="text-gray-400 text-sm font-semibold">이미지 없음</span>
+              {product.thumbnail && (
+                <img
+                  src={product.thumbnail}
+                  alt=""
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  style={product.type === 'BOOK' ? {
+                    width: '105%',
+                    height: '105%',
+                    maxWidth: 'calc(100% - 20px)',
+                    maxHeight: 'calc(100% - 20px)',
+                  } : undefined}
+                  className={product.type === 'BOOK'
+                    ? 'absolute object-contain rounded-2xl bg-white'
+                    : 'absolute inset-4 md:inset-6 object-cover rounded-2xl'}
+                />
+              )}
               <span className="absolute top-8 left-8 bg-red-500 text-white text-xs font-black px-3 py-1.5 rounded-md shadow-md">
                 {product.dDayBadge}
               </span>
@@ -412,7 +431,7 @@ const BuyerProductDetailPage = () => {
               {/* 태그 & 학과 */}
               <div className="flex justify-between items-center">
                 <span className="text-xs font-black text-blue-600 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded">
-                  {product.major} 전공
+                  {product.major}
                 </span>
                 <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400">
                   <Clock size={14} />

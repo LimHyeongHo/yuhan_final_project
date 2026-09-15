@@ -4,16 +4,19 @@ import com.Nbbang.backend.domain.log.repository.SystemLogRepository;
 import com.Nbbang.backend.domain.product.entity.BlockchainJobStatus;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
+import com.Nbbang.backend.domain.search.service.KakaoBookSearchService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -22,7 +25,7 @@ class VerificationServiceTest {
     @Mock private ProductRepository productRepository;
     @Mock private BlockchainService blockchainService;
     @Mock private ProductHashService productHashService;
-    @Mock private AladdinApiService aladdinApiService;
+    @Mock private KakaoBookSearchService kakaoBookSearchService;
     @Mock private SystemLogRepository systemLogRepository;
 
     private VerificationService verificationService;
@@ -34,7 +37,7 @@ class VerificationServiceTest {
                 productRepository,
                 blockchainService,
                 productHashService,
-                aladdinApiService,
+                kakaoBookSearchService,
                 systemLogRepository);
         product = new Product();
         product.setProductId(1L);
@@ -84,5 +87,26 @@ class VerificationServiceTest {
         assertThat(result)
                 .containsEntry("status", "PENDING")
                 .containsEntry("retryable", true);
+    }
+
+    @Test
+    void cachesKakaoOfficialPriceAndUsesItForPriceVerification() {
+        product.setIsbn("9781234567897");
+        product.setPrice(new BigDecimal("7000"));
+        product.setOriginalPrice(new BigDecimal("12000"));
+        when(blockchainService.readHash(1L))
+                .thenReturn(BlockchainService.BlockchainReadResult.success("0xabcdef"));
+        when(productHashService.buildDataString(product)).thenReturn("1|9781234567897|7000");
+        when(productHashService.calculateHash(product)).thenReturn("0xabcdef");
+        when(kakaoBookSearchService.fetchOfficialPrice("9781234567897"))
+                .thenReturn(new BigDecimal("10000"));
+
+        Map<String, Object> result = verificationService.verifyProduct(1L);
+
+        assertThat(result)
+                .containsEntry("status", "GOOD_DEAL")
+                .containsEntry("officialPrice", new BigDecimal("10000"));
+        assertThat(product.getOfficialPrice()).isEqualByComparingTo("10000");
+        verify(productRepository).save(product);
     }
 }
