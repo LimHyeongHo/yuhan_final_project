@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, Activity, BarChart3, ShieldAlert, ArrowUpRight, Clock } from 'lucide-react';
 import Header from '../../../components/layout/Header'; // 공통 헤더 연결
+import { getProductCategoryName } from '../../../constants/productCategories';
 
 const AdminDashboardPage = () => {
   const navigate = useNavigate();
@@ -252,7 +253,7 @@ const AdminDashboardPage = () => {
                     <tr key={product.id} className="hover:bg-gray-50/50 transition">
                       <td className="px-6 py-4 whitespace-normal">
                         <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase">{product.category}</span>
+                          <span className="text-[10px] font-bold text-gray-400">{getProductCategoryName(product.category)}</span>
                           <span className="font-bold text-gray-900 text-sm leading-tight">
                             {product.title.split('-')[0].trim()}
                           </span>

@@ -55,6 +55,7 @@ public enum ErrorCode {
     PRODUCT_INVALID_FILE_FORMAT(400, "PNG, JPG 파일만 업로드 가능합니다"),
     PRODUCT_FILE_SIZE_EXCEEDED(400, "파일 크기는 5MB 이하여야 합니다"),
     PRODUCT_INVALID_DEADLINE(400, "마감일은 오늘 이후여야 합니다"),
+    PRODUCT_INVALID_CATEGORY(400, "올바른 학과 분류를 선택해주세요"),
     PRODUCT_BARCODE_API_ERROR(502, "도서 정보를 불러오지 못했습니다. 직접 입력해주세요"),
     PRODUCT_DUPLICATE(409, "이미 등록된 상품입니다"),
     PRODUCT_REGISTER_FAILED(500, "상품 등록에 실패했습니다. 잠시 후 다시 시도해주세요"),

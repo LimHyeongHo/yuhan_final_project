@@ -5,6 +5,7 @@ import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
 import com.Nbbang.backend.domain.payment.repository.PaymentRepository;
 import com.Nbbang.backend.domain.product.entity.Participation;
 import com.Nbbang.backend.domain.product.entity.ProductPriceHistory;
+import com.Nbbang.backend.domain.product.entity.ProductCategory;
 import com.Nbbang.backend.domain.product.entity.Scrap;
 import com.Nbbang.backend.domain.product.repository.ParticipationRepository;
 import com.Nbbang.backend.domain.product.repository.ProductPriceHistoryRepository;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 /// [+] 오브젝트 라이브러리 추가
 import java.util.Objects;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -59,6 +61,7 @@ public class ProductService {
 
         // [신규] PRD-RQ-005: 가격은 100원 단위로만 등록 가능
         validatePriceUnit(product.getPrice());
+        product.setCategory(normalizeCategory(product.getCategory()));
 
         // 정가(originalPrice) 정보가 폼에 없어서 null일 경우 공구가와 동일하게 처리
         if (product.getOriginalPrice() == null) {
@@ -209,6 +212,18 @@ public class ProductService {
         }
     }
 
+    private String normalizeCategory(String category) {
+        if (category == null || category.isBlank()) {
+            return ProductCategory.GENERAL.name();
+        }
+
+        String normalized = category.trim().toUpperCase(Locale.ROOT);
+        if (!ProductCategory.supports(normalized)) {
+            throw new CustomException(ErrorCode.PRODUCT_INVALID_CATEGORY);
+        }
+        return normalized;
+    }
+
     // 참여 취소(공용 케이스 없는 취소)는 PaymentService.cancelParticipation으로 이동함
     // (Participation/Payment 상태를 함께 다뤄야 해서 리포지토리를 모두 가진 PaymentService에 둠)
 
@@ -255,7 +270,10 @@ public class ProductService {
         }
 
         if (isBook) {
-            // 등록된 도서 메타데이터는 변경하지 않고 공동구매 조건과 설명만 수정한다.
+            // 도서 메타데이터는 보호하고, 학과 분류와 공동구매 조건만 수정한다.
+            if (updatedData.getCategory() != null) {
+                product.setCategory(normalizeCategory(updatedData.getCategory()));
+            }
             if (updatedData.getPrice() != null) {
                 product.setPrice(updatedData.getPrice());
             }
@@ -269,7 +287,7 @@ public class ProductService {
             // 학과 물품은 기존 수정 범위를 유지한다.
             product.setTitle(updatedData.getTitle());
             product.setType(updatedData.getType());
-            // product.setCategory(updatedData.getCategory()); // TODO: fix/search_bug 브랜치 병합 후 주석 해제 (category 연동)
+            product.setCategory(normalizeCategory(updatedData.getCategory()));
             product.setPrice(updatedData.getPrice());
             product.setOriginalPrice(updatedData.getOriginalPrice() != null ? updatedData.getOriginalPrice() : updatedData.getPrice());
             product.setTargetCount(updatedData.getTargetCount());

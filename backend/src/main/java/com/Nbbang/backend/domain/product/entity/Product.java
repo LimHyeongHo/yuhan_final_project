@@ -30,7 +30,7 @@ public class Product {
     private String type; // 'BOOK' or 'ITEM'
 
     @Column(length = 100)
-    private String category; // 도서 또는 물품 카테고리
+    private String category; // ProductCategory 학과 코드 또는 GENERAL
 
     @Column(nullable = false)
     private String title;

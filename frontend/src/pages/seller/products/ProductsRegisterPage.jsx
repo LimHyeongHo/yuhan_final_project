@@ -2,6 +2,8 @@ import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, PlusCircle, BookOpen, Package, DollarSign, Users, FileText, Upload, AlertCircle, X, Search } from 'lucide-react';
 import Header from '../../../components/layout/Header';
+import { PRODUCT_CATEGORIES } from '../../../constants/productCategories';
+import { getDepartmentBooks } from '../../../constants/departmentBooks';
 
 const ProductRegisterPage = () => {
   const navigate = useNavigate();
@@ -27,7 +29,6 @@ const ProductRegisterPage = () => {
       author: data.author || '',
       price: data.price || '',
       description: data.description || '',
-      category: data.category || '',
       imageUrl: data.image || '',
       isbn: data.isbn || '',
       originalPrice: data.price || '',
@@ -45,10 +46,6 @@ const ProductRegisterPage = () => {
         .then(response => response.ok ? response.json() : null)
         .then(metadata => {
           if (!metadata || requestId !== bookMetadataRequestRef.current) return;
-          setFormData(prev => prev.isbn === data.isbn ? {
-            ...prev,
-            category: metadata.category || prev.category,
-          } : prev);
 
           if (metadata.image) {
             const imageProbe = new Image();
@@ -70,43 +67,48 @@ const ProductRegisterPage = () => {
     }
   };
 
+  const searchProduct = async (query) => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery || isSearching) return;
+
+    setIsSearching(true);
+    try {
+      const searchParams = new URLSearchParams({ query: trimmedQuery, type: productType });
+      const response = await fetch(`http://localhost:8080/api/search/product?${searchParams}`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const dataList = await response.json();
+        if (dataList.length === 1) {
+          handleSelectProduct(dataList[0]);
+          alert("검색 완료! 항목이 새로 채워졌습니다.");
+        } else if (dataList.length > 1) {
+          setSearchResults(dataList);
+          setIsModalOpen(true);
+        } else {
+          alert("검색 결과가 없습니다.");
+        }
+      } else {
+        try {
+          const errorData = await response.json();
+          const errorMessage = Array.isArray(errorData) ? errorData[0]?.error : errorData.error;
+          alert(errorMessage || "상품을 찾을 수 없습니다. 직접 입력해 주세요.");
+        } catch (e) {
+          alert("상품을 찾을 수 없습니다. 직접 입력해 주세요.");
+        }
+      }
+    } catch (error) {
+      alert("검색 중 오류가 발생했습니다. 백엔드 서버를 확인해 주세요.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const handleBarcodeKeyDown = async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (!barcode.trim()) return;
-
-      setIsSearching(true);
-      try {
-        const searchParams = new URLSearchParams({ query: barcode.trim(), type: productType });
-        const response = await fetch(`http://localhost:8080/api/search/product?${searchParams}`, {
-          credentials: 'include',
-        });
-        if (response.ok) {
-          const dataList = await response.json();
-          if (dataList.length === 1) {
-            handleSelectProduct(dataList[0]);
-            alert("검색 완료! 항목이 새로 채워졌습니다.");
-          } else if (dataList.length > 1) {
-            setSearchResults(dataList);
-            setIsModalOpen(true);
-          } else {
-            alert("검색 결과가 없습니다.");
-          }
-        } else {
-          try {
-            const errorData = await response.json();
-            const errorMessage = Array.isArray(errorData) ? errorData[0]?.error : errorData.error;
-            alert(errorMessage || "상품을 찾을 수 없습니다. 직접 입력해 주세요.");
-          } catch (e) {
-            alert("상품을 찾을 수 없습니다. 직접 입력해 주세요.");
-          }
-        }
-      } catch (error) {
-        alert("검색 중 오류가 발생했습니다. 백엔드 서버를 확인해 주세요.");
-      } finally {
-        setIsSearching(false);
-        setBarcode('');
-      }
+      await searchProduct(barcode);
+      setBarcode('');
     }
   };
 
@@ -119,13 +121,14 @@ const ProductRegisterPage = () => {
     targetCount: '',
     description: '',
     imageUrl: '',     // 사용자가 선택한 외부 이미지 URL 저장용
-    category: '',     // [신규] API에서 추출된 카테고리 정보
+    category: 'GENERAL', // 학과 코드 또는 GENERAL
     isbn: '',         // 도서 API 및 블록체인 검증용 ISBN
     originalPrice: '', // [신규] 정가
   });
   // 2-1. 이미지 업로드용 함수
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const recommendedBooks = getDepartmentBooks(formData.category);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -167,7 +170,7 @@ const ProductRegisterPage = () => {
       targetCount: '',
       description: '',
       imageUrl: '',
-      category: '',
+      category: 'GENERAL',
       isbn: '',
       originalPrice: '',
     });
@@ -199,7 +202,7 @@ const ProductRegisterPage = () => {
     submitData.append('targetCount', formData.targetCount);
     submitData.append('description', formData.description);
     if (formData.imageUrl) submitData.append('imageUrl', formData.imageUrl); // URL 이미지 추가
-    if (formData.category) submitData.append('category', formData.category); // 카테고리 추가
+    submitData.append('category', formData.category);
     if (formData.isbn) submitData.append('isbn', formData.isbn); // ISBN 추가
     if (formData.originalPrice) submitData.append('originalPrice', formData.originalPrice); // 정가 추가
 
@@ -329,16 +332,53 @@ const ProductRegisterPage = () => {
               />
             </div>
 
-            {/* 분류(카테고리) - 신규 추가 */}
+            {/* 학과 분류 */}
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="category" className="text-sm font-bold text-gray-700">분류 (카테고리)</label>
-              <input
-                type="text" id="category"
+              <label htmlFor="category" className="text-sm font-bold text-gray-700">학과 분류</label>
+              <select
+                id="category"
                 value={formData.category} onChange={handleChange}
-                placeholder="예) 컴퓨터/IT (검색 시 자동 입력됨)"
                 className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
-              />
+                required
+              >
+                {PRODUCT_CATEGORIES.map(({ code, name }) => (
+                  <option key={code} value={code}>{name}</option>
+                ))}
+              </select>
             </div>
+
+            {productType === 'BOOK' && formData.category !== 'GENERAL' && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-gray-700">학과 추천 전공책</span>
+                  <span className="text-xs font-semibold text-gray-400">{recommendedBooks.length}권</span>
+                </div>
+                {recommendedBooks.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {recommendedBooks.map((book) => (
+                      <button
+                        key={book.title}
+                        type="button"
+                        onClick={() => searchProduct(book.title)}
+                        disabled={isSearching}
+                        className="p-3.5 text-left rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 transition"
+                      >
+                        <span className="block text-sm font-extrabold text-gray-900 line-clamp-2">{book.title}</span>
+                        {book.description && (
+                          <span className="block mt-1.5 text-xs font-bold text-blue-600">
+                            {book.description}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 text-center text-xs font-medium text-gray-400">
+                    이 학과에 등록된 추천 전공책이 없습니다.
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 조건부 렌더링: 저자 및 출판사/제조사 */}
             <div className={`grid grid-cols-1 ${productType === 'BOOK' ? 'md:grid-cols-2' : ''} gap-5`}>

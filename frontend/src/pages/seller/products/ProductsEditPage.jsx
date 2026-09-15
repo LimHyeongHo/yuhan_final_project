@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Store, Edit2, BookOpen, Package, DollarSign, Users, FileText, Upload, AlertCircle, X, Search } from 'lucide-react';
 import Header from '../../../components/layout/Header';
+import { PRODUCT_CATEGORIES, normalizeProductCategory } from '../../../constants/productCategories';
 
 const ProductsEditPage = () => {
   const navigate = useNavigate();
@@ -24,7 +25,6 @@ const ProductsEditPage = () => {
       author: data.author || '',
       price: data.price || '',
       description: data.description || '',
-      category: data.category || '',
       isbn: data.isbn || '',
       originalPrice: data.price || '',
       ...(productType === 'BOOK' ? {} : { imageUrl: data.image || '' }),
@@ -85,7 +85,7 @@ const ProductsEditPage = () => {
     price: '',
     targetCount: '',
     description: '',
-    category: '',
+    category: 'GENERAL',
     imageUrl: '',     // 사용자가 선택한 외부 이미지 URL 저장용
     isbn: '',
     originalPrice: '',
@@ -107,7 +107,7 @@ const ProductsEditPage = () => {
           price: data.price || '',
           targetCount: data.targetCount || '',
           description: data.description || '',
-          category: data.category || '',
+          category: normalizeProductCategory(data.category),
           imageUrl: data.imageUrl || '',
           isbn: data.isbn || '',
           originalPrice: data.originalPrice || '',
@@ -154,6 +154,7 @@ const ProductsEditPage = () => {
       price: '',
       targetCount: '',
       description: '',
+      category: 'GENERAL',
       imageUrl: '',
       isbn: '',
       originalPrice: '',
@@ -173,16 +174,16 @@ const ProductsEditPage = () => {
       return;
     }
 
-    // BOOK은 수정 가능한 필드만 전송하고, ITEM은 기존 수정 필드를 유지합니다.
+    // BOOK은 학과 분류와 공동구매 조건만 수정하고, ITEM은 기존 수정 필드를 유지합니다.
     const submitData = new FormData();
     submitData.append('price', formData.price);
     submitData.append('targetCount', formData.targetCount);
     submitData.append('description', formData.description);
+    submitData.append('category', formData.category);
 
     if (productType !== 'BOOK') {
       submitData.append('type', productType);
       submitData.append('title', formData.title);
-      if (formData.category) submitData.append('category', formData.category);
       if (formData.imageUrl) submitData.append('imageUrl', formData.imageUrl);
       if (formData.originalPrice) submitData.append('originalPrice', formData.originalPrice);
       submitData.append('publisher', formData.publisher);
@@ -300,6 +301,21 @@ const ProductsEditPage = () => {
                 disabled={productType === 'BOOK'}
                 className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium disabled:bg-gray-200 disabled:text-gray-500"
               />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="category" className="text-sm font-bold text-gray-700">학과 분류</label>
+              <select
+                id="category"
+                value={formData.category}
+                onChange={handleChange}
+                className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
+                required
+              >
+                {PRODUCT_CATEGORIES.map(({ code, name }) => (
+                  <option key={code} value={code}>{name}</option>
+                ))}
+              </select>
             </div>
 
             {/* 조건부 렌더링: 저자 및 출판사/제조사 */}

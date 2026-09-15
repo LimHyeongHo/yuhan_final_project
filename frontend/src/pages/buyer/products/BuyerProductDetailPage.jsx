@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 // import { useParams, Link } from 'react-router-dom';
 import { Clock, Users, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon, X, Copy, Heart, Info } from 'lucide-react';
 import Header from '../../../components/layout/Header';
+import { getProductCategoryName } from '../../../constants/productCategories';
 import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
 //[추가]
 // [수정][feature/ui-fixes] "목록으로 돌아가기"를 고정 경로 대신 실제 유입 경로로 되돌아가게 수정
@@ -53,7 +54,7 @@ const BuyerProductDetailPage = () => {
           id: String(data.productId),
           title: data.title,
           type: data.type,
-          major: data.type === 'BOOK' ? '전공 도서' : '학과 물품',
+          major: data.type === 'BOOK' ? getProductCategoryName(data.category) : '학과 물품',
           author: data.author || '',
           publisher: data.publisher || '',
           originalPrice: data.originalPrice || data.price,
@@ -437,7 +438,7 @@ const BuyerProductDetailPage = () => {
               {/* 태그 & 학과 */}
               <div className="flex justify-between items-center">
                 <span className="text-xs font-black text-blue-600 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded">
-                  {product.major} 전공
+                  {product.major}
                 </span>
                 <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400">
                   <Clock size={14} />

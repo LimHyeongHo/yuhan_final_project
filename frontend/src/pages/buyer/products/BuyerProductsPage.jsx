@@ -5,6 +5,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, BookOpen, Users, ChevronDown, Filter, Clock, Image as ImageIcon, LayoutGrid, List, CheckCircle } from 'lucide-react';
 import Header from '../../../components/layout/Header';
 import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
+import { PRODUCT_CATEGORIES, getProductCategoryName, normalizeProductCategory } from '../../../constants/productCategories';
 
 
 const BuyerProductsPage = () => {
@@ -37,8 +38,8 @@ const BuyerProductsPage = () => {
           id: item.productId,
           title: item.title,
           type: item.type, // 'BOOK' or 'ITEM'
-          category: item.category || '', // 백엔드에서 추가된 category 값
-          major: item.type === 'BOOK' ? '전공 도서' : '학과 물품', 
+          category: normalizeProductCategory(item.category),
+          major: item.type === 'BOOK' ? getProductCategoryName(item.category) : '학과 물품',
           author: item.author || item.publisher || '정보 없음',
           current: item.currentCount,
           target: item.targetCount,
@@ -68,7 +69,7 @@ const BuyerProductsPage = () => {
 
       // 1-1. 세부 카테고리 필터 적용
       if (categoryFilter !== 'ALL') {
-        if (!item.category.includes(categoryFilter)) {
+        if (item.category !== categoryFilter) {
           return false;
         }
       }
@@ -185,22 +186,13 @@ const BuyerProductsPage = () => {
               </div>
               
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5"><Filter size={14} /> 세부 카테고리</label>
+                <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5"><Filter size={14} /> 학과 분류</label>
                 <div className="relative">
                   <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-full appearance-none px-4 py-2.5 bg-gray-50 border border-gray-200 focus:border-blue-500 rounded-xl text-sm font-semibold text-gray-700 outline-none cursor-pointer">
-                    <option value="ALL">전체 카테고리</option>
-                    <option value="대학교재">대학교재</option>
-                    <option value="전문서적">전문서적</option>
-                    <option value="컴퓨터">컴퓨터/IT</option>
-                    <option value="모바일">모바일</option>
-                    <option value="수험서">수험서/자격증</option>
-                    <option value="자격증">자격증</option>
-                    <option value="과학">과학</option>
-                    <option value="공학">공학</option>
-                    <option value="인문">인문학</option>
-                    <option value="사회">사회과학</option>
-                    <option value="어학">어학</option>
-                    <option value="외국어">외국어사전</option>
+                    <option value="ALL">전체 학과</option>
+                    {PRODUCT_CATEGORIES.map(({ code, name }) => (
+                      <option key={code} value={code}>{name}</option>
+                    ))}
                   </select>
                   <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16} />
                 </div>
