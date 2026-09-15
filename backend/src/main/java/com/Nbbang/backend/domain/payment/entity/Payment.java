@@ -20,7 +20,8 @@ public class Payment {
     @Column(name = "order_id", nullable = false, unique = true)
     private String orderId; // Toss 결제 건을 식별하는 키 (prepare 단계에서 발급)
 
-    @Column(name = "payment_key")
+    // [PAY-RQ-001 §3.1] 같은 Toss paymentKey가 여러 결제 row에 중복 기록되는 것 방지 (승인 전 null 다수는 Postgres에서 허용)
+    @Column(name = "payment_key", unique = true)
     private String paymentKey; // Toss가 결제 승인 시 내려주는 키 (승인 전엔 null)
 
     @Column(name = "product_id", nullable = false)
@@ -38,8 +39,11 @@ public class Payment {
     @Column(nullable = false)
     private Long amount; // 서버가 상품 가격 기준으로 계산한 금액 (클라이언트 값 신뢰하지 않음)
 
+    // 생명주기: PENDING -(Toss 인출)-> APPROVED -(참여확정)-> DONE
+    //          참여확정 실패 시: APPROVED -> CANCEL_REQUESTED -> CANCELED / REFUND_FAILED
+    // [PAY-RQ-001] APPROVED = 승인은 끝났으나 참여 확정 대기. DONE은 참여까지 확정된 뒤에만 기록.
     @Column(nullable = false, length = 20)
-    private String status = "PENDING"; // PENDING -> DONE 또는 FAILED
+    private String status = "PENDING";
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -49,6 +53,11 @@ public class Payment {
 
     @Column(name = "cancel_reason")
     private String cancelReason; // 취소/환불 사유
+
+    // [PAY-RQ-001] CANCEL_REQUESTED로 넘어간 시각. 이 값이 오래됐으면(=워커가 죽어 환불이 멈춘 것으로 보고)
+    // 재시도 요청이 Toss 실제 상태를 대조해 환불을 재개할 수 있게 한다.
+    @Column(name = "cancel_requested_at")
+    private LocalDateTime cancelRequestedAt;
 
     @Column(name = "canceled_at")
     private LocalDateTime canceledAt; // Toss 취소 확정 시각
