@@ -25,10 +25,13 @@ public class ChatMessageResponse {
     private final boolean isRead;
     // [CHAT-RQ-002] 전송 취소된 메시지 여부 — true면 content는 비워서 보낸다
     private final boolean deleted;
+    // [CHAT-RQ-002] DELETE 이벤트 전용 — 이번 취소로 채팅방 목록 미리보기가 바뀌었는지
+    // (취소한 메시지가 방의 진짜 마지막 이벤트가 아니었으면 false → 프론트는 목록 미리보기를 건드리면 안 된다)
+    private final boolean previewChanged;
 
     public ChatMessageResponse(Long id, Long roomId, String senderEmail, String senderNickname,
                                String content, MessageType type, LocalDateTime sentAt, boolean isRead,
-                               boolean deleted) {
+                               boolean deleted, boolean previewChanged) {
         this.id = id;
         this.roomId = roomId;
         this.senderEmail = senderEmail;
@@ -38,6 +41,7 @@ public class ChatMessageResponse {
         this.sentAt = sentAt;
         this.isRead = isRead;
         this.deleted = deleted;
+        this.previewChanged = previewChanged;
     }
 
     public static ChatMessageResponse from(ChatMessage message, String nickname) {
@@ -52,7 +56,8 @@ public class ChatMessageResponse {
                 message.getType(),
                 message.getSentAt(),
                 message.isRead(),
-                deleted
+                deleted,
+                false
         );
     }
 
@@ -62,15 +67,17 @@ public class ChatMessageResponse {
      */
     public static ChatMessageResponse readEvent(Long roomId, String readerEmail) {
         return new ChatMessageResponse(
-                null, roomId, readerEmail, null, null, MessageType.READ, LocalDateTime.now(), true, false);
+                null, roomId, readerEmail, null, null, MessageType.READ, LocalDateTime.now(), true, false, false);
     }
 
     /**
      * [CHAT-RQ-002] 메시지 전송 취소 이벤트 전용
-     * content에는 채팅방 목록 미리보기 갱신용 마지막 메시지 문구를 담아 보낸다.
+     * previewChanged=true일 때만 content에 채팅방 목록 미리보기 갱신용 문구를 담아 보낸다.
+     * (취소한 메시지가 방의 마지막 이벤트가 아니었다면 previewChanged=false, content=null — 목록 미리보기 유지)
      */
-    public static ChatMessageResponse deleteEvent(Long roomId, Long messageId, String lastMessagePreview) {
+    public static ChatMessageResponse deleteEvent(Long roomId, Long messageId, boolean previewChanged, String lastMessagePreview) {
         return new ChatMessageResponse(
-                messageId, roomId, null, null, lastMessagePreview, MessageType.DELETE, LocalDateTime.now(), true, true);
+                messageId, roomId, null, null, lastMessagePreview, MessageType.DELETE, LocalDateTime.now(), true, true,
+                previewChanged);
     }
 }

@@ -1,9 +1,11 @@
 package com.Nbbang.backend.domain.chat.service;
 
+import com.Nbbang.backend.domain.auth.entity.UserAccount;
 import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
 import com.Nbbang.backend.domain.chat.dto.ChatRoomResponse;
 import com.Nbbang.backend.domain.chat.entity.ChatRoom;
 import com.Nbbang.backend.domain.chat.repository.ChatRoomRepository;
+import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
@@ -13,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,17 +39,30 @@ public class ChatRoomService {
                     String targetEmail = myEmail.equals(room.getBuyerEmail())
                             ? room.getSellerEmail()
                             : room.getBuyerEmail();
-                    String targetNickname = userAccountRepository.findById(targetEmail)
-                            .map(u -> u.getNickname())
-                            .orElse(targetEmail);
-                    return ChatRoomResponse.of(room, myEmail, targetNickname);
+                    Optional<UserAccount> targetAccount = userAccountRepository.findById(targetEmail);
+                    String targetNickname = targetAccount.map(UserAccount::getNickname).orElse(targetEmail);
+                    // [CHAT-RQ-001] 탈퇴(WITHDRAWN) 계정이면 프론트가 이름 대신 "탈퇴한 유저"를 표시하도록 알려준다
+                    boolean targetWithdrawn = targetAccount.map(u -> "WITHDRAWN".equals(u.getStatus())).orElse(false);
+                    // [CHAT-RQ-003] 연결된 상품 조회 — 물리 삭제 여부(배너용)와 실제 최신 status(헤더 상태 텍스트용)를 함께 계산
+                    Optional<Product> product = room.getProductId() != null
+                            ? productRepository.findById(room.getProductId())
+                            : Optional.empty();
+                    boolean productDeleted = room.getProductId() != null && product.isEmpty();
+                    String productStatus = product.map(Product::getStatus).orElse(null);
+                    // [QA-5] 구매자 목록/헤더의 상대 자리 썸네일용 — 이미지 없으면 null(프론트가 아이콘으로 폴백)
+                    String productImageUrl = product.map(Product::getImageUrl).orElse(null);
+                    return ChatRoomResponse.of(room, myEmail, targetNickname, targetWithdrawn, productDeleted,
+                            productStatus, productImageUrl);
                 })
                 .collect(Collectors.toList());
     }
 
-    /** 채팅방 생성 (이미 있으면 기존 방 반환) */
+    /**
+     * 채팅방 생성 (이미 있으면 기존 방 반환)
+     * [CHAT-RQ-003] productName은 파라미터로 받지 않는다 — 신규 생성 시 서버가 Product.title로 직접 채운다.
+     */
     @Transactional
-    public ChatRoom findOrCreate(String buyerEmail, String sellerEmail, Long productId, String productName) {
+    public ChatRoom findOrCreate(String buyerEmail, String sellerEmail, Long productId) {
         // [신규] 판매자(본인 상품 아닌 경우)·관리자는 문의(채팅) 시작 불가
         String buyerRole = userAccountRepository.findById(buyerEmail)
                 .map(u -> u.getRole())
@@ -67,16 +83,22 @@ public class ChatRoomService {
                     return room;
                 })
                 .orElseGet(()-> {
+                    // [CHAT-RQ-003] 신규 채팅방 생성 시 요청의 sellerEmail/productName을 실제 Product와 대조한다.
+                    // (기존 방 재사용 분기는 최초 생성 시 이미 검증됐으므로 여기서 다시 확인하지 않는다)
+                    Product product = productRepository.findById(productId)
+                            .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+                    if (!product.getSellerEmail().equals(sellerEmail)) {
+                        throw new CustomException(ErrorCode.CHAT_ROOM_SELLER_MISMATCH);
+                    }
+
                     // [MEM-RQ-002] 판매자가 탈퇴한 상품은 새 채팅방(문의) 생성 불가.
                     // 기존 대화(이미 찾은 방)는 CHAT-RQ-001에 따라 계속 조회 가능해야 하므로 신규 생성 분기에서만 막는다.
-                    boolean sellerWithdrawn = productRepository.findById(productId)
-                            .map(p -> "SELLER_WITHDRAWN".equals(p.getStatus()))
-                            .orElse(false);
-                    if (sellerWithdrawn) {
+                    if ("SELLER_WITHDRAWN".equals(product.getStatus())) {
                         throw new CustomException(ErrorCode.PRODUCT_SELLER_WITHDRAWN);
                     }
                     return chatRoomRepository.save(
-                            ChatRoom.create(buyerEmail, sellerEmail, productId, productName));
+                            // [CHAT-RQ-003] productName은 클라이언트 입력을 신뢰하지 않고 서버가 Product.title로 직접 채운다
+                            ChatRoom.create(buyerEmail, sellerEmail, productId, product.getTitle()));
                 });
     }
 
