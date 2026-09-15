@@ -153,6 +153,12 @@ public class ReviewService {
         UserAccount seller = userAccountRepository.findById(sellerEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
+        // [UI-RQ-002] 탈퇴(WITHDRAWN)는 row가 남아있어 findById는 성공하므로,
+        // 존재하지 않는 판매자와 구분되는 별도 에러로 프론트에 알린다.
+        if ("WITHDRAWN".equals(seller.getStatus())) {
+            throw new CustomException(ErrorCode.MEMBER_WITHDRAWN);
+        }
+
         List<Product> products = productRepository.findBySellerEmailOrderByCreatedAtDesc(sellerEmail);
         long closedSuccess = products.stream().filter(p -> STATUS_CLOSED_SUCCESS.equals(p.getStatus())).count();
         long closedFail = products.stream().filter(p -> STATUS_CLOSED_FAIL.equals(p.getStatus())).count();

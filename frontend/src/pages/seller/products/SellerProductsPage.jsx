@@ -19,7 +19,14 @@ const SellerProductsPage = () => {
           price: item.price,
           currentCount: item.currentCount,
           targetCount: item.targetCount,
-          status: item.status === 'OPEN' ? (item.currentCount >= item.targetCount ? '목표달성' : '진행중') : '마감됨',
+          // [fix/seller-page] 정원 달성 시 백엔드가 즉시 status를 CLOSED_SUCCESS로 전환하므로(ProductService.joinProduct),
+          // 그 경우를 최우선으로 '목표달성'에 매핑한다. OPEN인데 이미 정원이 찬 경우(정상적으로는 발생하지 않아야 함)도
+          // 방어적으로 같은 라벨을 유지해 라벨링과 아래 카운터가 항상 같은 기준을 쓰도록 통일한다.
+          status: item.status === 'CLOSED_SUCCESS'
+            ? '목표달성'
+            : item.status === 'OPEN'
+              ? (item.currentCount >= item.targetCount ? '목표달성' : '진행중')
+              : '마감됨',
           date: item.createdAt ? item.createdAt.split('T')[0].replace(/-/g, '.') : '알 수 없음'
         }));
         setProducts(formattedData);

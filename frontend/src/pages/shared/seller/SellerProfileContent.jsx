@@ -1,7 +1,7 @@
 // [UI-RQ-002][UI-RQ-003] 판매자 프로필+거래후기 공용 콘텐츠 (독립 페이지 / 마이페이지 탭)
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Package, Clock, ThumbsUp, Minus, ThumbsDown, Info, ShieldCheck, UserX, Home, Search, Loader2 } from 'lucide-react';
+import { Store, Package, Clock, ThumbsUp, Minus, ThumbsDown, Info, ShieldCheck, UserX, UserMinus, Home, Search, Loader2 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8080/api';
 
@@ -16,6 +16,25 @@ const STATUS_LABEL = {
   OPEN: { text: '진행중', cls: 'text-blue-700 bg-blue-100 border-blue-200' },
   CLOSED_SUCCESS: { text: '모집 성공', cls: 'text-emerald-700 bg-emerald-100 border-emerald-200' },
   CLOSED_FAIL: { text: '모집 실패', cls: 'text-red-700 bg-red-100 border-red-200' },
+};
+
+// [UI-RQ-002] 탈퇴 판매자와 존재하지 않는 판매자를 서로 다른 안내로 구분
+const ERROR_META = {
+  MEMBER_WITHDRAWN: {
+    Icon: UserMinus,
+    title: '탈퇴한 판매자입니다',
+    desc: '이 판매자는 서비스를 탈퇴하여 더 이상 프로필을 조회할 수 없어요.',
+  },
+  MEMBER_NOT_FOUND: {
+    Icon: UserX,
+    title: '존재하지 않는 판매자입니다',
+    desc: '판매자 정보가 삭제되었거나 존재하지 않을 수 있어요.',
+  },
+  DEFAULT: {
+    Icon: UserX,
+    title: '판매자 프로필을 불러오지 못했습니다',
+    desc: '판매자 정보가 삭제되었거나 존재하지 않을 수 있어요.',
+  },
 };
 
 const formatDate = (value) =>
@@ -36,9 +55,12 @@ const SellerProfileContent = ({ email, showPurchases = true }) => {
     setLoading(true);
     setError(null);
     fetch(`${API_BASE}/sellers/${encodeURIComponent(sellerEmail)}/profile`)
-      .then((res) => {
-        if (res.status === 404) throw new Error('존재하지 않는 판매자입니다.');
-        if (!res.ok) throw new Error('판매자 프로필을 불러오지 못했습니다.');
+      .then(async (res) => {
+        if (!res.ok) {
+          // [UI-RQ-002] 백엔드가 내려주는 code(MEMBER_WITHDRAWN / MEMBER_NOT_FOUND)로 안내를 구분
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.code || 'DEFAULT');
+        }
         return res.json();
       })
       .then(setProfile)
@@ -56,14 +78,16 @@ const SellerProfileContent = ({ email, showPurchases = true }) => {
   }
 
   if (error) {
+    const meta = ERROR_META[error] || ERROR_META.DEFAULT;
+    const ErrorIcon = meta.Icon;
     return (
       <div className="bg-white rounded-[32px] p-8 border border-gray-200 shadow-sm flex flex-col items-center justify-center gap-4 py-16 text-center">
         <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
-          <UserX size={28} />
+          <ErrorIcon size={28} />
         </div>
         <div className="flex flex-col gap-1.5">
-          <h3 className="text-base font-extrabold text-gray-800">{error}</h3>
-          <p className="text-xs font-medium text-gray-400">판매자 정보가 삭제되었거나 존재하지 않을 수 있어요.</p>
+          <h3 className="text-base font-extrabold text-gray-800">{meta.title}</h3>
+          <p className="text-xs font-medium text-gray-400">{meta.desc}</p>
         </div>
         <div className="flex items-center gap-2 mt-1">
           <button

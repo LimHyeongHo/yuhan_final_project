@@ -31,6 +31,11 @@ const StepCard = ({ icon: Icon, title, desc }) => (
 );
 
 const GuidePage = () => {
+  // [임시][fix/seller-page] 상품 등록 화면의 role 검증이 정리되기 전까지, 이 버튼에서의 이동만 임시로 막아둠
+  const goToSellerProducts = () => {
+    alert('현재 준비 중인 서비스입니다.');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
       <Header />
@@ -61,9 +66,13 @@ const GuidePage = () => {
               <StepCard key={step.title} {...step} />
             ))}
           </div>
-          <Link to="/seller/products" className="self-start flex items-center gap-1 text-sm font-bold text-blue-600 hover:underline mt-1">
+          <button
+            type="button"
+            onClick={goToSellerProducts}
+            className="self-start flex items-center gap-1 text-sm font-bold text-blue-600 hover:underline mt-1"
+          >
             상품 등록하러 가기 <ArrowRight size={14} />
-          </Link>
+          </button>
         </section>
       </main>
     </div>
