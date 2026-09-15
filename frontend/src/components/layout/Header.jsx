@@ -97,11 +97,13 @@ const Header = () => {
   const handleLogout = async () => {
     // [SEC-RQ-002] 서버 세션도 함께 무효화해야 뒤로가기/재요청으로 보호 API에 재진입할 수 없음.
     // 인증서 폐기는 탈퇴/타이머 만료 때만 해야 하므로 여기서는 로그아웃 API만 호출한다.
+    let serverLogoutOk = false;
     try {
-      await fetch(`http://${window.location.hostname}:8080/api/pki/logout`, {
+      const res = await fetch(`http://${window.location.hostname}:8080/api/pki/logout`, {
         method: 'POST',
         credentials: 'include',
       });
+      serverLogoutOk = res.ok;
     } catch (err) {
       console.error('서버 로그아웃 요청 실패', err);
     }
@@ -112,7 +114,13 @@ const Header = () => {
     localStorage.removeItem('email');
     setNickname('로그인 필요');
     setUserRole('ROLE_BUYER');
-    alert('로그아웃 되었습니다.');
+    // [SEC-RQ-002] 서버 세션 무효화 성공 여부를 확인하지 않고 "성공"만 안내하면,
+    // 네트워크 오류 등으로 서버 세션이 살아있는데도 로그아웃된 것처럼 보인다.
+    if (serverLogoutOk) {
+      alert('로그아웃 되었습니다.');
+    } else {
+      alert('로그아웃 처리했지만 서버 응답을 확인하지 못했습니다. 네트워크가 불안정하면 세션이 남아 있을 수 있으니 잠시 후 다시 시도해주세요.');
+    }
     navigate('/login');
   };
 

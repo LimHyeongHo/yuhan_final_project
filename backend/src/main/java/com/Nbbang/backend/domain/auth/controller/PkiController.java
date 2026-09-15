@@ -11,9 +11,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.math.BigInteger;
 import java.security.KeyFactory;
@@ -162,14 +165,24 @@ public class PkiController {
     @PostMapping("/register")
     @Transactional
     public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, String> request) {
+        // [SEC-RQ-003] 클라이언트가 보낸 role은 "구매자/판매자로 가입하겠다"는 의사표시로만 허용한다.
+        // 허용 목록(빈 값=인증서 재발급 요청, ROLE_BUYER, ROLE_SELLER) 밖의 값(ROLE_ADMIN 등)은
+        // 조용히 ROLE_BUYER로 처리하지 않고 400으로 거부한다.
+        String requestedRole = request.get("role") != null ? request.get("role").trim() : "";
+        if (!requestedRole.isEmpty()
+                && !"ROLE_BUYER".equals(requestedRole)
+                && !"ROLE_SELLER".equals(requestedRole)) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "허용되지 않은 회원 유형입니다.");
+            return ResponseEntity.badRequest().body(error);
+        }
         try {
             String email = request.get("email") != null ? request.get("email").replaceAll("\\s", "") : null;
             String password = request.get("password");
             String nickname = request.get("nickname");
-            // [SEC-RQ-003] 클라이언트가 보낸 role 문자열을 그대로 신뢰하면 안 됨(ROLE_ADMIN 등 임의 값 주입 가능).
-            // 서버는 "판매자로 가입하겠다"는 의사표시만 받아들이고, 실제 ROLE_SELLER 승격은
-            // AdminController#/users/{email}/grant-seller(관리자 승인)를 통해서만 이뤄지도록 PENDING으로 내린다.
-            boolean sellerSignupRequested = "ROLE_SELLER".equals(request.get("role") != null ? request.get("role").trim() : "");
+            // 실제 ROLE_SELLER 승격은 AdminController#/users/{email}/grant-seller(관리자 승인)를 통해서만
+            // 이뤄지도록, 판매자 가입 신청은 ROLE_SELLER_PENDING으로 내린다.
+            boolean sellerSignupRequested = "ROLE_SELLER".equals(requestedRole);
             String role = sellerSignupRequested ? "ROLE_SELLER_PENDING" : "ROLE_BUYER";
             String ci = request.get("ci");
             String publicKey = request.get("publicKey");
@@ -287,6 +300,10 @@ public class PkiController {
             System.out.println("Successfully updated policy in DB: " + email + " (Active Device: " + deviceId + ")");
             return ResponseEntity.ok(caResponse);
         } catch (Exception e) {
+            // [MEM-RQ-001] @Transactional 메서드 안에서 예외를 잡아 정상 응답으로 바꾸면
+            // 스프링이 롤백 시점을 놓쳐 계정만 저장되고 기기 인증서는 누락되는 등 일부만 커밋될 수 있다.
+            // 명시적으로 rollback-only로 표시해 전체가 원자적으로 롤백되도록 한다.
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             System.err.println("Registration failed: " + e.getMessage());
             Map<String, Object> error = new HashMap<>();
             error.put("error", e.getMessage());
@@ -440,25 +457,50 @@ public class PkiController {
         }
     }
 
-    // [SEC-RQ-002] 서버 로그아웃: 현재 HTTP 세션을 무효화한다 (JSESSIONID 쿠키는 세션 무효화 시 자동 만료됨).
+    // [SEC-RQ-002] 서버 로그아웃: 현재 HTTP 세션을 무효화하고 JSESSIONID 쿠키를 명시적으로 만료시킨다.
     // 수동 로그아웃은 정책상 인증서를 폐기하지 않으므로 caService/certificateSessionService는 호출하지 않는다.
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout(HttpServletRequest httpRequest) {
+    public ResponseEntity<Map<String, String>> logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         HttpSession session = httpRequest.getSession(false);
         if (session != null) {
             session.invalidate();
         }
+
+        // [SEC-RQ-002] 세션 무효화만으로는 브라우저에 남은 JSESSIONID 쿠키가 즉시 사라지지 않으므로,
+        // Max-Age=0 쿠키를 내려 클라이언트에서 확실히 삭제되도록 한다.
+        Cookie expired = new Cookie("JSESSIONID", "");
+        expired.setPath("/");
+        expired.setHttpOnly(true);
+        expired.setMaxAge(0);
+        httpResponse.addCookie(expired);
+
         Map<String, String> response = new HashMap<>();
         response.put("message", "로그아웃되었습니다.");
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/revoke")
-    public ResponseEntity<Map<String, String>> revoke(@RequestBody Map<String, String> request) {
+    public ResponseEntity<Map<String, String>> revoke(@RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
         try {
             String deviceId = request.get("deviceId");
             DeviceCert cert = deviceCertRepository.findByDeviceId(deviceId)
                     .orElseThrow(() -> new RuntimeException("해당 기기의 인증서 정보를 찾을 수 없습니다."));
+
+            // [SEC-RQ-005] body의 deviceId만 믿고 폐기하면 deviceId만 아는 제3자가 남의 기기 인증서를
+            // 무력화할 수 있으므로, 로그인 세션의 소유자 본인이거나 관리자일 때만 폐기를 허용한다.
+            HttpSession session = httpRequest.getSession(false);
+            String sessionUserId = session != null ? (String) session.getAttribute("userId") : null;
+            String sessionRole = session != null ? (String) session.getAttribute("role") : null;
+            if (sessionUserId == null) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "로그인이 필요합니다.");
+                return ResponseEntity.status(401).body(error);
+            }
+            if (!sessionUserId.equals(cert.getUserId()) && !"ROLE_ADMIN".equals(sessionRole)) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "본인 또는 관리자만 인증서를 폐기할 수 있습니다.");
+                return ResponseEntity.status(403).body(error);
+            }
 
             // 로컬 caService 직접 호출하여 인증서 폐기
             caService.revokeCertificate(new BigInteger(cert.getCertificateSerialNumber()));
