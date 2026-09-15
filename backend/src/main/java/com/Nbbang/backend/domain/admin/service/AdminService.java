@@ -12,7 +12,7 @@ import com.Nbbang.backend.domain.product.service.BlockchainService;
 import com.Nbbang.backend.domain.product.service.ProductHashService;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,12 +22,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class AdminService {
 
     private final UserAccountRepository userAccountRepository;
@@ -36,7 +34,33 @@ public class AdminService {
     private final BlockchainService blockchainService;
     private final ProductHashService productHashService;
     private final SystemLogService systemLogService;
-    private final Map<Long, java.math.BigDecimal> hackPriceSnapshots = new ConcurrentHashMap<>();
+
+    @Autowired
+    public AdminService(
+            UserAccountRepository userAccountRepository,
+            ProductRepository productRepository,
+            NotificationRepository notificationRepository,
+            BlockchainService blockchainService,
+            ProductHashService productHashService,
+            SystemLogService systemLogService) {
+        this.userAccountRepository = userAccountRepository;
+        this.productRepository = productRepository;
+        this.notificationRepository = notificationRepository;
+        this.blockchainService = blockchainService;
+        this.productHashService = productHashService;
+        this.systemLogService = systemLogService;
+    }
+
+    // 기존 단위 테스트와의 호환용 생성자. 운영 환경에서는 위의 전체 생성자를 사용한다.
+    AdminService(
+            UserAccountRepository userAccountRepository,
+            ProductRepository productRepository,
+            NotificationRepository notificationRepository,
+            BlockchainService blockchainService,
+            ProductHashService productHashService) {
+        this(userAccountRepository, productRepository, notificationRepository,
+                blockchainService, productHashService, null);
+    }
 
     @Transactional(readOnly = true)
     public Map<String, Object> getDashboardStatistics() {
@@ -286,69 +310,6 @@ public class AdminService {
         }
         
         productRepository.delete(product);
-    }
-
-    // [신규] 보안 검증 시뮬레이터: 해킹 시뮬레이션
-    @Transactional
-    public java.util.Map<String, Object> simulateHack() {
-        // 온체인 기록이 존재하고 현재 DB 해시와 일치하는 상품 중 무작위로 1개를 선택
-        java.util.List<Product> validProducts = productRepository.findAll().stream()
-                .filter(p -> {
-                    BlockchainService.BlockchainReadResult readResult =
-                            blockchainService.readHash(p.getProductId());
-                    return readResult.success()
-                            && readResult.hash() != null
-                            && !readResult.hash().isEmpty()
-                            && productHashService.matches(
-                                    productHashService.calculateHash(p), readResult.hash());
-                })
-                .collect(Collectors.toList());
-                
-        if (validProducts.isEmpty()) {
-            throw new CustomException(ErrorCode.VALIDATION_FAILED);
-        }
-        
-        Product product = validProducts.get(new java.util.Random().nextInt(validProducts.size()));
-
-        java.math.BigDecimal currentPrice = product.getPrice() != null ? product.getPrice() : java.math.BigDecimal.ZERO;
-        String isbn = product.getIsbn();
-        String originalHash = productHashService.calculateHash(product);
-
-        // 복구 시 정가가 아닌 변조 직전의 실제 공동구매 가격을 사용한다.
-        hackPriceSnapshots.putIfAbsent(product.getProductId(), currentPrice);
-
-        // 고의로 가격을 999,999원으로 변조하여 DB에 저장 (블록체인 우회)
-        java.math.BigDecimal newPrice = new java.math.BigDecimal("999999");
-        product.setPrice(newPrice);
-        productRepository.save(product);
-
-        // 변조된 해시 계산
-        String newHash = productHashService.calculateHash(product.getProductId(), isbn, newPrice);
-
-        java.util.Map<String, Object> result = new HashMap<>();
-        result.put("productId", product.getProductId());
-        result.put("originalPrice", currentPrice);
-        result.put("newPrice", newPrice);
-        result.put("originalHash", originalHash);
-        result.put("newHash", newHash);
-
-        return result;
-    }
-
-    // [신규] 보안 검증 시뮬레이터: 정상 복구
-    @Transactional
-    public void restoreHack(Long productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new CustomException(ErrorCode.VALIDATION_FAILED));
-        
-        java.math.BigDecimal origPrice = hackPriceSnapshots.get(productId);
-        if (origPrice == null) {
-            throw new CustomException(ErrorCode.VALIDATION_FAILED);
-        }
-
-        product.setPrice(origPrice);
-        productRepository.save(product);
-        hackPriceSnapshots.remove(productId, origPrice);
     }
 
     // [신규] 레거시 데이터 블록체인 마이그레이션

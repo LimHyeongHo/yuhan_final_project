@@ -13,6 +13,8 @@ import java.util.UUID;
 
 import com.Nbbang.backend.domain.log.entity.SystemLog;
 import com.Nbbang.backend.domain.log.repository.SystemLogRepository;
+import com.Nbbang.backend.domain.notification.entity.Notification;
+import com.Nbbang.backend.domain.notification.repository.NotificationRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +25,7 @@ public class VerificationService {
     private final ProductHashService productHashService;
     private final AladdinApiService aladdinApiService;
     private final SystemLogRepository systemLogRepository;
+    private final NotificationRepository notificationRepository;
 
     /**
      * 상품 교차 검증 수행
@@ -94,9 +97,17 @@ public class VerificationService {
                     .displayId("TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
                     .type("SECURITY")
                     .status("TAMPERED")
-                    .diff("Diff: DB Hash Mismatch")
-                    .detail("위변조 추적")
+                    .diff("Diff: DB Hash Mismatch / productId=" + productId)
+                    .detail("위변조 추적 / 판매자 알림 대상")
                     .build());
+
+            // 동일 상품을 반복 조회해도 판매자 알림이 중복 생성되지 않도록 메시지를 고정한다.
+            if (product.getSellerEmail() != null && !product.getSellerEmail().isBlank()) {
+                String sellerMessage = "상품 #" + productId + "의 가격 데이터 무결성 검증에 실패했습니다. 공동구매를 중지하고 관리자 확인이 필요합니다.";
+                if (!notificationRepository.existsByUserEmailAndMessage(product.getSellerEmail(), sellerMessage)) {
+                    notificationRepository.save(new Notification(product.getSellerEmail(), sellerMessage));
+                }
+            }
             
             return result;
         }

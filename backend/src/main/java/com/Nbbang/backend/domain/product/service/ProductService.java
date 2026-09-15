@@ -41,7 +41,9 @@ public class ProductService {
     private final ScrapRepository scrapRepository;
     private final UserAccountRepository userAccountRepository;
     private final ProductHashService productHashService;
+    private final AladdinApiService aladdinApiService;
     private final BlockchainService blockchainService;
+    private final VerificationService verificationService;
     private final PaymentRepository paymentRepository;
     private final ProductPriceHistoryRepository productPriceHistoryRepository;
 
@@ -61,6 +63,16 @@ public class ProductService {
         // 정가(originalPrice) 정보가 폼에 없어서 null일 경우 공구가와 동일하게 처리
         if (product.getOriginalPrice() == null) {
             product.setOriginalPrice(product.getPrice());
+        }
+
+        // 도서의 기준가는 클라이언트 입력값보다 ISBN 기반 알라딘 공식 정가를 우선한다.
+        // API가 일시적으로 실패하면 상품 등록은 계속하되, 검증 시 다시 조회한다.
+        if (product.getIsbn() != null && !product.getIsbn().isBlank()) {
+            BigDecimal officialPrice = aladdinApiService.fetchAladdinPrice(product.getIsbn());
+            if (officialPrice != null) {
+                product.setAladdinPrice(officialPrice);
+                product.setOriginalPrice(officialPrice);
+            }
         }
 
         // 이미지 파일 처리
@@ -166,6 +178,13 @@ public class ProductService {
         // [신규] PRD-RQ-003: 정원 체크+증가를 비관적 락으로 직렬화 (동시 요청 시 마지막 1석 중복 확정 방지)
         Product product = productRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        // 가격·ISBN 등 핵심 데이터가 체인 원본과 다르면 공동구매 참여를 차단한다.
+        // RPC 지연/장애(PENDING, UNAVAILABLE)는 기존 정책대로 참여를 막지 않고, FORGED만 거부한다.
+        Map<String, Object> integrity = verificationService.verifyProduct(id);
+        if ("FORGED".equals(integrity.get("status"))) {
+            throw new CustomException(ErrorCode.PRODUCT_INTEGRITY_TAMPERED);
+        }
 
         // [MEM-RQ-002] 판매자가 탈퇴한 상품은 참여 불가
         if ("SELLER_WITHDRAWN".equals(product.getStatus())) {
@@ -319,14 +338,6 @@ public class ProductService {
     public void deleteProduct(Long id) {
         Product product = getProductById(id);
         productRepository.delete(product); // CascadeType.ALL 이므로 참여내역도 자동 삭제됨
-    }
-
-    // [신규] DB 해킹 시뮬레이션 (블록체인 기록 없이 가격을 999,999원으로 강제 변경)
-    @Transactional
-    public void simulateDatabaseHack(Long id) {
-        Product product = getProductById(id);
-        product.setPrice(new java.math.BigDecimal("999999"));
-        productRepository.save(product);
     }
 
     // [신규] 구매자 마이페이지용 참여 내역 조회

@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
     List<Notification> findByUserEmailOrderByCreatedAtDesc(String userEmail);
+
+    boolean existsByUserEmailAndMessage(String userEmail, String message);
 }
