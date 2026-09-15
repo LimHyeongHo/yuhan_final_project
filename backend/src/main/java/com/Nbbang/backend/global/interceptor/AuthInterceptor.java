@@ -21,6 +21,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     // method + path 패턴. 같은 경로라도 메서드가 다르면(GET은 공개, POST/PUT/DELETE는 로그인 필요) 구분해야 하므로
     // WebMvcConfig의 excludePathPatterns(경로만 구분 가능) 대신 인터셉터 내부에서 직접 매칭한다.
     private static final List<Route> PUBLIC_ROUTES = List.of(
+            new Route("GET", "/api/csrf"),
             new Route("GET", "/api/products"),
             new Route("GET", "/api/products/*"),
             new Route("GET", "/api/products/*/verify"),

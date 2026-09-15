@@ -49,7 +49,8 @@ const SellerProductsPage = () => {
 
     try {
       const response = await fetch(`http://localhost:8080/api/products/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include',
       });
       if (response.ok) {
         alert("성공적으로 삭제되었습니다.");

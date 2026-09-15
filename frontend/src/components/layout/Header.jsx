@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 // [신규] Bell — 헤더 채팅 알림 배지/미리보기 아이콘
 import { User, ShieldAlert, LogOut, Bell, X, Menu } from 'lucide-react';
@@ -17,12 +17,12 @@ const formatRemaining = (totalSeconds) => {
 
 // [신규] +버튼으로 늘릴 수 있는 상한 (서버 CertificateSessionService.MAX_VALID_MINUTES와 동일하게 60분)
 const MAX_REMAINING_SECONDS = 60 * 60;
+const API_BASE = `http://${window.location.hostname}:8080`;
 
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [nickname, setNickname] = useState(localStorage.getItem('user_nickname') || '로그인 필요');
-  const [userRole, setUserRole] = useState(localStorage.getItem('user_role') || 'ROLE_BUYER');
+  const [sessionUser, setSessionUser] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // [신규] 인증서 타이머 상태 (남은 초 / 조정 함수)
   const { remainingSeconds, extend } = useCertificateTimer();
@@ -37,37 +37,49 @@ const Header = () => {
     () => localStorage.getItem('notif_participation_seen_at') || new Date(0).toISOString()
   );
 
-  const syncFromStorage = () => {
-    const storedNickname = localStorage.getItem('user_nickname');
-    const storedRole = localStorage.getItem('user_role');
-    if (storedNickname) setNickname(storedNickname);
-    else setNickname('로그인 필요');
-    if (storedRole) setUserRole(storedRole);
-    else setUserRole('ROLE_BUYER');
-  };
+  const isLoggedIn = Boolean(sessionUser?.authenticated);
+  const nickname = sessionUser?.nickname || '로그인 필요';
+  const userRole = sessionUser?.role || 'ROLE_BUYER';
+
+  const syncSession = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/member/session`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        setSessionUser(null);
+        return;
+      }
+      const session = await response.json();
+      setSessionUser(session.authenticated ? session : null);
+    } catch {
+      setSessionUser(null);
+    }
+  }, []);
 
   useEffect(() => {
-    syncFromStorage();
-  }, [location]);
+    syncSession();
+  }, [location, syncSession]);
 
   // [신규] 같은 페이지에 머문 채(라우트 이동 없이) 닉네임 등이 바뀐 경우, 새로고침 없이 헤더에 즉시 반영
   useEffect(() => {
-    window.addEventListener('user-profile-updated', syncFromStorage);
-    return () => window.removeEventListener('user-profile-updated', syncFromStorage);
-  }, []);
+    window.addEventListener('user-profile-updated', syncSession);
+    return () => window.removeEventListener('user-profile-updated', syncSession);
+  }, [syncSession]);
 
   // [feature/chat-fixes] 채팅 안읽음은 전역 Context로 이동 → 여기 chat-read 처리·20초 폴링 제거
 
   // [신규] 판매자 참여/시스템 알림을 20초마다 갱신 (채팅과 무관한 별도 기능이라 폴링 유지)
   useEffect(() => {
-    if (!localStorage.getItem('user_nickname')) {
+    if (!isLoggedIn) {
       setParticipationAlerts([]);
+      setSystemNotifications([]);
       return;
     }
 
     const loadNotifications = () => {
       // [신규] 참여 알림 및 시스템 알림은 판매자 계정에만 의미 있는 이벤트라 seller일 때만 조회
-      if (localStorage.getItem('user_role') === 'ROLE_SELLER') {
+      if (userRole === 'ROLE_SELLER') {
         fetch(`http://${window.location.hostname}:8080/api/products/seller/me/participations`, { credentials: 'include' })
           .then(res => {
             if (!res.ok) throw new Error('Failed to fetch participations');
@@ -92,7 +104,7 @@ const Header = () => {
     loadNotifications();
     const intervalId = setInterval(loadNotifications, 20000);
     return () => clearInterval(intervalId);
-  }, [nickname]);
+  }, [isLoggedIn, userRole]);
 
   const handleLogout = async () => {
     // [SEC-RQ-002] 서버 세션도 함께 무효화해야 뒤로가기/재요청으로 보호 API에 재진입할 수 없음.
@@ -112,8 +124,7 @@ const Header = () => {
     localStorage.removeItem('user_role');
     // [신규] 채팅 메시지 판별 email 삭제
     localStorage.removeItem('email');
-    setNickname('로그인 필요');
-    setUserRole('ROLE_BUYER');
+    setSessionUser(null);
     // [SEC-RQ-002] 서버 세션 무효화 성공 여부를 확인하지 않고 "성공"만 안내하면,
     // 네트워크 오류 등으로 서버 세션이 살아있는데도 로그아웃된 것처럼 보인다.
     if (serverLogoutOk) {
@@ -128,7 +139,7 @@ const Header = () => {
 
   // [신규] 헤더 채팅 링크 클릭 시 비로그인이면 이동 막고 alert만 표시 (URL 직접 입력 접근은 미차단, PrivateRoute에서 별도 처리 예정)
   const handleChatClick = (e) => {
-    if (!localStorage.getItem('user_nickname')) {
+    if (!isLoggedIn) {
       e.preventDefault();
       alert('로그인이 필요합니다');
     }
@@ -260,7 +271,7 @@ const Header = () => {
 
         <div className="hidden md:block w-px h-4 bg-gray-200"></div>
 
-        {localStorage.getItem('user_nickname') ? (
+        {isLoggedIn ? (
           <>
             {/* [신규] 알림 배지 + 미리보기 드롭다운 */}
             <div className="relative shrink-0">

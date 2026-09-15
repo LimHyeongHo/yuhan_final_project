@@ -7,24 +7,23 @@ const API_BASE = `http://${window.location.hostname}:8080`;
 // (alert는 새로고침 없는 내비게이션에서 브라우저가 조용히 막는 경우가 있어 신뢰할 수 없어 화면에 직접 렌더링하는 방식으로 대체)
 // [UI-RQ-001] 로그인 여부를 localStorage(위변조 가능)가 아니라 서버 세션으로 확인한다.
 // 서버 확인 실패/오류는 "비로그인"으로 간주(fail-closed)한다.
-const PrivateRoute = ({ children }) => {
+const PrivateRoute = ({ children, allowedRoles }) => {
   const navigate = useNavigate();
-  // null = 확인 중, true/false = 서버 세션 확인 결과
-  const [loggedIn, setLoggedIn] = useState(null);
+  const [session, setSession] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     fetch(`${API_BASE}/api/member/session`, { credentials: 'include' })
       .then((res) => (res.ok ? res.json() : { authenticated: false }))
-      .then((data) => { if (!cancelled) setLoggedIn(!!data.authenticated); })
-      .catch(() => { if (!cancelled) setLoggedIn(false); });
+      .then((data) => { if (!cancelled) setSession(data); })
+      .catch(() => { if (!cancelled) setSession({ authenticated: false }); });
     return () => { cancelled = true; };
   }, []);
 
   const goToLogin = () => navigate('/login', { replace: true });
   const goHome = () => navigate('/', { replace: true });
 
-  if (loggedIn === null) {
+  if (session === null) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/60">
         <p className="text-sm font-medium text-gray-500">확인 중...</p>
@@ -32,7 +31,7 @@ const PrivateRoute = ({ children }) => {
     );
   }
 
-  if (!loggedIn) {
+  if (!session.authenticated) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs mx-4 overflow-hidden">
@@ -59,6 +58,28 @@ const PrivateRoute = ({ children }) => {
       </div>
     );
   }
+
+  if (allowedRoles && !allowedRoles.includes(session.role)) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs mx-4 overflow-hidden">
+          <p className="text-base font-bold text-gray-900 text-center py-8 px-6">
+            접근 권한이 없는 페이지입니다
+          </p>
+          <div className="flex border-t border-gray-100">
+            <button
+              type="button"
+              onClick={goHome}
+              className="flex-1 py-3.5 text-sm font-bold text-blue-600 hover:bg-gray-50 transition"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return children;
 };
 

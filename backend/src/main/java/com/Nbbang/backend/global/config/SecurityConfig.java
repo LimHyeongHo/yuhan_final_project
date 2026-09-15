@@ -4,10 +4,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -26,11 +27,14 @@ public class SecurityConfig {
         // 켜면 로그인한 사용자까지 전부 401이 된다. 실제 "기본 차단 + 화이트리스트" 인가는
         // global/interceptor/AuthInterceptor(+ domain/admin/interceptor/AdminAuthInterceptor)에서
         // 세션 기반으로 처리하므로(WebMvcConfig에 등록), 여기서는 permitAll을 유지한다.
-        // [SEC-RQ-006] CSRF는 이번 변경 범위에서 제외했다. 켜려면 SPA의 모든 fetch 호출에 CSRF 헤더를 붙이는
-        // 작업(프론트 전역)이 선행되어야 하며, 지금 상태로 켜면 로그인한 사용자의 모든 상태변경 요청이 403이 된다.
+        // [SEC-RQ-006] SPA가 /api/csrf에서 발급받은 토큰을 상태 변경 요청의 X-XSRF-TOKEN 헤더로 보낸다.
+        // 쿠키와 헤더 값이 모두 일치해야 요청이 컨트롤러까지 전달된다.
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource())) // CORS 프리플라이트(OPTIONS) 허용
-            .csrf(AbstractHttpConfigurer::disable)
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+            )
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
             )

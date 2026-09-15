@@ -111,18 +111,18 @@ function App() {
           { /* ----------------판매자 페이지-----------------*/}
           { /* 대시보드 페이지 접속 화면 */}
           {/* [fix/seller-page] QA-1: PrivateRoute 적용 — 비로그인 URL 직접 접근 차단 */}
-          <Route path="/seller/dashboard" element={<PrivateRoute><SellerDashboardPage /></PrivateRoute>} />
+          <Route path="/seller/dashboard" element={<PrivateRoute allowedRoles={['ROLE_SELLER']}><SellerDashboardPage /></PrivateRoute>} />
           { /* 상품관리 페이지 접속 화면 - 네이버 검색 api 문제로 인해 상품 검색만 임시 차단*/}
           {/* [fix/seller-page] QA-1: PrivateRoute 적용 — 비로그인 URL 직접 접근 차단 */}
-          <Route path="/seller/products" element={<PrivateRoute><ProductsRegisterPage /></PrivateRoute>} />
+          <Route path="/seller/products" element={<PrivateRoute allowedRoles={['ROLE_SELLER']}><ProductsRegisterPage /></PrivateRoute>} />
           { /* 상품 수정 페이지 접속 화면 */}
-          <Route path="/seller/products/edit/:id" element={<ProductsEditPage />} />
+          <Route path="/seller/products/edit/:id" element={<PrivateRoute allowedRoles={['ROLE_SELLER']}><ProductsEditPage /></PrivateRoute>} />
           { /* 상품관리 페이지 접속 화면 */}
-          <Route path="/seller/status" element={<SellerProductsPage />} />
+          <Route path="/seller/status" element={<PrivateRoute allowedRoles={['ROLE_SELLER']}><SellerProductsPage /></PrivateRoute>} />
           { /* 분석데이터 페이지 접속 화면 */}
-          <Route path="/seller/analytics" element={<SellerAnalyticsPage />} />
+          <Route path="/seller/analytics" element={<PrivateRoute allowedRoles={['ROLE_SELLER']}><SellerAnalyticsPage /></PrivateRoute>} />
           { /* 판매자 주문/구매자 관리 페이지 */}
-          <Route path="/seller/orders" element={<SellerOrdersPage />} />
+          <Route path="/seller/orders" element={<PrivateRoute allowedRoles={['ROLE_SELLER']}><SellerOrdersPage /></PrivateRoute>} />
           { /* 판매자 프로필(거래 후기) 페이지 */}
           <Route path="/sellers/:email" element={<SellerProfilePage />} />
           { /* ---------------------------------------------*/}
@@ -143,11 +143,11 @@ function App() {
           { /* ----------------공용 페이지(채팅 등)-----------------*/}
           { /* 판매자, 구매자 영역 채팅 페이지 */}
           { /* [수정] 비로그인 URL 직접 접근 차단을 위해 PrivateRoute로 감쌈 */}
-          <Route path="/seller/chat" element={<PrivateRoute><SharedChatPage userRole="SELLER" /></PrivateRoute>} />
-          <Route path="/buyer/chat" element={<PrivateRoute><SharedChatPage userRole="BUYER" /></PrivateRoute>} />
+          <Route path="/seller/chat" element={<PrivateRoute allowedRoles={['ROLE_SELLER']}><SharedChatPage userRole="SELLER" /></PrivateRoute>} />
+          <Route path="/buyer/chat" element={<PrivateRoute allowedRoles={['ROLE_BUYER', 'ROLE_SELLER_PENDING']}><SharedChatPage userRole="BUYER" /></PrivateRoute>} />
 
           {/* ---------------- 구매자 마이페이지 ---------------- */}
-          <Route path="/buyer/mypage" element={<SharedMyPageLayout userRole="BUYER" />}>
+          <Route path="/buyer/mypage" element={<PrivateRoute allowedRoles={['ROLE_BUYER', 'ROLE_SELLER_PENDING']}><SharedMyPageLayout userRole="BUYER" /></PrivateRoute>}>
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<MyPageOverview userRole="BUYER" />} />
             <Route path="orders" element={<MyPageOrder userRole="BUYER" />} />
@@ -155,7 +155,7 @@ function App() {
             <Route path="settings" element={<MyPageSettings userRole="BUYER" />} />
           </Route>
           {/* ---------------- 판매자 마이페이지 ---------------- */}
-          <Route path="/seller/mypage" element={<SharedMyPageLayout userRole="SELLER" />}>
+          <Route path="/seller/mypage" element={<PrivateRoute allowedRoles={['ROLE_SELLER']}><SharedMyPageLayout userRole="SELLER" /></PrivateRoute>}>
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<MyPageOverview userRole="SELLER" />} />
             <Route path="projects" element={<MyPageProjects userRole="SELLER" />} />
