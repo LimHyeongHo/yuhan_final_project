@@ -1,11 +1,12 @@
-import React, { useCallback, useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 // [신규] Bell — 헤더 채팅 알림 배지/미리보기 아이콘
 import { User, ShieldAlert, LogOut, Bell, X, Menu } from 'lucide-react';
 // [신규] 인증서 남은 시간(mm:ss) + +5분/-5분 조정을 위한 Context 훅
 import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
 // [feature/chat-fixes] 채팅 안읽음 수를 전역 WebSocket 기준으로 실시간 수신 (기존 20초 폴링 대체)
 import { useChatNotifications } from '../../contexts/ChatNotificationContext';
+import { useSession } from '../../contexts/SessionContext';
 
 // [신규] 초 단위를 "mm:ss" 형식 문자열로 변환
 const formatRemaining = (totalSeconds) => {
@@ -17,12 +18,10 @@ const formatRemaining = (totalSeconds) => {
 
 // [신규] +버튼으로 늘릴 수 있는 상한 (서버 CertificateSessionService.MAX_VALID_MINUTES와 동일하게 60분)
 const MAX_REMAINING_SECONDS = 60 * 60;
-const API_BASE = `http://${window.location.hostname}:8080`;
 
 const Header = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const [sessionUser, setSessionUser] = useState(null);
+  const { session: sessionUser, loading: sessionLoading, clearSession } = useSession();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // [신규] 인증서 타이머 상태 (남은 초 / 조정 함수)
   const { remainingSeconds, extend } = useCertificateTimer();
@@ -39,33 +38,7 @@ const Header = () => {
 
   const isLoggedIn = Boolean(sessionUser?.authenticated);
   const nickname = sessionUser?.nickname || '로그인 필요';
-  const userRole = sessionUser?.role || 'ROLE_BUYER';
-
-  const syncSession = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/member/session`, {
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        setSessionUser(null);
-        return;
-      }
-      const session = await response.json();
-      setSessionUser(session.authenticated ? session : null);
-    } catch {
-      setSessionUser(null);
-    }
-  }, []);
-
-  useEffect(() => {
-    syncSession();
-  }, [location, syncSession]);
-
-  // [신규] 같은 페이지에 머문 채(라우트 이동 없이) 닉네임 등이 바뀐 경우, 새로고침 없이 헤더에 즉시 반영
-  useEffect(() => {
-    window.addEventListener('user-profile-updated', syncSession);
-    return () => window.removeEventListener('user-profile-updated', syncSession);
-  }, [syncSession]);
+  const userRole = sessionUser?.role || '';
 
   // [feature/chat-fixes] 채팅 안읽음은 전역 Context로 이동 → 여기 chat-read 처리·20초 폴링 제거
 
@@ -124,7 +97,7 @@ const Header = () => {
     localStorage.removeItem('user_role');
     // [신규] 채팅 메시지 판별 email 삭제
     localStorage.removeItem('email');
-    setSessionUser(null);
+    clearSession();
     // [SEC-RQ-002] 서버 세션 무효화 성공 여부를 확인하지 않고 "성공"만 안내하면,
     // 네트워크 오류 등으로 서버 세션이 살아있는데도 로그아웃된 것처럼 보인다.
     if (serverLogoutOk) {
@@ -256,7 +229,7 @@ const Header = () => {
           )}
 
           {/* [SEC-RQ-003] ROLE_SELLER_PENDING(승인 대기 판매자)은 아직 SELLER가 아니므로 구매자와 같은 탐색 메뉴를 보여준다 */}
-          {(userRole === 'ROLE_BUYER' || userRole === 'ROLE_SELLER_PENDING' || !userRole.startsWith('ROLE_')) && (
+          {!sessionLoading && (userRole === 'ROLE_BUYER' || userRole === 'ROLE_SELLER_PENDING' || !userRole.startsWith('ROLE_')) && (
             <>
               <Link to="/" className="hover:text-gray-950 transition">홈</Link>
               <Link to="/buyer/products" className="hover:text-gray-950 transition">공구 찾기</Link>
@@ -271,7 +244,12 @@ const Header = () => {
 
         <div className="hidden md:block w-px h-4 bg-gray-200"></div>
 
-        {isLoggedIn ? (
+        {sessionLoading ? (
+          <div className="hidden sm:flex items-center gap-2" aria-label="사용자 정보 확인 중">
+            <div className="h-3 w-16 rounded bg-gray-100 animate-pulse" />
+            <div className="h-9 w-9 rounded-full bg-gray-100 animate-pulse" />
+          </div>
+        ) : isLoggedIn ? (
           <>
             {/* [신규] 알림 배지 + 미리보기 드롭다운 */}
             <div className="relative shrink-0">
@@ -440,7 +418,7 @@ const Header = () => {
             )}
 
             {/* [SEC-RQ-003] ROLE_SELLER_PENDING(승인 대기 판매자)은 아직 SELLER가 아니므로 구매자와 같은 탐색 메뉴를 보여준다 */}
-          {(userRole === 'ROLE_BUYER' || userRole === 'ROLE_SELLER_PENDING' || !userRole.startsWith('ROLE_')) && (
+          {!sessionLoading && (userRole === 'ROLE_BUYER' || userRole === 'ROLE_SELLER_PENDING' || !userRole.startsWith('ROLE_')) && (
               <>
                 <Link to="/" onClick={() => setIsMobileMenuOpen(false)}>홈</Link>
                 <Link to="/buyer/products" onClick={() => setIsMobileMenuOpen(false)}>공구 찾기</Link>

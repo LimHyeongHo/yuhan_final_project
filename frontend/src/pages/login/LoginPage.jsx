@@ -8,6 +8,7 @@ import Header from '../../components/layout/Header';
 
 /// [신규] 로그인 성공 직후 인증서 타이머(10분)를 서버와 동기화하기 위한 훅
 import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
+import { useSession } from '../../contexts/SessionContext';
 
 const backgroundImgUrl = "https://images.unsplash.com/photo-1589998059171-988d887df646?q=80&w=2600";
 
@@ -28,6 +29,7 @@ const LoginPage = () => {
   const [testRoleHint, setTestRoleHint] = useState(null);
   // [신규] 로그인 성공 후 인증서 타이머 상태를 갱신하기 위해 Context에서 syncStatus를 꺼내옴
   const { syncStatus } = useCertificateTimer();
+  const { refreshSession } = useSession();
 
   // [신규] 역할별 테스트 계정 안내 (자동입력 아님, 참고용 텍스트만 보여줌)
   const TEST_ROLE_HINTS = {
@@ -66,6 +68,7 @@ const LoginPage = () => {
         // [신규] 채팅 메시지 판별 email 저장
         localStorage.setItem('email', email);
         localStorage.setItem('user_id', numericId.toString());
+        await refreshSession();
         // [신규] 관리자는 인증서 타이머가 없지만, 혹시 있을 상태를 정리하기 위해 동기화 호출
         await syncStatus();
         alert(`${result.nickname}님 환영합니다!`);
@@ -249,6 +252,7 @@ const LoginPage = () => {
         // [신규] 채팅 메시지 판별 email 저장
         localStorage.setItem('email', email);
         localStorage.setItem('user_id', numericId.toString());
+        await refreshSession();
         // [신규] 로그인 성공 직후 서버에서 시작된 인증서 10분 타이머를 프론트와 동기화
         await syncStatus();
         alert(`${result.nickname}님 환영합니다!`);

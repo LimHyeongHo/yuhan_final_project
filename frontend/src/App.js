@@ -6,6 +6,7 @@ import './App.css';
 import { CertificateTimerProvider } from './contexts/CertificateTimerContext';
 // [feature/chat-fixes] 채팅 안읽음 배지 전역 실시간 공유 Provider (Header/Dashboard 20초 폴링 대체)
 import { ChatNotificationProvider } from './contexts/ChatNotificationContext';
+import { SessionProvider } from './contexts/SessionContext';
 /// [신규] 비로그인 시 URL 직접 접근 막는 라우트 가드
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
@@ -71,6 +72,7 @@ const routerBasename = process.env.NODE_ENV === 'production' ? process.env.PUBLI
 function App() {
   return (
     <BrowserRouter basename={routerBasename}>
+      <SessionProvider>
       {/* [신규] 인증서 타이머 Provider로 전체 라우트를 감싸 어느 페이지에서도 남은 시간을 공유 */}
       <CertificateTimerProvider>
        {/* [feature/chat-fixes] 채팅 안읽음 배지를 어느 페이지에서도 실시간으로 공유 */}
@@ -171,6 +173,7 @@ function App() {
         </Routes>
        </ChatNotificationProvider>
       </CertificateTimerProvider>
+      </SessionProvider>
     </BrowserRouter>
   );
 }

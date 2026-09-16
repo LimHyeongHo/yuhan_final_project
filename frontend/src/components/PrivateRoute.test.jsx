@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import PrivateRoute from './PrivateRoute';
+import { SessionProvider } from '../contexts/SessionContext';
 
 const renderRoute = (session, allowedRoles) => {
   global.fetch = jest.fn().mockResolvedValue({
@@ -10,9 +11,11 @@ const renderRoute = (session, allowedRoles) => {
 
   render(
     <MemoryRouter>
-      <PrivateRoute allowedRoles={allowedRoles}>
-        <div>보호된 화면</div>
-      </PrivateRoute>
+      <SessionProvider>
+        <PrivateRoute allowedRoles={allowedRoles}>
+          <div>보호된 화면</div>
+        </PrivateRoute>
+      </SessionProvider>
     </MemoryRouter>
   );
 };
