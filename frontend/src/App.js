@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
+import './styles/v3SiteTheme.css';
 
 /// [신규] 인증서 만료 타이머(헤더 +5분/-5분, 00:00 만료 로그아웃) 전역 상태 Provider
 import { CertificateTimerProvider } from './contexts/CertificateTimerContext';
@@ -13,7 +14,6 @@ import AdminRoute from './components/AdminRoute';
 
 import LoginPage from './pages/login/LoginPage';
 import SignupPage from './pages/signup/SignupPage';
-import HomePage_v2 from './pages/home/HomePage_v2';
 import HomePageV3 from './pages/home/homePage_v3';
 // [UI-RQ-006][feature/ui-fixes] 이용 가이드 페이지 (로그인 불필요, 공개 라우트)
 import GuidePage from './pages/guide/GuidePage';
@@ -22,6 +22,8 @@ import SecurityLogPage from './pages/admin/security/SecurityLogPage';
 import AdminSimulatorPage from './pages/admin/security/AdminSimulatorPage';
 import UserAuthorization from './pages/admin/authorization/UserAuthorization';
 import AdminDashboardPage from './pages/admin/dashboard/AdminDashboardPage';
+import AdminUsersStatsPage from './pages/admin/dashboard/AdminUsersStatsPage';
+import AdminSellersStatsPage from './pages/admin/dashboard/AdminSellersStatsPage';
 import ProductsManagementPage from './pages/admin/products/ProductsManagementPage';
 // ===== 26.08.31 건우 추가내용 시작 =====
 import AdminSettlementPage from './pages/admin/settlement/AdminSettlementPage';
@@ -77,6 +79,7 @@ function App() {
       <CertificateTimerProvider>
        {/* [feature/chat-fixes] 채팅 안읽음 배지를 어느 페이지에서도 실시간으로 공유 */}
        <ChatNotificationProvider>
+        <div className="global-v3-theme">
         <Routes>
           {/* 메인 주소(localhost:3000/)로 접속했을 때 보여줄 화면 */}
           {/* <Route path="/" element={<Home />} /> */}
@@ -88,7 +91,7 @@ function App() {
           <Route path="/signup" element={<SignupPage />} />
 
           {/* 홈 화면으로 접속했을 때 보여줄 화면 */}
-          <Route path="/" element={<HomePage_v2 />} />
+          <Route path="/" element={<HomePageV3 />} />
           <Route path="/home-v3" element={<HomePageV3 />} />
           {/* [UI-RQ-006][feature/ui-fixes] 이용 가이드 - 로그인 여부 무관 공개 라우트 */}
           <Route path="/guide" element={<GuidePage />} />
@@ -102,6 +105,8 @@ function App() {
           <Route path="/admin/authorization" element={<AdminRoute><UserAuthorization /></AdminRoute>} />
           { /* 대시보드 페이지 접속 화면 */}
           <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />
+          <Route path="/admin/dashboard/users-stats" element={<AdminRoute><AdminUsersStatsPage /></AdminRoute>} />
+          <Route path="/admin/dashboard/sellers-stats" element={<AdminRoute><AdminSellersStatsPage /></AdminRoute>} />
           { /* 상품관리 페이지 접속 화면 */}
           <Route path="/admin/products" element={<AdminRoute><ProductsManagementPage /></AdminRoute>} />
           {/* ===== 26.08.31 건우 추가내용 시작 ===== */}
@@ -171,6 +176,7 @@ function App() {
           {/* 나중에 전공책 상세페이지 같은 걸 추가하면 이렇게 씁니다 */}
           {/* <Route path="/book/:id" element={<BookDetail />} /> */}
         </Routes>
+        </div>
        </ChatNotificationProvider>
       </CertificateTimerProvider>
       </SessionProvider>

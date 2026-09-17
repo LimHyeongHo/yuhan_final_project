@@ -20,15 +20,23 @@ import {
   Star,
   Timer,
   Users,
+  WalletCards,
   X,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
 import { useChatNotifications } from '../../contexts/ChatNotificationContext';
+import { useSession } from '../../contexts/SessionContext';
 import './homePage_v3.css';
 
 const formatPrice = (value) => `${Number(value || 0).toLocaleString()}원`;
 const toTimestamp = (value) => new Date(String(value || '').replace(' ', 'T')).getTime() || 0;
 const getShortTitle = (title) => String(title || '').split(/\s+-\s+/)[0].trim();
+const formatRemaining = (totalSeconds) => {
+  const seconds = Math.max(Number(totalSeconds || 0), 0);
+  return `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
+};
+const MAX_REMAINING_SECONDS = 60 * 60;
 
 const mapProduct = (item) => {
   const current = Number(item.currentCount || 0);
@@ -74,17 +82,23 @@ const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
   if (userRole === 'ROLE_ADMIN') {
     return (
       <>
-        <Link aria-label="관리자 홈" title="관리자 홈" to="/admin/dashboard" onClick={closeMenu}>
+        <NavLink aria-label="관리자 홈" title="관리자 홈" to="/admin/dashboard" onClick={closeMenu}>
           <LayoutDashboard size={18} /><span>관리자 홈</span>
-        </Link>
-        <Link aria-label="회원 관리" title="회원 관리" to="/admin/authorization" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="회원 관리" title="회원 관리" to="/admin/authorization" onClick={closeMenu}>
           <Users size={18} /><span>회원 관리</span>
-        </Link>
-        <Link aria-label="상품 관리" title="상품 관리" to="/admin/products" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="상품 관리" title="상품 관리" to="/admin/products" onClick={closeMenu}>
           <Package size={18} /><span>상품 관리</span>
-        </Link>
-        <Link aria-label="보안 로그" title="보안 로그" to="/admin/security" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="보안 로그" title="보안 로그" to="/admin/security" onClick={closeMenu}>
           <Shield size={18} /><span>보안 로그</span>
+        </NavLink>
+        <NavLink aria-label="정산 관리" title="정산 관리" to="/admin/settlements" onClick={closeMenu}>
+          <WalletCards size={18} /><span>정산 관리</span>
+        </NavLink>
+        <Link aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
+          <Info size={18} /><span>이용가이드</span>
         </Link>
       </>
     );
@@ -105,8 +119,14 @@ const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
         <Link aria-label="분석 데이터" title="분석 데이터" to="/seller/analytics" onClick={closeMenu}>
           <BarChart3 size={18} /><span>분석 데이터</span>
         </Link>
+        <Link aria-label="주문 관리" title="주문 관리" to="/seller/orders" onClick={closeMenu}>
+          <ShoppingBag size={18} /><span>주문 관리</span>
+        </Link>
         <Link aria-label="채팅" title="채팅" className="v3-nav-chat" to="/seller/chat" onClick={closeMenu}>
           <MessageCircle size={18} /><span>채팅</span>{unreadCount > 0 && <i />}
+        </Link>
+        <Link aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
+          <Info size={18} /><span>이용가이드</span>
         </Link>
       </>
     );
@@ -130,12 +150,14 @@ const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
   );
 };
 
-const IntegratedHeader = () => {
+export const IntegratedHeader = () => {
   const navigate = useNavigate();
+  const { session, clearSession } = useSession();
+  const { remainingSeconds, extend } = useCertificateTimer();
   const { chatRooms } = useChatNotifications();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const nickname = localStorage.getItem('user_nickname');
-  const userRole = localStorage.getItem('user_role') || 'ROLE_BUYER';
+  const nickname = session?.authenticated ? session.nickname : localStorage.getItem('user_nickname');
+  const userRole = (session?.authenticated ? session.role : localStorage.getItem('user_role')) || 'ROLE_BUYER';
   const unreadCount = chatRooms.reduce((sum, room) => sum + Number(room.unreadCount || 0), 0);
   const notificationSeenKey = `v3_notification_seen_${localStorage.getItem('email') || 'guest'}`;
   const [participationAlerts, setParticipationAlerts] = useState([]);
@@ -301,12 +323,13 @@ const IntegratedHeader = () => {
     localStorage.removeItem('user_nickname');
     localStorage.removeItem('user_role');
     localStorage.removeItem('email');
+    clearSession();
     navigate('/login');
   };
 
   return (
     <header className="v3-integrated-header">
-      <Link className="v3-brand" to="/home-v3">
+      <Link aria-label="YU-BOOK" className="v3-brand" to="/">
         <strong>N-bbang</strong>
       </Link>
 
@@ -366,6 +389,18 @@ const IntegratedHeader = () => {
                   <ShoppingBag size={19} />
                 </Link>
               </>
+            )}
+            {remainingSeconds !== null && (
+              <div className="v3-certificate-timer" title="인증서 남은 유효시간">
+                <button aria-label="인증서 유효시간 5분 감소" onClick={() => extend(-5)} type="button">−</button>
+                <span className={remainingSeconds <= 60 ? 'is-urgent' : ''}>{formatRemaining(remainingSeconds)}</span>
+                <button
+                  aria-label="인증서 유효시간 5분 증가"
+                  disabled={remainingSeconds >= MAX_REMAINING_SECONDS}
+                  onClick={() => extend(5)}
+                  type="button"
+                >+</button>
+              </div>
             )}
             <Link className="v3-profile" to={myPagePath}>
               <i>{initials}</i><span>{nickname} 님</span>
