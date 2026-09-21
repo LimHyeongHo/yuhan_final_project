@@ -23,7 +23,7 @@ import {
   WalletCards,
   X,
 } from 'lucide-react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
 import { useChatNotifications } from '../../contexts/ChatNotificationContext';
 import { useSession } from '../../contexts/SessionContext';
@@ -79,6 +79,9 @@ const ProductCover = ({ product, variant = 'book' }) => (
 );
 
 const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
+  const { pathname } = useLocation();
+  const isSecuritySection = pathname.startsWith('/admin/security') || pathname.startsWith('/admin/simulator');
+
   if (userRole === 'ROLE_ADMIN') {
     return (
       <>
@@ -91,15 +94,21 @@ const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
         <NavLink aria-label="상품 관리" title="상품 관리" to="/admin/products" onClick={closeMenu}>
           <Package size={18} /><span>상품 관리</span>
         </NavLink>
-        <NavLink aria-label="보안 로그" title="보안 로그" to="/admin/security" onClick={closeMenu}>
+        <NavLink
+          aria-label="보안 로그"
+          title="보안 로그"
+          to="/admin/security"
+          className={isSecuritySection ? 'is-active' : undefined}
+          onClick={closeMenu}
+        >
           <Shield size={18} /><span>보안 로그</span>
         </NavLink>
         <NavLink aria-label="정산 관리" title="정산 관리" to="/admin/settlements" onClick={closeMenu}>
           <WalletCards size={18} /><span>정산 관리</span>
         </NavLink>
-        <Link aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
+        <NavLink aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
           <Info size={18} /><span>이용가이드</span>
-        </Link>
+        </NavLink>
       </>
     );
   }
@@ -107,45 +116,45 @@ const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
   if (userRole === 'ROLE_SELLER') {
     return (
       <>
-        <Link aria-label="판매자 대시보드" title="대시보드" to="/seller/dashboard" onClick={closeMenu}>
+        <NavLink aria-label="판매자 대시보드" title="대시보드" to="/seller/dashboard" onClick={closeMenu}>
           <LayoutDashboard size={18} /><span>대시보드</span>
-        </Link>
-        <Link aria-label="물품 등록" title="물품 등록" to="/seller/products" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="물품 등록" title="물품 등록" to="/seller/products" onClick={closeMenu}>
           <Plus size={18} /><span>물품 등록</span>
-        </Link>
-        <Link aria-label="판매 현황" title="판매 현황" to="/seller/status" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="판매 현황" title="판매 현황" to="/seller/status" onClick={closeMenu}>
           <ClipboardList size={18} /><span>판매 현황</span>
-        </Link>
-        <Link aria-label="분석 데이터" title="분석 데이터" to="/seller/analytics" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="분석 데이터" title="분석 데이터" to="/seller/analytics" onClick={closeMenu}>
           <BarChart3 size={18} /><span>분석 데이터</span>
-        </Link>
-        <Link aria-label="주문 관리" title="주문 관리" to="/seller/orders" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="주문 관리" title="주문 관리" to="/seller/orders" onClick={closeMenu}>
           <ShoppingBag size={18} /><span>주문 관리</span>
-        </Link>
-        <Link aria-label="채팅" title="채팅" className="v3-nav-chat" to="/seller/chat" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="채팅" title="채팅" className="v3-nav-chat" to="/seller/chat" onClick={closeMenu}>
           <MessageCircle size={18} /><span>채팅</span>{unreadCount > 0 && <i />}
-        </Link>
-        <Link aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
           <Info size={18} /><span>이용가이드</span>
-        </Link>
+        </NavLink>
       </>
     );
   }
 
   return (
     <>
-      <Link aria-label="홈" title="홈" to="/home-v3" onClick={closeMenu}>
+      <NavLink aria-label="홈" title="홈" to="/home-v3" onClick={closeMenu}>
         <Home size={18} /><span>홈</span>
-      </Link>
-      <Link aria-label="공구찾기" title="공구찾기" to="/buyer/products" onClick={closeMenu}>
+      </NavLink>
+      <NavLink aria-label="공구찾기" title="공구찾기" to="/buyer/products" onClick={closeMenu}>
         <Search size={18} /><span>공구찾기</span>
-      </Link>
-      <Link aria-label="채팅" title="채팅" className="v3-nav-chat" to="/buyer/chat" onClick={closeMenu}>
+      </NavLink>
+      <NavLink aria-label="채팅" title="채팅" className="v3-nav-chat" to="/buyer/chat" onClick={closeMenu}>
         <MessageCircle size={18} /><span>채팅</span>{unreadCount > 0 && <i />}
-      </Link>
-      <Link aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
+      </NavLink>
+      <NavLink aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
         <Info size={18} /><span>이용가이드</span>
-      </Link>
+      </NavLink>
     </>
   );
 };
@@ -619,7 +628,7 @@ const HomePageV3 = () => {
   };
 
   return (
-    <div className="v3-page">
+    <div className="v3-page v3-design-page">
       <main className="v3-main">
         <section className="v3-bookcase">
           <IntegratedHeader />

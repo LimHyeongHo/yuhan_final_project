@@ -1,80 +1,5 @@
-/* 폰트 후보 생성: 새 웹폰트도 font-family를 'V3ActiveFont'로 등록한다. */
-/* @font-face {
-  font-family: 'V3ActiveFont';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2404@1.0/Freesentation-1Thin.woff2') format('woff2');
-  font-weight: 100;
-  font-display: swap;
-} */
-
-/* @font-face {
-  font-family: 'V3ActiveFont';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Thin.woff2') format('woff2');
-  font-weight: 100;
-  font-display: swap;
-} */
-
-@font-face {
-  font-family: 'V3ActiveFont';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/에이투지체-1Thin.woff2') format('woff2');
-  font-weight: 100;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'V3ActiveFont';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/에이투지체-2ExtraLight.woff2') format('woff2');
-  font-weight: 200;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'V3ActiveFont';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/에이투지체-3Light.woff2') format('woff2');
-  font-weight: 300;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'V3ActiveFont';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/에이투지체-4Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'V3ActiveFont';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/에이투지체-5Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'V3ActiveFont';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/에이투지체-6SemiBold.woff2') format('woff2');
-  font-weight: 600;
-  font-display: swap;
-}
-
 .v3-page {
-  --v3-primary: #0d0904;
-  --v3-secondary: #7e570b;
-  --v3-muted: #776f64;
-  --v3-paper: #fbf9f4;
-  --v3-white: #fff;
-  --v3-gold: #bf9854;
-  --v3-gold-light: #ffc975;
-  --v3-border: rgba(201, 187, 163, 0.45);
-  --v3-border-light: rgba(201, 187, 163, 0.3);
-  min-height: 100vh;
-  color: #1b1c19;
-  background: linear-gradient(145deg, #eee5d1 0%, #e9dec7 100%);
-  font-family: 'NEXON Lv1 Gothic OTF', 'Malgun Gothic', sans-serif;
-}
-
-.v3-page *,
-.v3-page *::before,
-.v3-page *::after {
-  box-sizing: border-box;
+  width: 100%;
 }
 
 .v3-page a {
@@ -99,7 +24,7 @@
 
 .v3-bookcase,
 .v3-closing-section {
-  width: min(1280px, 100%);
+  width: min(var(--v3-content-width), 100%);
   border: 1px solid var(--v3-border);
   border-radius: 36px;
   background: var(--v3-paper);
@@ -1663,14 +1588,6 @@
   .v3-page *::after {
     transition-duration: .01ms !important;
   }
-}
-
-/* App.css의 전역 선언보다 우선하여 현재 등록한 v3 웹폰트를 적용한다. */
-.v3-page,
-.v3-page.v3-page *,
-.v3-page.v3-page *::before,
-.v3-page.v3-page *::after {
-  font-family: 'V3ActiveFont', 'Malgun Gothic', sans-serif !important;
 }
 
 /* 남은 인원은 연한 갈색 트랙, 참여 인원은 단색 브라운으로 표시한다. */

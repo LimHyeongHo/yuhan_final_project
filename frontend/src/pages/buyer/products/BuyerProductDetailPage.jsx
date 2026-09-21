@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 //아래 import문 삭제
 // import { useParams, Link } from 'react-router-dom';
 import { Clock, Users, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon, X, Copy, Heart, Info } from 'lucide-react';
-import Header from '../../../components/layout/Header';
+import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import { getProductCategoryName } from '../../../constants/productCategories';
 import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
 //[추가]
@@ -348,7 +348,7 @@ const BuyerProductDetailPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
-      <Header />
+      <V3SiteHeader />
 
       <main className="flex-grow max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col gap-6">
 

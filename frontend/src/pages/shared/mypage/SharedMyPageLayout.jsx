@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { User, ShoppingBag, Bookmark, Settings, Store, CreditCard, ChevronRight, Star } from 'lucide-react';
-import Header from '../../../components/layout/Header';
+import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 
 const SharedMyPageLayout = ({ userRole = 'BUYER' }) => {
   const basePath = userRole === 'SELLER' ? '/seller/mypage' : '/buyer/mypage';
@@ -30,7 +30,7 @@ const SharedMyPageLayout = ({ userRole = 'BUYER' }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
-      <Header />
+      <V3SiteHeader />
 
       {/* 🚨 기존에 있던 상단 배너 영역 완전 삭제됨 */}
 

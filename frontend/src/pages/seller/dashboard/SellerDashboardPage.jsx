@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Store, TrendingUp, Package, MessageSquare, PlusCircle, ArrowRight, BookOpen, Clock, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import Header from '../../../components/layout/Header'; // 공통 헤더
+import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 // [feature/chat-fixes] 채팅 안읽음 수를 전역 Context(WebSocket)에서 실시간으로 받음 (기존 20초 폴링 대체)
 import { useChatNotifications } from '../../../contexts/ChatNotificationContext';
 
@@ -83,7 +83,7 @@ const SellerDashboardPage = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
 
       {/* 1. 글로벌 헤더 */}
-      <Header />
+      <V3SiteHeader />
 
       {/* 2. 판매자 전용 다크 배너 */}
       <section className="bg-slate-900 text-white py-12 px-6 shadow-md">

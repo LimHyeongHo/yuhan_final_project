@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Store, Edit2, BookOpen, Package, DollarSign, Users, FileText, Upload, AlertCircle, X, Search } from 'lucide-react';
-import Header from '../../../components/layout/Header';
+import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import { PRODUCT_CATEGORIES, normalizeProductCategory } from '../../../constants/productCategories';
 
 const ProductsEditPage = () => {
@@ -215,7 +215,7 @@ const ProductsEditPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900 ">
-      <Header />
+      <V3SiteHeader />
 
       {/* 상단 다크 배너 */}
       <section className="bg-slate-900 text-white py-12 px-6 shadow-md">

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
-import Header from '../../components/layout/Header';
+import V3SiteHeader from '../../components/layout/V3SiteHeader';
 
 const PaymentSuccessPage = () => {
   const [searchParams] = useSearchParams();
@@ -12,7 +12,7 @@ const PaymentSuccessPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
-      <Header />
+      <V3SiteHeader />
 
       <main className="flex-grow flex flex-col items-center justify-center px-6 py-16">
         <div className="w-full max-w-md bg-white rounded-[32px] border border-gray-200 shadow-sm p-10 flex flex-col items-center gap-6 text-center">

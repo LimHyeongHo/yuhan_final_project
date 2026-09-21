@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, BookOpen, Package, Search, Filter, Edit2, Trash2, CheckCircle, Clock, ExternalLink } from 'lucide-react';
-import Header from '../../../components/layout/Header';
+import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 
 const SellerProductsPage = () => {
   const navigate = useNavigate();
@@ -78,7 +78,7 @@ const SellerProductsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
-      <Header />
+      <V3SiteHeader />
 
       <section className="bg-slate-900 text-white py-12 px-6 shadow-md">
         {/* ... (상단 배너 코드는 기존과 동일) ... */}

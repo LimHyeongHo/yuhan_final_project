@@ -1,7 +1,5 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import './App.css';
-import './styles/v3SiteTheme.css';
 
 /// [신규] 인증서 만료 타이머(헤더 +5분/-5분, 00:00 만료 로그아웃) 전역 상태 Provider
 import { CertificateTimerProvider } from './contexts/CertificateTimerContext';

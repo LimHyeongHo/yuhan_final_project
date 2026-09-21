@@ -2,7 +2,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import Header from '../../../components/layout/Header';
+import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import SellerProfileContent from './SellerProfileContent';
 
 const SellerProfilePage = () => {
@@ -12,7 +12,7 @@ const SellerProfilePage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
-      <Header />
+      <V3SiteHeader />
 
       <main className="flex-grow max-w-4xl w-full mx-auto p-6 md:p-8 flex flex-col gap-6 mt-4">
         <button

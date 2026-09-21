@@ -1,7 +1,7 @@
 import React from 'react';
-import { IntegratedHeader } from '../../pages/home/homePage_v3';
+import V3SiteHeader from '../layout/V3SiteHeader';
 import './adminTheme.css';
 
-const AdminHeader = () => <IntegratedHeader />;
+const AdminHeader = () => <V3SiteHeader />;
 
 export default AdminHeader;
