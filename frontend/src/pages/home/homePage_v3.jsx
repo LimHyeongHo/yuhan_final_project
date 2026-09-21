@@ -27,6 +27,7 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
 import { useChatNotifications } from '../../contexts/ChatNotificationContext';
 import { useSession } from '../../contexts/SessionContext';
+import { getDisplayProductImageUrl } from '../../utils/productImageUrl';
 import './homePage_v3.css';
 
 const formatPrice = (value) => `${Number(value || 0).toLocaleString()}원`;
@@ -38,11 +39,38 @@ const formatRemaining = (totalSeconds) => {
 };
 const MAX_REMAINING_SECONDS = 60 * 60;
 
+const fetchGoogleBookMetadata = async (isbn) => {
+  if (!isbn) return null;
+
+  try {
+    const params = new URLSearchParams({ isbn });
+    const response = await fetch(`http://localhost:8080/api/search/book-metadata?${params}`, {
+      credentials: 'include',
+    });
+    if (!response.ok) return null;
+
+    const metadata = await response.json();
+    const reviewCount = Number(metadata.ratingsCount || 0);
+    const averageRating = Number(metadata.averageRating);
+    return {
+      thumbnail: getDisplayProductImageUrl(metadata.image),
+      reviewCount,
+      rating: reviewCount > 0 && Number.isFinite(averageRating)
+        ? Math.max(0, Math.min(5, averageRating))
+        : null,
+    };
+  } catch {
+    return null;
+  }
+};
+
 const mapProduct = (item) => {
   const current = Number(item.currentCount || 0);
   const target = Number(item.targetCount || 1);
   const deadline = new Date(item.deadline);
   const diffDays = Math.ceil((deadline - new Date()) / (1000 * 60 * 60 * 24));
+  const reviewCount = Number(item.reviewCount || 0);
+  const averageRating = Number(item.averageRating);
 
   return {
     id: item.productId,
@@ -57,26 +85,46 @@ const mapProduct = (item) => {
     dDay: diffDays > 0 ? `D-${diffDays}` : 'D-DAY',
     diffDays,
     progress: Math.min(Math.round((current / target) * 100), 100),
-    thumbnail: item.imageUrl || null,
+    isbn: item.isbn || '',
+    thumbnail: getDisplayProductImageUrl(item.imageUrl),
+    reviewCount,
+    rating: reviewCount > 0 && Number.isFinite(averageRating)
+      ? Math.max(0, Math.min(5, averageRating))
+      : null,
   };
 };
 
-const ProductCover = ({ product, variant = 'book' }) => (
-  <div className={`v3-product-cover is-${variant}`}>
-    {product?.thumbnail ? (
-      <img src={product.thumbnail} alt={`${product.title} 이미지`} />
-    ) : product ? (
-      <div className="v3-faux-cover">
-        {product.rawType !== 'BOOK' && <span>{product.category}</span>}
-        {product.rawType === 'BOOK' ? <BookOpen size={27} /> : <ShoppingBag size={27} />}
-        <strong>{product.title}</strong>
-        <small>{product.author}</small>
-      </div>
-    ) : (
-      <div className="v3-faux-cover"><BookOpen size={27} /><strong>YU BOOK</strong></div>
-    )}
-  </div>
-);
+const ProductCover = ({ product, variant = 'book' }) => {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [product?.thumbnail]);
+
+  return (
+    <div className={`v3-product-cover is-${variant}`}>
+      {product?.thumbnail && !imageFailed ? (
+        <img
+          alt={`${product.title} 표지`}
+          decoding="async"
+          loading={variant === 'featured' ? 'eager' : 'lazy'}
+          onError={() => setImageFailed(true)}
+          referrerPolicy="no-referrer"
+          src={product.thumbnail}
+        />
+      ) : product ? (
+        <div className="v3-faux-cover">
+          {product.rawType !== 'BOOK' && <span>{product.category}</span>}
+          {product.rawType === 'BOOK' ? <BookOpen size={27} /> : <ShoppingBag size={27} />}
+          <strong>{product.title}</strong>
+          <small>{product.author}</small>
+        </div>
+      ) : (
+        <div className="v3-faux-cover"><BookOpen size={27} /><strong>YU BOOK</strong></div>
+      )}
+    </div>
+  );
+};
 
 const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
   const { pathname } = useLocation();
@@ -516,17 +564,24 @@ const NextProductCard = ({ product, onSelect }) => (
 );
 
 const ShelfProduct = ({ product }) => {
-  const starCount = Math.max(1, Math.min(5, Math.round(product.progress / 20)));
+  const hasRating = product.reviewCount > 0 && Number.isFinite(product.rating);
 
   return (
     <Link className="v3-shelf-product" to={`/buyer/products/${product.id}`}>
       <ProductCover product={product} variant="shelf" />
       <div className="v3-shelf-product-info">
-        <div className="v3-stars" aria-label={`인기도 ${starCount}점`}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Star key={star} className={star <= starCount ? 'is-filled' : ''} size={13} />
-          ))}
-        </div>
+        {hasRating ? (
+          <div className="v3-stars" aria-label={`Google Books 리뷰 평점 ${product.rating.toFixed(1)}점`}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star key={star} className={star <= Math.round(product.rating) ? 'is-filled' : ''} size={13} />
+            ))}
+            <span>Google {product.rating.toFixed(1)} ({product.reviewCount})</span>
+          </div>
+        ) : (
+          <div className="v3-review-empty" aria-label="등록된 리뷰 없음">
+            <Star size={12} /><span>리뷰 없음</span>
+          </div>
+        )}
         <h3>{product.title}</h3>
         <p>{product.author}</p>
         <div><strong>{product.price}</strong><span>공구 참여</span></div>
@@ -569,26 +624,63 @@ const HomePageV3 = () => {
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchProducts = async () => {
       try {
         const response = await fetch('http://localhost:8080/api/products');
         if (!response.ok) throw new Error('Failed to fetch products');
 
         const data = await response.json();
-        setProducts(
-          data
-            .filter((item) => item.status === 'OPEN' && new Date(item.deadline) >= new Date())
-            .map(mapProduct),
+        if (isCancelled) return;
+
+        const mappedProducts = data
+          .filter((item) => item.status === 'OPEN' && new Date(item.deadline) >= new Date())
+          .map(mapProduct);
+        setProducts(mappedProducts);
+        setIsLoading(false);
+
+        const popularForMetadata = [...mappedProducts]
+          .sort((a, b) => b.progress - a.progress || a.diffDays - b.diffDays)
+          .slice(0, 6);
+        const urgentForMetadata = [...mappedProducts]
+          .filter((product) => product.diffDays >= 0 && product.diffDays <= 5)
+          .sort((a, b) => a.diffDays - b.diffDays || b.progress - a.progress)
+          .slice(0, 4);
+        const bookIsbns = [...new Set(
+          [...popularForMetadata, ...urgentForMetadata]
+            .filter((product) => product.rawType === 'BOOK' && product.isbn)
+            .map((product) => product.isbn),
+        )];
+        const googleMetadata = new Map(
+          await Promise.all(bookIsbns.map(async (isbn) => [isbn, await fetchGoogleBookMetadata(isbn)])),
         );
+
+        if (!isCancelled) {
+          setProducts((currentProducts) => currentProducts.map((product) => {
+            const metadata = googleMetadata.get(product.isbn);
+            if (!metadata) return product;
+            return {
+              ...product,
+              thumbnail: metadata.thumbnail || product.thumbnail,
+              reviewCount: metadata.reviewCount,
+              rating: metadata.rating,
+            };
+          }));
+        }
       } catch (error) {
+        if (isCancelled) return;
         console.error('Error fetching products:', error);
         setLoadError(true);
-      } finally {
-        setIsLoading(false);
+        if (!isCancelled) setIsLoading(false);
       }
     };
 
     fetchProducts();
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   const popularProducts = useMemo(
@@ -711,8 +803,9 @@ const HomePageV3 = () => {
             </div>
           )}
         </section>
+
       </main>
-    </div>
+    </div >
   );
 };
 

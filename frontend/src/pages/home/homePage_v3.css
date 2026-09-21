@@ -1058,6 +1058,8 @@
 
 .v3-stars {
   display: flex;
+  align-items: center;
+  gap: 1px;
   margin-bottom: 5px;
   color: #cec5bc;
 }
@@ -1065,6 +1067,23 @@
 .v3-stars svg.is-filled {
   color: #d49e35;
   fill: #d49e35;
+}
+
+.v3-stars span {
+  margin-left: 4px;
+  color: var(--v3-muted);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.v3-review-empty {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 5px;
+  color: #92877a;
+  font-size: 8px;
+  font-weight: 700;
 }
 
 .v3-shelf-product-info h3 {

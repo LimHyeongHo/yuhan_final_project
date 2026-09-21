@@ -9,6 +9,7 @@ import { SessionProvider } from './contexts/SessionContext';
 /// [신규] 비로그인 시 URL 직접 접근 막는 라우트 가드
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
+import SiteFooter from './components/layout/SiteFooter';
 
 import LoginPage from './pages/login/LoginPage';
 import SignupPage from './pages/signup/SignupPage';
@@ -174,6 +175,7 @@ function App() {
           {/* 나중에 전공책 상세페이지 같은 걸 추가하면 이렇게 씁니다 */}
           {/* <Route path="/book/:id" element={<BookDetail />} /> */}
         </Routes>
+        <SiteFooter />
         </div>
        </ChatNotificationProvider>
       </CertificateTimerProvider>

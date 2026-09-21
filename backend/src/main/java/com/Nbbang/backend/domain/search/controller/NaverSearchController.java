@@ -48,7 +48,9 @@ public class NaverSearchController {
         GoogleBooksService.BookMetadata metadata = googleBooksService.findByIsbn(isbn);
         return ResponseEntity.ok(Map.of(
                 "image", metadata.imageUrl(),
-                "category", metadata.category()
+                "category", metadata.category(),
+                "averageRating", metadata.averageRating() == null ? 0 : metadata.averageRating(),
+                "ratingsCount", metadata.ratingsCount()
         ));
     }
 }
