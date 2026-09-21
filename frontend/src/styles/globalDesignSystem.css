@@ -189,23 +189,6 @@ select {
   text-decoration: none;
 }
 
-.global-v3-theme .v3-site-brand strong {
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.045em;
-}
-
-.global-v3-theme .v3-site-brand span {
-  padding: 4px 7px 3px;
-  border-radius: 999px;
-  color: var(--site-brown);
-  background: rgba(126, 87, 11, 0.11);
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
 .global-v3-theme .v3-site-actions {
   gap: 10px !important;
 }
@@ -456,10 +439,6 @@ select {
 @media (max-width: 768px) {
   .global-v3-theme .v3-site-header {
     height: 68px !important;
-  }
-
-  .global-v3-theme .v3-site-brand strong {
-    font-size: 24px;
   }
 
   .global-v3-theme .v3-site-mobile-menu {

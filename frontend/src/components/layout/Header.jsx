@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import HeaderLogo from './HeaderLogo';
 // [신규] Bell — 헤더 채팅 알림 배지/미리보기 아이콘
 import { User, ShieldAlert, LogOut, Bell, X, Menu } from 'lucide-react';
 // [신규] 인증서 남은 시간(mm:ss) + +5분/-5분 조정을 위한 Context 훅
@@ -191,8 +192,8 @@ const Header = () => {
     <header className="v3-site-header bg-white border-b border-gray-200 sticky top-0 z-50 w-full h-16 flex items-center justify-between">
 
       <div className="flex items-center shrink-0 pl-[max(1.5rem,calc(50vw-40rem+1.5rem))] md:pl-[max(2rem,calc(50vw-40rem+2rem))]">
-        <Link to="/" className="v3-site-brand text-xl font-black tracking-tight text-gray-900 hover:text-blue-600 transition">
-          <strong>N-bbang</strong><span>YU BOOK</span>
+        <Link to="/" aria-label="N-BBANG 홈" className="v3-site-brand text-xl font-black tracking-tight text-gray-900 hover:text-blue-600 transition">
+          <HeaderLogo />
         </Link>
       </div>
 
@@ -422,7 +423,7 @@ const Header = () => {
             )}
 
             {/* [SEC-RQ-003] ROLE_SELLER_PENDING(승인 대기 판매자)은 아직 SELLER가 아니므로 구매자와 같은 탐색 메뉴를 보여준다 */}
-          {!sessionLoading && (userRole === 'ROLE_BUYER' || userRole === 'ROLE_SELLER_PENDING' || !userRole.startsWith('ROLE_')) && (
+            {!sessionLoading && (userRole === 'ROLE_BUYER' || userRole === 'ROLE_SELLER_PENDING' || !userRole.startsWith('ROLE_')) && (
               <>
                 <Link to="/" onClick={() => setIsMobileMenuOpen(false)}>홈</Link>
                 <Link to="/buyer/products" onClick={() => setIsMobileMenuOpen(false)}>공구 찾기</Link>

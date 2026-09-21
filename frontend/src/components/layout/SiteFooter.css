@@ -29,13 +29,18 @@
 }
 
 .site-footer__brand {
-  display: inline-block;
-  color: var(--v3-primary);
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -0.055em;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
+}
+
+.site-footer__logo-image {
+  display: block;
+  width: 160px;
+  height: 38px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 148.5% 338.5%;
 }
 
 .site-footer__description {
@@ -229,8 +234,9 @@
     padding: 30px 0 20px;
   }
 
-  .site-footer__brand {
-    font-size: 28px;
+  .site-footer__logo-image {
+    width: 142px;
+    height: 34px;
   }
 
   .site-footer__company-info {

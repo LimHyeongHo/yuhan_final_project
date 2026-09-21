@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import HeaderLogo from '../../components/layout/HeaderLogo';
 import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
 import { useChatNotifications } from '../../contexts/ChatNotificationContext';
 import { useSession } from '../../contexts/SessionContext';
@@ -386,8 +387,8 @@ export const IntegratedHeader = () => {
 
   return (
     <header className="v3-integrated-header">
-      <Link aria-label="YU-BOOK" className="v3-brand" to="/">
-        <strong>N-bbang</strong>
+      <Link aria-label="N-BBANG 홈" className="v3-brand" to="/">
+        <HeaderLogo />
       </Link>
 
       <nav className={mobileOpen ? 'is-open' : ''}>

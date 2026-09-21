@@ -56,24 +56,6 @@
   gap: 9px;
 }
 
-.v3-brand strong {
-  color: var(--v3-primary);
-  font-family: 'NEXON Lv1 Gothic OTF', 'Malgun Gothic', sans-serif;
-  font-size: 30px;
-  line-height: 1;
-  letter-spacing: -0.035em;
-}
-
-.v3-brand span {
-  padding: 4px 8px 3px;
-  border-radius: 999px;
-  color: var(--v3-secondary);
-  background: rgba(126, 87, 11, 0.12);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
 .v3-integrated-header nav {
   display: flex;
   align-items: center;
@@ -1525,10 +1507,6 @@
 
   .v3-bookcase {
     padding: 18px 16px 22px;
-  }
-
-  .v3-brand strong {
-    font-size: 25px;
   }
 
   .v3-auth-links a {

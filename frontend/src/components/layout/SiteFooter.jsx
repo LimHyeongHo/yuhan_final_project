@@ -19,6 +19,7 @@ const technologyStack = [
 ];
 
 const PURCHASE_SAFETY_SERVICE_URL = 'https://consumer.tosspayments.com/escrow';
+const footerLogoUrl = `${process.env.PUBLIC_URL}/logo/01. N-bbang_footer_logo.png`;
 
 const openExternalPage = (url) => {
   window.open(url, '_blank', 'noopener,noreferrer');
@@ -33,9 +34,14 @@ const SiteFooter = () => (
             className="site-footer__brand"
             id="site-footer-title"
             to="/"
+            aria-label="N-BBANG 홈"
             onClick={() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' })}
           >
-            N-bbang
+            <span
+              aria-hidden="true"
+              className="site-footer__logo-image"
+              style={{ backgroundImage: `url("${footerLogoUrl}")` }}
+            />
           </Link>
           <p className="site-footer__description">유한대학교 졸업작품 공동구매 플랫폼</p>
           <address className="site-footer__company-info">
