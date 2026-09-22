@@ -1,12 +1,27 @@
-// [UI-RQ-004][feature/ui-fixes] 메인에서 넘어온 쿼리(?q=)를 목록 검색 상태에 초기 반영
 import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-// 🛠️ LayoutGrid, List 아이콘이 추가되었습니다.
-import { Search, SlidersHorizontal, BookOpen, Users, ChevronDown, Filter, Clock, Image as ImageIcon, LayoutGrid, List, CheckCircle } from 'lucide-react';
-import Header from '../../../components/layout/Header';
+import {
+  BookOpen,
+  CheckCircle,
+  ChevronDown,
+  Clock,
+  Image as ImageIcon,
+  LayoutGrid,
+  List,
+  Search,
+  SlidersHorizontal,
+  Users,
+} from 'lucide-react';
 import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
-import { PRODUCT_CATEGORIES, getProductCategoryName, normalizeProductCategory } from '../../../constants/productCategories';
+import {
+  PRODUCT_CATEGORIES,
+  getProductCategoryName,
+  normalizeProductCategory,
+} from '../../../constants/productCategories';
+import { IntegratedHeader } from '../../home/homePage_v3';
+import './BuyerProductsPage.css';
 
+const PAGE_SIZE = 10;
 
 const BuyerProductsPage = () => {
   const [searchParams] = useSearchParams();
@@ -15,34 +30,37 @@ const BuyerProductsPage = () => {
   const [searchTarget, setSearchTarget] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
-  
-  // 🛠️ 뷰 모드 상태 관리 (GRID: 바둑판형, LIST: 목록형)
   const [viewMode, setViewMode] = useState('GRID');
-  // 🌟 정렬 상태 관리
   const [sortFilter, setSortFilter] = useState('LATEST');
-  // 🌟 마감된 상품 표시 토글
   const [showClosed, setShowClosed] = useState(false);
-
   const [productList, setProductList] = useState([]);
-
-  // [QA-3][fix/seller-page] '더보기' 버튼이 클릭해도 아무 동작 안 하던 문제 — 원래 목적인 10개 단위
-  // 페이지네이션 state/로직이 아예 없이 라벨만 남아있었음. 10개씩 더 보여주는 방식으로 구현.
-  const PAGE_SIZE = 10;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [requestKey, setRequestKey] = useState(0);
 
-  // [UI-RQ-004][feature/ui-fixes] 다른 검색어로 재진입 시 최신 쿼리로 갱신
   React.useEffect(() => {
     setSearchQuery(searchParams.get('q') || '');
   }, [searchParams]);
 
   React.useEffect(() => {
+    let isCancelled = false;
+
+    setIsLoading(true);
+    setLoadError('');
+
     fetch('http://localhost:8080/api/products')
-      .then(res => res.json())
-      .then(data => {
-        const formattedData = data.map(item => ({
+      .then((res) => {
+        if (!res.ok) throw new Error('상품 목록을 불러오지 못했습니다.');
+        return res.json();
+      })
+      .then((data) => {
+        if (isCancelled) return;
+
+        const formattedData = data.map((item) => ({
           id: item.productId,
           title: item.title,
-          type: item.type, // 'BOOK' or 'ITEM'
+          type: item.type,
           category: normalizeProductCategory(item.category),
           major: item.type === 'BOOK' ? getProductCategoryName(item.category) : '학과 물품',
           author: item.author || item.publisher || '정보 없음',
@@ -52,312 +70,333 @@ const BuyerProductsPage = () => {
           status: item.status === 'OPEN' ? '모집 중' : '마감됨',
           deadline: item.deadline ? item.deadline.split('T')[0] : '기한 없음',
           thumbnail: getDisplayProductImageUrl(item.imageUrl),
-          description: item.description || ''
+          description: item.description || '',
         }));
+
         setProductList(formattedData);
+        setIsLoading(false);
       })
-      .catch(err => console.error("상품 목록 로드 실패:", err));
-  }, []);
+      .catch((error) => {
+        if (isCancelled) return;
+        console.error('상품 목록 로드 실패:', error);
+        setLoadError('상품을 불러오는 중 문제가 생겼습니다. 잠시 후 다시 시도해 주세요.');
+        setIsLoading(false);
+      });
 
-  // 🌟 프론트엔드 검색 및 필터링 로직
+    return () => {
+      isCancelled = true;
+    };
+  }, [requestKey]);
+
   const filteredList = React.useMemo(() => {
-    const filtered = productList.filter(item => {
-      // 0. 마감된 상품 숨기기 (showClosed가 false일 때 마감된 상품 제외)
-      if (!showClosed && item.status === '마감됨') {
-        return false;
-      }
+    const filtered = productList.filter((item) => {
+      if (!showClosed && item.status === '마감됨') return false;
+      if (typeFilter !== 'ALL' && item.type !== typeFilter) return false;
+      if (categoryFilter !== 'ALL' && item.category !== categoryFilter) return false;
 
-      // 1. 상품 종류 필터 (전체, 전공도서, 학과물품)
-      if (typeFilter !== 'ALL' && item.type !== typeFilter) {
-        return false;
-      }
-
-      // 1-1. 세부 카테고리 필터 적용
-      if (categoryFilter !== 'ALL') {
-        if (item.category !== categoryFilter) {
-          return false;
-        }
-      }
-
-      // 2. 검색어 필터
       if (searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase();
-        const matchTitle = item.title.toLowerCase().includes(query) || item.author.toLowerCase().includes(query);
-        const matchContent = item.description.toLowerCase().includes(query);
+        const matchesTitle = item.title.toLowerCase().includes(query)
+          || item.author.toLowerCase().includes(query);
+        const matchesContent = item.description.toLowerCase().includes(query);
 
-        if (searchTarget === 'TITLE' && !matchTitle) return false;
-        if (searchTarget === 'CONTENT' && !matchContent) return false;
-        if (searchTarget === 'ALL' && !(matchTitle || matchContent)) return false;
+        if (searchTarget === 'TITLE' && !matchesTitle) return false;
+        if (searchTarget === 'CONTENT' && !matchesContent) return false;
+        if (searchTarget === 'ALL' && !(matchesTitle || matchesContent)) return false;
       }
-      
+
       return true;
     });
 
-    // 🌟 정렬 로직 적용
     return filtered.sort((a, b) => {
-      if (sortFilter === 'LATEST') {
-        return b.id - a.id; // 최신순: ID 내림차순
-      } else if (sortFilter === 'DEADLINE') {
+      if (sortFilter === 'LATEST') return b.id - a.id;
+      if (sortFilter === 'DEADLINE') {
         if (a.deadline === '기한 없음') return 1;
         if (b.deadline === '기한 없음') return -1;
-        return new Date(a.deadline) - new Date(b.deadline); // 마감임박순: 오름차순
-      } else if (sortFilter === 'PRICE_LOW') {
+        return new Date(a.deadline) - new Date(b.deadline);
+      }
+      if (sortFilter === 'PRICE_LOW') {
         const priceA = parseInt(a.price.replace(/[^0-9]/g, ''), 10) || 0;
         const priceB = parseInt(b.price.replace(/[^0-9]/g, ''), 10) || 0;
-        return priceA - priceB; // 가격낮은순: 오름차순
+        return priceA - priceB;
       }
       return 0;
     });
   }, [productList, searchQuery, searchTarget, typeFilter, categoryFilter, sortFilter, showClosed]);
 
-  // [QA-3][fix/seller-page] 검색/필터/정렬이 바뀌면 다시 첫 페이지(10개)부터 보여준다
   React.useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [filteredList]);
+  }, [searchQuery, searchTarget, typeFilter, categoryFilter, sortFilter, showClosed]);
 
   const visibleList = filteredList.slice(0, visibleCount);
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
-      <Header />
+  const handleTypeChange = (type) => {
+    setTypeFilter(type);
+    if (type !== 'BOOK') setCategoryFilter('ALL');
+  };
 
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 py-16 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col gap-4">
-          <span className="bg-white/20 text-white text-[10px] font-black tracking-widest px-3 py-1.5 rounded-full w-max uppercase">
-            Yuhan University Joint Purchase
-          </span>
-          <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white mt-1">
-            전공책, 이제 친구들과 모여서 <span className="text-yellow-400">N빵</span> 하세요!
-          </h2>
-          <p className="text-blue-100 text-sm md:text-base font-medium max-w-2xl leading-relaxed mt-1">
-            학과 인원이 모일수록 가격은 파괴됩니다. 안전한 블록체인 기반 거래로 투명하고 저렴하게 전공 서적을 구입해 보세요.
-          </p>
+  const resetFilters = () => {
+    setSearchQuery('');
+    setSearchTarget('ALL');
+    setTypeFilter('ALL');
+    setCategoryFilter('ALL');
+    setShowClosed(false);
+  };
+
+  return (
+    <div className="buyer-products-page v3-design-page">
+      <div className="buyer-products-header-shell v3-design-header-shell">
+        <div className="buyer-products-container v3-design-container">
+          <IntegratedHeader />
         </div>
       </div>
 
-      <main className="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-6">
-        
-        {/* 검색 박스 영역 */}
-        <section className="bg-white rounded-[32px] p-6 md:p-8 border border-gray-200 shadow-sm flex flex-col gap-4 transition-all">
-          <div className="flex items-center gap-3">
-            <div className="relative flex-grow">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className="text-gray-400" size={20} />
-              </div>
-              <input 
-                type="text" 
-                placeholder="찾으시는 도서명, 저자, 출판사를 입력하세요..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-2xl text-sm font-semibold outline-none transition"
-              />
-            </div>
-            <button className="px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-2xl transition shadow-sm whitespace-nowrap">
-              검색
-            </button>
-            <button 
-              onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-              className={`px-4 py-3.5 border text-sm font-bold rounded-2xl transition flex items-center gap-2 whitespace-nowrap ${
-                isAdvancedOpen ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <SlidersHorizontal size={18} />
-              <span className="hidden sm:inline">세부 검색</span>
-            </button>
+      <section className="buyer-products-masthead">
+        <div className="buyer-products-container v3-design-container">
+          <div className="buyer-products-heading">
+            <p>유한대학교 공동구매</p>
+            <h1>함께 고르고, 더 좋은 가격으로</h1>
+            <span>전공도서와 학과 물품을 한곳에서 찾아보세요.</span>
           </div>
+        </div>
+      </section>
 
-          {/* 세부 검색 토글 영역 */}
-          {isAdvancedOpen && (
-            <div className="pt-6 mt-2 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in slide-in-from-top-2 fade-in duration-200">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5"><Filter size={14} /> 검색 대상</label>
-                <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-200">
-                  {['ALL', 'TITLE', 'CONTENT'].map((type) => (
-                    <button key={type} onClick={() => setSearchTarget(type)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${searchTarget === type ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>
-                      {type === 'ALL' ? '제목 + 내용' : type === 'TITLE' ? '제목만' : '내용만'}
-                    </button>
-                  ))}
-                </div>
+      <main className="buyer-products-container v3-design-container buyer-products-main">
+        <div className="buyer-mobile-filter-row">
+          <button
+            type="button"
+            className={isAdvancedOpen ? 'is-active' : ''}
+            onClick={() => setIsAdvancedOpen((isOpen) => !isOpen)}
+            aria-expanded={isAdvancedOpen}
+          >
+            <SlidersHorizontal size={17} />
+            상세 필터
+          </button>
+        </div>
+
+        <div className="buyer-catalog-layout v3-design-panel">
+          <aside className={`buyer-filter-panel ${isAdvancedOpen ? 'is-open' : ''}`}>
+            <div className="buyer-filter-heading">
+              <h2>상세 필터</h2>
+              <button type="button" onClick={resetFilters}>초기화</button>
+            </div>
+
+            <div className="buyer-filter-search">
+              <label htmlFor="buyer-product-search">상품 검색</label>
+              <div>
+                <Search size={16} aria-hidden="true" />
+                <input
+                  id="buyer-product-search"
+                  type="search"
+                  placeholder="도서명, 저자, 상품명"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5"><BookOpen size={14} /> 상품 종류</label>
-                <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-200">
-                  {['ALL', 'BOOK', 'ITEM'].map((type) => (
-                    <button 
-                      key={type} 
-                      onClick={() => {
-                        setTypeFilter(type);
-                        if (type !== 'BOOK') setCategoryFilter('ALL');
-                      }} 
-                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${typeFilter === type ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-                    >
-                      {type === 'ALL' ? '전체 상품' : type === 'BOOK' ? '전공도서' : '학과물품'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5"><Filter size={14} /> 학과 분류</label>
-                <div className="relative">
-                  <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-full appearance-none px-4 py-2.5 bg-gray-50 border border-gray-200 focus:border-blue-500 rounded-xl text-sm font-semibold text-gray-700 outline-none cursor-pointer">
-                    <option value="ALL">전체 학과</option>
-                    {PRODUCT_CATEGORIES.map(({ code, name }) => (
-                      <option key={code} value={code}>{name}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16} />
-                </div>
-              </div>
-              
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-gray-500 flex items-center gap-1.5"><CheckCircle size={14} /> 상품 상태</label>
-                <label className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer group transition-all hover:border-blue-300">
-                  <span className="text-sm font-bold text-gray-600 group-hover:text-gray-900 transition">마감된 상품 포함</span>
-                  <input 
-                    type="checkbox" 
-                    checked={showClosed}
-                    onChange={(e) => setShowClosed(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded-full border-gray-300 focus:ring-blue-500 cursor-pointer" 
+            </div>
+            <br />
+            <fieldset className="buyer-filter-group">
+              <legend><Search size={15} />검색 범위</legend>
+              {[
+                ['ALL', '제목 + 내용'],
+                ['TITLE', '제목만'],
+                ['CONTENT', '내용만'],
+              ].map(([target, label]) => (
+                <label key={target}>
+                  <input
+                    type="radio"
+                    name="searchTarget"
+                    value={target}
+                    checked={searchTarget === target}
+                    onChange={() => setSearchTarget(target)}
                   />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </fieldset>
+            <br />
+            <fieldset className="buyer-filter-group">
+              <legend><BookOpen size={15} />상품 종류</legend>
+              {[
+                ['ALL', '전체 상품'],
+                ['BOOK', '전공도서'],
+                ['ITEM', '학과물품'],
+              ].map(([type, label]) => (
+                <label key={type}>
+                  <input
+                    type="radio"
+                    name="productType"
+                    value={type}
+                    checked={typeFilter === type}
+                    onChange={() => handleTypeChange(type)}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </fieldset>
+
+            <div className="buyer-filter-group">
+              <label className="buyer-filter-label" htmlFor="department-filter">학과 분류</label>
+              <div className="buyer-select-wrap">
+                <select
+                  id="department-filter"
+                  value={categoryFilter}
+                  onChange={(event) => {
+                    const category = event.target.value;
+                    setCategoryFilter(category);
+                    if (category !== 'ALL') setTypeFilter('BOOK');
+                  }}
+                >
+                  <option value="ALL">전체 학과</option>
+                  {PRODUCT_CATEGORIES.map(({ code, name }) => (
+                    <option key={code} value={code}>{name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={16} aria-hidden="true" />
+              </div>
+            </div>
+
+            <label className="buyer-closed-toggle">
+              <span><CheckCircle size={15} />마감된 상품 포함</span>
+              <input
+                type="checkbox"
+                checked={showClosed}
+                onChange={(event) => setShowClosed(event.target.checked)}
+              />
+            </label>
+          </aside>
+
+          <section className="buyer-product-results" aria-live="polite">
+            <div className="buyer-results-toolbar">
+              <div>
+                <h2>상품 목록</h2>
+                <span>총 <strong>{filteredList.length}</strong>개의 공구</span>
+              </div>
+
+              <div className="buyer-toolbar-actions">
+                <div className="buyer-view-switch" aria-label="보기 방식">
+                  <button
+                    type="button"
+                    className={viewMode === 'GRID' ? 'is-active' : ''}
+                    onClick={() => setViewMode('GRID')}
+                    title="그리드 보기"
+                    aria-pressed={viewMode === 'GRID'}
+                  >
+                    <LayoutGrid size={17} />
+                  </button>
+                  <button
+                    type="button"
+                    className={viewMode === 'LIST' ? 'is-active' : ''}
+                    onClick={() => setViewMode('LIST')}
+                    title="목록 보기"
+                    aria-pressed={viewMode === 'LIST'}
+                  >
+                    <List size={17} />
+                  </button>
+                </div>
+
+                <label className="buyer-sort-select">
+                  <span className="sr-only">정렬 방식</span>
+                  <select value={sortFilter} onChange={(event) => setSortFilter(event.target.value)}>
+                    <option value="LATEST">최신 등록순</option>
+                    <option value="DEADLINE">마감 임박순</option>
+                    <option value="PRICE_LOW">낮은 가격순</option>
+                  </select>
+                  <ChevronDown size={15} aria-hidden="true" />
                 </label>
               </div>
             </div>
-          )}
-        </section>
 
-        {/* 검색 결과 리스트 */}
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between px-2">
-            <span className="text-sm font-bold text-gray-500">총 <span className="text-blue-600">{filteredList.length}</span>건의 공구가 있습니다.</span>
-            
-            <div className="flex items-center gap-4">
-              {/* 🌟 뷰 모드 전환 토글 버튼 */}
-              <div className="hidden sm:flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-                <button 
-                  onClick={() => setViewMode('GRID')}
-                  className={`p-1.5 rounded-md transition ${viewMode === 'GRID' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-700'}`}
-                  title="그리드 뷰"
-                >
-                  <LayoutGrid size={16} />
-                </button>
-                <button 
-                  onClick={() => setViewMode('LIST')}
-                  className={`p-1.5 rounded-md transition ${viewMode === 'LIST' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-700'}`}
-                  title="리스트 뷰"
-                >
-                  <List size={16} />
-                </button>
+            {isLoading && (
+              <div className={`buyer-product-list is-${viewMode.toLowerCase()}`} aria-label="상품을 불러오는 중">
+                {Array.from({ length: viewMode === 'GRID' ? 8 : 4 }).map((_, index) => (
+                  <div className="buyer-product-skeleton" key={index} aria-hidden="true">
+                    <div />
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                ))}
               </div>
+            )}
 
-              <select 
-                value={sortFilter}
-                onChange={(e) => setSortFilter(e.target.value)}
-                className="text-sm font-bold text-gray-600 bg-transparent outline-none cursor-pointer hover:text-gray-900 transition"
-              >
-                <option value="LATEST">최신 등록순</option>
-                <option value="DEADLINE">마감 임박순</option>
-                <option value="PRICE_LOW">낮은 가격순</option>
-              </select>
-            </div>
-          </div>
+            {!isLoading && loadError && (
+              <div className="buyer-products-state" role="alert">
+                <BookOpen size={32} />
+                <h3>상품 목록을 열지 못했어요</h3>
+                <p>{loadError}</p>
+                <button type="button" onClick={() => setRequestKey((key) => key + 1)}>다시 시도</button>
+              </div>
+            )}
 
-          {/* 🌟 선택된 뷰 모드에 따라 레이아웃 동적 변경 */}
-          <div className={viewMode === 'GRID' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" : "flex flex-col gap-4"}>
-            {visibleList.map((item) => (
-              <Link 
-                key={item.id} 
-                to={`/buyer/products/${item.id}`}
-                className={`bg-white rounded-[24px] border border-gray-200 shadow-sm flex hover:border-blue-300 hover:shadow-md transition-all cursor-pointer group overflow-hidden ${
-                  viewMode === 'GRID' ? 'flex-col' : 'flex-row items-stretch'
-                }`}
-              >
-                
-                {/* 썸네일 영역 */}
-                <div className={`bg-gray-100 relative overflow-hidden flex items-center justify-center shrink-0 ${
-                  viewMode === 'GRID' ? 'w-full h-48' : 'w-32 md:w-48'
-                }`}>
-                  <div className="flex flex-col items-center gap-2 text-gray-400">
-                    <ImageIcon size={32} />
-                    <span className="text-xs font-bold">이미지 없음</span>
-                  </div>
-                  {item.thumbnail && (
-                    <img
-                      src={item.thumbnail}
-                      alt=""
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      className={`absolute inset-0 w-full h-full bg-white group-hover:scale-105 transition-transform duration-500 ${item.type === 'BOOK' ? 'object-contain' : 'object-cover'}`}
-                    />
-                  )}
-                  <span className={`absolute top-3 left-3 text-[11px] font-black px-2.5 py-1 rounded-md shadow-sm z-10 ${
-                    item.status === '모집 중' ? 'bg-blue-500 text-white' : 'bg-orange-500 text-white'
-                  }`}>
-                    {item.status}
-                  </span>
-                </div>
-                
-                {/* 정보 영역 */}
-                <div className={`p-5 flex flex-col flex-grow ${viewMode === 'GRID' ? 'gap-4' : 'gap-3 justify-center'}`}>
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-extrabold text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                      {item.major}
-                    </span>
-                    <div className="flex items-center gap-1 text-[11px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md">
-                      <Clock size={12} />
-                      <span>{item.deadline} 마감</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col gap-1">
-                    <h4 className={`font-extrabold text-gray-900 group-hover:text-blue-600 transition leading-snug ${
-                      viewMode === 'GRID' ? 'text-base line-clamp-2' : 'text-lg line-clamp-1'
-                    }`}>
-                      {item.title.includes('-') ? (
-                        <span>{item.title.split('-')[0].trim()}</span>
-                      ) : (
-                        item.title
+            {!isLoading && !loadError && filteredList.length === 0 && (
+              <div className="buyer-products-state">
+                <Search size={32} />
+                <h3>조건에 맞는 상품이 없습니다</h3>
+                <p>검색어나 필터를 바꾸면 더 많은 상품을 볼 수 있습니다.</p>
+                <button type="button" onClick={resetFilters}>필터 초기화</button>
+              </div>
+            )}
+
+            {!isLoading && !loadError && visibleList.length > 0 && (
+              <div className={`buyer-product-list is-${viewMode.toLowerCase()}`}>
+                {visibleList.map((item) => (
+                  <Link
+                    key={item.id}
+                    to={`/buyer/products/${item.id}`}
+                    className="buyer-product-card"
+                  >
+                    <div className="buyer-product-image">
+                      <div className="buyer-image-fallback">
+                        <ImageIcon size={30} />
+                        <span>이미지 없음</span>
+                      </div>
+                      {item.thumbnail && (
+                        <img
+                          src={item.thumbnail}
+                          alt={item.title}
+                          onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                          className={item.type === 'BOOK' ? 'is-book' : ''}
+                        />
                       )}
-                    </h4>
-                    <span className="text-xs text-gray-400 font-semibold">{item.author}</span>
-                  </div>
+                    </div>
 
-                  {/* 하단 진행 바 영역 (리스트 모드일 땐 너비를 적절히 조절) */}
-                  <div className={`flex flex-col gap-2 pt-4 border-t border-gray-50 ${viewMode === 'GRID' ? 'mt-auto' : 'mt-2'}`}>
-                    <div className="flex justify-between items-end">
-                      <span className="text-lg font-black text-gray-900">{item.price}</span>
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-gray-500">
-                        <Users size={12} />
-                        <span className={item.current >= item.target ? 'text-emerald-500' : 'text-blue-500'}>{item.current}</span>
-                        <span>/ {item.target}명</span>
+                    <div className="buyer-product-info">
+                      <div className="buyer-product-meta">
+                        <span>{item.major}</span>
+                        <strong className={item.status === '모집 중' ? 'is-open' : 'is-closed'}>
+                          {item.status}
+                        </strong>
+                      </div>
+
+                      <div className="buyer-product-copy">
+                        <h3>{item.title}</h3>
+                        <p>{item.author}</p>
+                      </div>
+
+                      <div className="buyer-product-purchase">
+                        <strong>{item.price}</strong>
+                        <div>
+                          <span><Clock size={13} />{item.deadline}</span>
+                          <span><Users size={13} />{item.current} / {item.target}명</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-500 ${item.current >= item.target ? 'bg-emerald-400' : 'bg-blue-500'}`}
-                        style={{ width: `${(item.current / item.target) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
+                  </Link>
+                ))}
+              </div>
+            )}
 
-                </div>
-              </Link>
-            ))}
-          </div>
-          
-          {/* [QA-3][fix/seller-page] 클릭 시 10개씩 더 보여주도록 동작 연결 (기존엔 onClick이 아예 없었음) */}
-          {visibleCount < filteredList.length && (
-            <div className="flex justify-center mt-6">
-              <button
-                onClick={() => setVisibleCount((v) => v + PAGE_SIZE)}
-                className="px-6 py-2.5 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-bold rounded-full transition shadow-sm"
-              >
-                더보기 ({Math.ceil(visibleCount / PAGE_SIZE)} / {Math.ceil(filteredList.length / PAGE_SIZE)})
-              </button>
-            </div>
-          )}
-        </section>
-
+            {!isLoading && !loadError && visibleCount < filteredList.length && (
+              <div className="buyer-load-more">
+                <button type="button" onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>
+                  상품 더보기
+                  <span>{visibleCount} / {filteredList.length}</span>
+                </button>
+              </div>
+            )}
+          </section>
+        </div>
       </main>
     </div>
   );

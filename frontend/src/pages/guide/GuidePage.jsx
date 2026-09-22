@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { UserPlus, ShieldCheck, Users, CreditCard, Store, ArrowRight } from 'lucide-react';
-import Header from '../../components/layout/Header';
+import V3SiteHeader from '../../components/layout/V3SiteHeader';
 
 const buyerSteps = [
   { icon: UserPlus, title: '1. 회원가입', desc: '이메일과 비밀번호로 가입하고 구매자 계정을 만듭니다.' },
@@ -38,7 +38,7 @@ const GuidePage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
-      <Header />
+      <V3SiteHeader />
 
       <main className="flex-grow max-w-4xl w-full mx-auto p-6 md:p-8 flex flex-col gap-10">
         <div className="flex flex-col gap-2 text-center pt-4">

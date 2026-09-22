@@ -3,14 +3,12 @@ import React, { useState } from 'react';
 /// [*] 회원가입 페이지와 연결
 import { Link, useNavigate } from 'react-router-dom';
 
-/// [*] 헤더 컴포넌트 연결
-import Header from '../../components/layout/Header';
+import V3SiteHeader from '../../components/layout/V3SiteHeader';
+import '../../styles/authPages.css';
 
 /// [신규] 로그인 성공 직후 인증서 타이머(10분)를 서버와 동기화하기 위한 훅
 import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
 import { useSession } from '../../contexts/SessionContext';
-
-const backgroundImgUrl = "https://images.unsplash.com/photo-1589998059171-988d887df646?q=80&w=2600";
 
 const DB_NAME = "PKI_KeyStore";
 const STORE_NAME = "privateKeys";
@@ -327,20 +325,14 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900">
-      {/* [*] 헤더 내용 수정 */}
-      <Header />
+    <div className="v3-page v3-design-page auth-v3-page">
+      <main className="v3-main auth-v3-main">
+        <section className="v3-bookcase auth-v3-bookcase">
+          <V3SiteHeader embedded />
 
-      {/* 2. 메인 콘텐츠 영역 (배경 + 로그인 카드) */}
-      <main
-        className="flex-grow flex justify-center items-center bg-cover bg-center p-4 relative"
-        style={{ backgroundImage: `url(${backgroundImgUrl})` }}
-      >
-        {/* 디자인의 그라데이션 오버레이 효과 */}
-        <div className="absolute inset-0 bg-radial-gradient from-gray-100/50 via-gray-300/80 to-gray-400/90 mix-blend-multiply"></div>
-
-        {/* 3. 중앙 로그인 카드 (Login Modal) */}
-        <div className="relative z-10 bg-white p-12 rounded-3xl shadow-2xl w-full max-w-md border border-gray-100/50 backdrop-blur-sm">
+          <div className="auth-v3-popup-layer">
+            {/* 중앙 로그인 팝업 */}
+            <div className="auth-v3-card auth-v3-card--login">
           {/* 카드 상단 */}
           <div className="text-center mb-8">
             <p className="text-xs font-semibold text-red-500 uppercase tracking-widest mb-1">
@@ -496,7 +488,9 @@ const LoginPage = () => {
           <div className="mt-10 text-center text-gray-700">
             계정이 없으신가요? <Link to="/signup" className="text-blue-600 font-medium hover:underline">회원가입</Link>
           </div>
-        </div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   );

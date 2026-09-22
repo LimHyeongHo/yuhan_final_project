@@ -1,12 +1,12 @@
 // ===== 26.08.31 건우 추가내용 시작 =====
 import React, { useState, useEffect } from 'react';
 import { Wallet, Landmark, Clock, CheckCircle2 } from 'lucide-react';
-import Header from '../../../components/layout/Header';
+import AdminHeader from '../../../components/admin/AdminHeader';
 
 const API_BASE = 'http://localhost:8080/api';
 
 const WithdrawalRow = ({ item, onApprove, onReject }) => (
-  <div className="flex items-center justify-between p-5 border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition">
+  <div className="admin-v3-list-row flex items-center justify-between p-5 border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition">
     <div className="flex flex-col gap-1">
       <span className="font-bold text-gray-900 text-sm">{item.sellerEmail}</span>
       <span className="text-xs text-gray-500">
@@ -81,10 +81,10 @@ const AdminSettlementPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
-      <Header />
+    <div className="v3-page admin-v3-page min-h-screen flex flex-col text-gray-900">
+      <AdminHeader />
 
-      <section className="bg-slate-900 text-white py-12 px-6 shadow-md">
+      <section className="admin-v3-hero bg-slate-900 text-white py-12 px-6 shadow-md">
         <div className="max-w-7xl mx-auto flex flex-col gap-2">
           <span className="bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-max border border-emerald-500/30">
             Settlement
@@ -97,7 +97,7 @@ const AdminSettlementPage = () => {
         </div>
       </section>
 
-      <main className="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
+      <main className="admin-v3-main flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
             <div className="flex flex-col gap-1">

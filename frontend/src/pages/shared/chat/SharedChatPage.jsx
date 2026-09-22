@@ -3,7 +3,7 @@ import { Store, Send, Image as ImageIcon, MoreVertical, Search, User, Calendar, 
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import Header from '../../../components/layout/Header';
+import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 
 // [수정] localhost 고정 → 접속 호스트 기준 동적화
 const API_BASE = `http://${window.location.hostname}:8080/api`;
@@ -492,7 +492,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   if (!currentEmail) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        <Header />
+        <V3SiteHeader />
         <div className="flex-grow flex items-center justify-center">
           <p className="text-gray-500">로그인 후 이용할 수 있습니다.</p>
         </div>
@@ -502,10 +502,10 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900 h-screen">
-      <Header />
+      <V3SiteHeader />
 
       {/* 권한에 따라 변하는 상단 배너 (조건부 렌더링) */}
-      {userRole === 'SELLER' ? (
+      {userRole === 'SELLER' && (
         <section className="bg-slate-900 text-white py-6 px-6 shadow-md shrink-0">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex flex-col gap-1">
@@ -515,12 +515,6 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
               <h2 className="text-2xl font-extrabold tracking-tight">메시지 관리</h2>
               <p className="text-sm text-gray-400">구매자와의 소통을 한 곳에서 관리하세요.</p>
             </div>
-          </div>
-        </section>
-      ) : (
-        <section className="bg-white border-b border-gray-200 py-6 px-6 shrink-0">
-          <div className="max-w-7xl mx-auto">
-            <h2 className="text-2xl font-extrabold tracking-tight text-gray-900">내 채팅</h2>
           </div>
         </section>
       )}

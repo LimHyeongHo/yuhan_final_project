@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Header from '../../../components/layout/Header';
+import AdminHeader from '../../../components/admin/AdminHeader';
 import {
   AlertTriangle,
   CheckCircle,
@@ -465,9 +465,9 @@ const AdminSimulatorPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Header />
-      <section className="bg-slate-900 px-6 py-12 text-white shadow-md">
+    <div className="v3-page admin-v3-page min-h-screen">
+      <AdminHeader />
+      <section className="admin-v3-hero bg-slate-900 px-6 py-12 text-white shadow-md">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-3">
           <span className="w-max rounded-full border border-red-400/30 bg-red-500/20 px-3 py-1 text-xs font-bold tracking-widest text-red-300">
             BLOCKCHAIN INTEGRITY DEMO
@@ -479,7 +479,7 @@ const AdminSimulatorPage = () => {
         </div>
       </section>
 
-      <main className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-6 md:p-8">
+      <main className="admin-v3-main mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-6 md:p-8">
         <button onClick={() => navigate('/admin/security')} className="w-max text-sm text-blue-600 hover:underline">
           ← 보안 로그로 돌아가기
         </button>

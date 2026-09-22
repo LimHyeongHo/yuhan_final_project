@@ -294,3 +294,51 @@
     min-height: auto;
   }
 }
+
+/* Final design-system integration for the legacy login layout. */
+.global-v3-theme .login-main {
+  min-height: calc(100vh - 76px);
+  padding: 72px 16px;
+}
+
+.global-v3-theme .login-card {
+  border-color: var(--site-border);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 28px 65px rgba(61, 47, 29, 0.14);
+}
+
+.global-v3-theme .secure-label,
+.global-v3-theme .forgot-password,
+.global-v3-theme .footer-link {
+  color: var(--site-brown);
+}
+
+.global-v3-theme .form-input {
+  border-color: var(--site-border);
+  border-radius: 14px;
+  background: #faf7f0;
+}
+
+.global-v3-theme .login-button {
+  border-radius: 14px;
+  background: var(--site-brown);
+  box-shadow: 0 12px 25px rgba(80, 57, 18, 0.18);
+}
+
+.global-v3-theme .login-button:hover {
+  background: #614000;
+}
+
+.global-v3-theme .blur-blue {
+  background-color: rgba(191, 152, 84, 0.11);
+}
+
+.global-v3-theme .blur-red {
+  background-color: rgba(23, 38, 53, 0.08);
+}
+
+.global-v3-theme .login-title,
+.global-v3-theme .logo {
+  color: var(--site-ink);
+}

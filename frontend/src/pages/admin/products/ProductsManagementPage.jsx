@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Layers, AlertTriangle, CheckCircle, Clock, Filter, Trash2, ShieldAlert, History, Info } from 'lucide-react';
-import Header from '../../../components/layout/Header'; // 공통 헤더 연결
+import AdminHeader from '../../../components/admin/AdminHeader';
 
 const GroupManagementPage = () => {
   const navigate = useNavigate();
@@ -103,13 +103,13 @@ const GroupManagementPage = () => {
   const suspiciousProducts = products.filter(p => p.suspicious).length;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
+    <div className="v3-page admin-v3-page min-h-screen flex flex-col text-gray-900">
       
       {/* 1. 글로벌 공통 헤더 네비게이션 */}
-      <Header />
+      <AdminHeader />
 
       {/* 2. 상단 묵직한 다크 배너 섹션 (SecurityLogPage 디자인 무드 완전 동화) */}
-      <section className="bg-slate-900 text-white py-12 px-6 shadow-md">
+      <section className="admin-v3-hero bg-slate-900 text-white py-12 px-6 shadow-md">
         <div className="max-w-7xl mx-auto flex flex-col gap-2">
           <span className="bg-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-max border border-blue-500/30">
             Operations Hub
@@ -124,7 +124,7 @@ const GroupManagementPage = () => {
       </section>
 
       {/* 3. 메인 콘텐츠 영역 */}
-      <main className="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
+      <main className="admin-v3-main flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
         
         {/* 상단 3종 대시보드 요약 메트릭 카드 */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">

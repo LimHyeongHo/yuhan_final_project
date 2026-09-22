@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, CheckCircle, Clock, ShieldAlert } from 'lucide-react';
-import Header from '../../../components/layout/Header'; // 분리해둔 공통 헤더 불러오기
+import AdminHeader from '../../../components/admin/AdminHeader';
 
 
 // 1. 판매자 승인 대기열 카드 컴포넌트
 const ApprovalCard = ({ name, id, email, date, onGrant }) => (
-  <div className="flex items-center justify-between p-5 border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition">
+  <div className="admin-v3-list-row flex items-center justify-between p-5 border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition">
     <div className="flex items-center gap-4">
       <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden border border-gray-300 flex-shrink-0">
         <img 
@@ -79,13 +79,13 @@ const UserAuthorization = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
+    <div className="v3-page admin-v3-page min-h-screen flex flex-col text-gray-900">
       
       {/* 1. 글로벌 헤더 (최상단 고정) */}
-      <Header />
+      <AdminHeader />
 
       {/* 2. 상단 묵직한 다크 보안 배너 (SecurityLogPage 스타일 계승) */}
-      <section className="bg-slate-900 text-white py-12 px-6 shadow-md">
+      <section className="admin-v3-hero bg-slate-900 text-white py-12 px-6 shadow-md">
         <div className="max-w-7xl mx-auto flex flex-col gap-2">
           <span className="bg-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-max border border-blue-500/30">
             Operations Hub
@@ -100,7 +100,7 @@ const UserAuthorization = () => {
       </section>
 
       {/* 3. 메인 콘텐츠 영역 */}
-      <main className="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
+      <main className="admin-v3-main flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
         
         {/* 요약 통계 카드 3종 */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">

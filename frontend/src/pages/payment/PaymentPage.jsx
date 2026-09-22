@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { CreditCard, Image as ImageIcon, Users } from 'lucide-react';
-import Header from '../../components/layout/Header';
+import V3SiteHeader from '../../components/layout/V3SiteHeader';
 
 //클라이언트키 추가
 const TOSS_CLIENT_KEY = 'test_ck_6BYq7GWPVvvpYXJq0dbaVNE5vbo1';
@@ -16,7 +16,7 @@ const PaymentPage = () => {
   if (!product) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        <Header />
+        <V3SiteHeader />
         <main className="flex-grow flex flex-col items-center justify-center gap-6 text-center px-6">
           <p className="text-xl font-extrabold text-gray-700">결제할 상품 정보가 없습니다.</p>
           <Link to="/" className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-2xl transition">
@@ -64,7 +64,7 @@ const PaymentPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
-      <Header />
+      <V3SiteHeader />
 
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 py-16 px-6">
         <div className="max-w-7xl mx-auto flex flex-col gap-4">

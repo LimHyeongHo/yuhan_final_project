@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import HeaderLogo from './HeaderLogo';
 // [신규] Bell — 헤더 채팅 알림 배지/미리보기 아이콘
 import { User, ShieldAlert, LogOut, Bell, X, Menu } from 'lucide-react';
 // [신규] 인증서 남은 시간(mm:ss) + +5분/-5분 조정을 위한 Context 훅
@@ -188,15 +189,15 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50 w-full h-16 flex items-center justify-between">
+    <header className="v3-site-header bg-white border-b border-gray-200 sticky top-0 z-50 w-full h-16 flex items-center justify-between">
 
       <div className="flex items-center shrink-0 pl-[max(1.5rem,calc(50vw-40rem+1.5rem))] md:pl-[max(2rem,calc(50vw-40rem+2rem))]">
-        <Link to="/" className="text-xl font-black tracking-tight text-gray-900 hover:text-blue-600 transition">
-          YU-BOOK
+        <Link to="/" aria-label="N-BBANG 홈" className="v3-site-brand text-xl font-black tracking-tight text-gray-900 hover:text-blue-600 transition">
+          <HeaderLogo />
         </Link>
       </div>
 
-      <div className="flex items-center gap-4 md:gap-8 pr-4 md:pr-8">
+      <div className="v3-site-actions flex items-center gap-4 md:gap-8 pr-4 md:pr-8">
 
         {/* [+] 햄버거 버튼 (모바일 전용) */}
         <button
@@ -207,13 +208,14 @@ const Header = () => {
         </button>
 
         {/* [+] 데스크탑 네비게이션 */}
-        <nav className="hidden md:flex items-center gap-6 text-sm font-bold text-gray-500">
+        <nav className="v3-site-nav hidden md:flex items-center gap-6 text-sm font-bold text-gray-500">
           {userRole === 'ROLE_ADMIN' && (
             <>
               <Link to="/admin/dashboard" className="hover:text-red-600 transition">관리자 홈</Link>
               <Link to="/admin/authorization" className="hover:text-red-600 transition">회원 관리</Link>
               <Link to="/admin/products" className="hover:text-red-600 transition">상품 관리</Link>
               <Link to="/admin/security" className="hover:text-red-600 transition">보안 로그</Link>
+              <Link to="/admin/settlements" className="hover:text-red-600 transition">정산 관리</Link>
             </>
           )}
 
@@ -223,6 +225,7 @@ const Header = () => {
               <Link to="/seller/products" className="hover:text-gray-950 transition">물품 등록</Link>
               <Link to="/seller/status" className="hover:text-gray-950 transition">판매 현황</Link>
               <Link to="/seller/analytics" className="hover:text-gray-950 transition">분석 데이터</Link>
+              <Link to="/seller/orders" className="hover:text-gray-950 transition">주문 관리</Link>
               {/* [수정] onClick 추가 — 비로그인 시 handleChatClick이 이동 막고 alert 표시 */}
               <Link to="/seller/chat" className="hover:text-gray-950 transition" onClick={handleChatClick}>채팅</Link>
             </>
@@ -396,7 +399,7 @@ const Header = () => {
 
       {/* [+] 모바일 햄버거 메뉴 드롭다운 */}
       {isMobileMenuOpen && (
-        <div className="absolute top-16 left-0 w-full bg-white border-b border-gray-200 shadow-lg flex flex-col p-4 gap-4 md:hidden z-40">
+        <div className="v3-site-mobile-menu absolute top-16 left-0 w-full bg-white border-b border-gray-200 shadow-lg flex flex-col p-4 gap-4 md:hidden z-40">
           <nav className="flex flex-col gap-4 text-sm font-bold text-gray-700">
             {userRole === 'ROLE_ADMIN' && (
               <>
@@ -404,6 +407,7 @@ const Header = () => {
                 <Link to="/admin/authorization" onClick={() => setIsMobileMenuOpen(false)}>회원 관리</Link>
                 <Link to="/admin/products" onClick={() => setIsMobileMenuOpen(false)}>상품 관리</Link>
                 <Link to="/admin/security" onClick={() => setIsMobileMenuOpen(false)}>보안 로그</Link>
+                <Link to="/admin/settlements" onClick={() => setIsMobileMenuOpen(false)}>정산 관리</Link>
               </>
             )}
 
@@ -413,12 +417,13 @@ const Header = () => {
                 <Link to="/seller/products" onClick={() => setIsMobileMenuOpen(false)}>물품 등록</Link>
                 <Link to="/seller/status" onClick={() => setIsMobileMenuOpen(false)}>판매 현황</Link>
                 <Link to="/seller/analytics" onClick={() => setIsMobileMenuOpen(false)}>분석 데이터</Link>
+                <Link to="/seller/orders" onClick={() => setIsMobileMenuOpen(false)}>주문 관리</Link>
                 <Link to="/seller/chat" onClick={(e) => { handleChatClick(e); setIsMobileMenuOpen(false); }}>채팅</Link>
               </>
             )}
 
             {/* [SEC-RQ-003] ROLE_SELLER_PENDING(승인 대기 판매자)은 아직 SELLER가 아니므로 구매자와 같은 탐색 메뉴를 보여준다 */}
-          {!sessionLoading && (userRole === 'ROLE_BUYER' || userRole === 'ROLE_SELLER_PENDING' || !userRole.startsWith('ROLE_')) && (
+            {!sessionLoading && (userRole === 'ROLE_BUYER' || userRole === 'ROLE_SELLER_PENDING' || !userRole.startsWith('ROLE_')) && (
               <>
                 <Link to="/" onClick={() => setIsMobileMenuOpen(false)}>홈</Link>
                 <Link to="/buyer/products" onClick={() => setIsMobileMenuOpen(false)}>공구 찾기</Link>

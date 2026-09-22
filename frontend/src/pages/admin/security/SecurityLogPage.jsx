@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, CheckCircle, AlertTriangle, Clock, RefreshCw, Download, Filter, BellRing } from 'lucide-react';
-import Header from '../../../components/layout/Header';
+import AdminHeader from '../../../components/admin/AdminHeader';
 
 const SecurityLogPage = () => {
   const [logs, setLogs] = useState([]);
@@ -53,8 +53,8 @@ const SecurityLogPage = () => {
   const totalPages = Math.ceil(logs.length / itemsPerPage);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900 relative">
-      <Header />
+    <div className="v3-page admin-v3-page min-h-screen flex flex-col text-gray-900 relative">
+      <AdminHeader />
       
       {/* 실시간 알람 배너 */}
       {showAlarm && (
@@ -67,7 +67,7 @@ const SecurityLogPage = () => {
       )}
 
       {/* 2. 상단 묵직한 다크 보안 배너 */}
-      <section className="bg-slate-900 text-white py-12 px-6 shadow-md">
+      <section className="admin-v3-hero bg-slate-900 text-white py-12 px-6 shadow-md">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex flex-col gap-2">
             <span className="bg-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-max border border-blue-500/30">
@@ -88,7 +88,7 @@ const SecurityLogPage = () => {
       </section>
 
       {/* 3. 메인 콘텐츠 영역 */}
-      <main className="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
+      <main className="admin-v3-main flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
         
         {/* 상단 3종 요약 통계 카드 */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -20,21 +20,58 @@ import {
   Star,
   Timer,
   Users,
+  WalletCards,
   X,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import HeaderLogo from '../../components/layout/HeaderLogo';
+import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
 import { useChatNotifications } from '../../contexts/ChatNotificationContext';
+import { useSession } from '../../contexts/SessionContext';
+import { getDisplayProductImageUrl } from '../../utils/productImageUrl';
 import './homePage_v3.css';
 
 const formatPrice = (value) => `${Number(value || 0).toLocaleString()}원`;
 const toTimestamp = (value) => new Date(String(value || '').replace(' ', 'T')).getTime() || 0;
 const getShortTitle = (title) => String(title || '').split(/\s+-\s+/)[0].trim();
+const formatRemaining = (totalSeconds) => {
+  const seconds = Math.max(Number(totalSeconds || 0), 0);
+  return `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
+};
+const MAX_REMAINING_SECONDS = 60 * 60;
+
+const fetchGoogleBookMetadata = async (isbn) => {
+  if (!isbn) return null;
+
+  try {
+    const params = new URLSearchParams({ isbn });
+    const response = await fetch(`http://localhost:8080/api/search/book-metadata?${params}`, {
+      credentials: 'include',
+    });
+    if (!response.ok) return null;
+
+    const metadata = await response.json();
+    const reviewCount = Number(metadata.ratingsCount || 0);
+    const averageRating = Number(metadata.averageRating);
+    return {
+      thumbnail: getDisplayProductImageUrl(metadata.image),
+      reviewCount,
+      rating: reviewCount > 0 && Number.isFinite(averageRating)
+        ? Math.max(0, Math.min(5, averageRating))
+        : null,
+    };
+  } catch {
+    return null;
+  }
+};
 
 const mapProduct = (item) => {
   const current = Number(item.currentCount || 0);
   const target = Number(item.targetCount || 1);
   const deadline = new Date(item.deadline);
   const diffDays = Math.ceil((deadline - new Date()) / (1000 * 60 * 60 * 24));
+  const reviewCount = Number(item.reviewCount || 0);
+  const averageRating = Number(item.averageRating);
 
   return {
     id: item.productId,
@@ -49,43 +86,78 @@ const mapProduct = (item) => {
     dDay: diffDays > 0 ? `D-${diffDays}` : 'D-DAY',
     diffDays,
     progress: Math.min(Math.round((current / target) * 100), 100),
-    thumbnail: item.imageUrl || null,
+    isbn: item.isbn || '',
+    thumbnail: getDisplayProductImageUrl(item.imageUrl),
+    reviewCount,
+    rating: reviewCount > 0 && Number.isFinite(averageRating)
+      ? Math.max(0, Math.min(5, averageRating))
+      : null,
   };
 };
 
-const ProductCover = ({ product, variant = 'book' }) => (
-  <div className={`v3-product-cover is-${variant}`}>
-    {product?.thumbnail ? (
-      <img src={product.thumbnail} alt={`${product.title} 이미지`} />
-    ) : product ? (
-      <div className="v3-faux-cover">
-        {product.rawType !== 'BOOK' && <span>{product.category}</span>}
-        {product.rawType === 'BOOK' ? <BookOpen size={27} /> : <ShoppingBag size={27} />}
-        <strong>{product.title}</strong>
-        <small>{product.author}</small>
-      </div>
-    ) : (
-      <div className="v3-faux-cover"><BookOpen size={27} /><strong>YU BOOK</strong></div>
-    )}
-  </div>
-);
+const ProductCover = ({ product, variant = 'book' }) => {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [product?.thumbnail]);
+
+  return (
+    <div className={`v3-product-cover is-${variant}`}>
+      {product?.thumbnail && !imageFailed ? (
+        <img
+          alt={`${product.title} 표지`}
+          decoding="async"
+          loading={variant === 'featured' ? 'eager' : 'lazy'}
+          onError={() => setImageFailed(true)}
+          referrerPolicy="no-referrer"
+          src={product.thumbnail}
+        />
+      ) : product ? (
+        <div className="v3-faux-cover">
+          {product.rawType !== 'BOOK' && <span>{product.category}</span>}
+          {product.rawType === 'BOOK' ? <BookOpen size={27} /> : <ShoppingBag size={27} />}
+          <strong>{product.title}</strong>
+          <small>{product.author}</small>
+        </div>
+      ) : (
+        <div className="v3-faux-cover"><BookOpen size={27} /><strong>YU BOOK</strong></div>
+      )}
+    </div>
+  );
+};
 
 const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
+  const { pathname } = useLocation();
+  const isSecuritySection = pathname.startsWith('/admin/security') || pathname.startsWith('/admin/simulator');
+
   if (userRole === 'ROLE_ADMIN') {
     return (
       <>
-        <Link aria-label="관리자 홈" title="관리자 홈" to="/admin/dashboard" onClick={closeMenu}>
+        <NavLink aria-label="관리자 홈" title="관리자 홈" to="/admin/dashboard" onClick={closeMenu}>
           <LayoutDashboard size={18} /><span>관리자 홈</span>
-        </Link>
-        <Link aria-label="회원 관리" title="회원 관리" to="/admin/authorization" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="회원 관리" title="회원 관리" to="/admin/authorization" onClick={closeMenu}>
           <Users size={18} /><span>회원 관리</span>
-        </Link>
-        <Link aria-label="상품 관리" title="상품 관리" to="/admin/products" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="상품 관리" title="상품 관리" to="/admin/products" onClick={closeMenu}>
           <Package size={18} /><span>상품 관리</span>
-        </Link>
-        <Link aria-label="보안 로그" title="보안 로그" to="/admin/security" onClick={closeMenu}>
+        </NavLink>
+        <NavLink
+          aria-label="보안 로그"
+          title="보안 로그"
+          to="/admin/security"
+          className={isSecuritySection ? 'is-active' : undefined}
+          onClick={closeMenu}
+        >
           <Shield size={18} /><span>보안 로그</span>
-        </Link>
+        </NavLink>
+        <NavLink aria-label="정산 관리" title="정산 관리" to="/admin/settlements" onClick={closeMenu}>
+          <WalletCards size={18} /><span>정산 관리</span>
+        </NavLink>
+        <NavLink aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
+          <Info size={18} /><span>이용가이드</span>
+        </NavLink>
       </>
     );
   }
@@ -93,49 +165,57 @@ const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
   if (userRole === 'ROLE_SELLER') {
     return (
       <>
-        <Link aria-label="판매자 대시보드" title="대시보드" to="/seller/dashboard" onClick={closeMenu}>
+        <NavLink aria-label="판매자 대시보드" title="대시보드" to="/seller/dashboard" onClick={closeMenu}>
           <LayoutDashboard size={18} /><span>대시보드</span>
-        </Link>
-        <Link aria-label="물품 등록" title="물품 등록" to="/seller/products" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="물품 등록" title="물품 등록" to="/seller/products" onClick={closeMenu}>
           <Plus size={18} /><span>물품 등록</span>
-        </Link>
-        <Link aria-label="판매 현황" title="판매 현황" to="/seller/status" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="판매 현황" title="판매 현황" to="/seller/status" onClick={closeMenu}>
           <ClipboardList size={18} /><span>판매 현황</span>
-        </Link>
-        <Link aria-label="분석 데이터" title="분석 데이터" to="/seller/analytics" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="분석 데이터" title="분석 데이터" to="/seller/analytics" onClick={closeMenu}>
           <BarChart3 size={18} /><span>분석 데이터</span>
-        </Link>
-        <Link aria-label="채팅" title="채팅" className="v3-nav-chat" to="/seller/chat" onClick={closeMenu}>
+        </NavLink>
+        <NavLink aria-label="주문 관리" title="주문 관리" to="/seller/orders" onClick={closeMenu}>
+          <ShoppingBag size={18} /><span>주문 관리</span>
+        </NavLink>
+        <NavLink aria-label="채팅" title="채팅" className="v3-nav-chat" to="/seller/chat" onClick={closeMenu}>
           <MessageCircle size={18} /><span>채팅</span>{unreadCount > 0 && <i />}
-        </Link>
+        </NavLink>
+        <NavLink aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
+          <Info size={18} /><span>이용가이드</span>
+        </NavLink>
       </>
     );
   }
 
   return (
     <>
-      <Link aria-label="홈" title="홈" to="/home-v3" onClick={closeMenu}>
+      <NavLink aria-label="홈" title="홈" to="/home-v3" onClick={closeMenu}>
         <Home size={18} /><span>홈</span>
-      </Link>
-      <Link aria-label="공구찾기" title="공구찾기" to="/buyer/products" onClick={closeMenu}>
+      </NavLink>
+      <NavLink aria-label="공구찾기" title="공구찾기" to="/buyer/products" onClick={closeMenu}>
         <Search size={18} /><span>공구찾기</span>
-      </Link>
-      <Link aria-label="채팅" title="채팅" className="v3-nav-chat" to="/buyer/chat" onClick={closeMenu}>
+      </NavLink>
+      <NavLink aria-label="채팅" title="채팅" className="v3-nav-chat" to="/buyer/chat" onClick={closeMenu}>
         <MessageCircle size={18} /><span>채팅</span>{unreadCount > 0 && <i />}
-      </Link>
-      <Link aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
+      </NavLink>
+      <NavLink aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
         <Info size={18} /><span>이용가이드</span>
-      </Link>
+      </NavLink>
     </>
   );
 };
 
-const IntegratedHeader = () => {
+export const IntegratedHeader = () => {
   const navigate = useNavigate();
+  const { session, clearSession } = useSession();
+  const { remainingSeconds, extend } = useCertificateTimer();
   const { chatRooms } = useChatNotifications();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const nickname = localStorage.getItem('user_nickname');
-  const userRole = localStorage.getItem('user_role') || 'ROLE_BUYER';
+  const nickname = session?.authenticated ? session.nickname : localStorage.getItem('user_nickname');
+  const userRole = (session?.authenticated ? session.role : localStorage.getItem('user_role')) || 'ROLE_BUYER';
   const unreadCount = chatRooms.reduce((sum, room) => sum + Number(room.unreadCount || 0), 0);
   const notificationSeenKey = `v3_notification_seen_${localStorage.getItem('email') || 'guest'}`;
   const [participationAlerts, setParticipationAlerts] = useState([]);
@@ -301,13 +381,14 @@ const IntegratedHeader = () => {
     localStorage.removeItem('user_nickname');
     localStorage.removeItem('user_role');
     localStorage.removeItem('email');
+    clearSession();
     navigate('/login');
   };
 
   return (
     <header className="v3-integrated-header">
-      <Link className="v3-brand" to="/home-v3">
-        <strong>N-bbang</strong>
+      <Link aria-label="N-BBANG 홈" className="v3-brand" to="/">
+        <HeaderLogo />
       </Link>
 
       <nav className={mobileOpen ? 'is-open' : ''}>
@@ -366,6 +447,18 @@ const IntegratedHeader = () => {
                   <ShoppingBag size={19} />
                 </Link>
               </>
+            )}
+            {remainingSeconds !== null && (
+              <div className="v3-certificate-timer" title="인증서 남은 유효시간">
+                <button aria-label="인증서 유효시간 5분 감소" onClick={() => extend(-5)} type="button">−</button>
+                <span className={remainingSeconds <= 60 ? 'is-urgent' : ''}>{formatRemaining(remainingSeconds)}</span>
+                <button
+                  aria-label="인증서 유효시간 5분 증가"
+                  disabled={remainingSeconds >= MAX_REMAINING_SECONDS}
+                  onClick={() => extend(5)}
+                  type="button"
+                >+</button>
+              </div>
             )}
             <Link className="v3-profile" to={myPagePath}>
               <i>{initials}</i><span>{nickname} 님</span>
@@ -472,17 +565,24 @@ const NextProductCard = ({ product, onSelect }) => (
 );
 
 const ShelfProduct = ({ product }) => {
-  const starCount = Math.max(1, Math.min(5, Math.round(product.progress / 20)));
+  const hasRating = product.reviewCount > 0 && Number.isFinite(product.rating);
 
   return (
     <Link className="v3-shelf-product" to={`/buyer/products/${product.id}`}>
       <ProductCover product={product} variant="shelf" />
       <div className="v3-shelf-product-info">
-        <div className="v3-stars" aria-label={`인기도 ${starCount}점`}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Star key={star} className={star <= starCount ? 'is-filled' : ''} size={13} />
-          ))}
-        </div>
+        {hasRating ? (
+          <div className="v3-stars" aria-label={`Google Books 리뷰 평점 ${product.rating.toFixed(1)}점`}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star key={star} className={star <= Math.round(product.rating) ? 'is-filled' : ''} size={13} />
+            ))}
+            <span>Google {product.rating.toFixed(1)} ({product.reviewCount})</span>
+          </div>
+        ) : (
+          <div className="v3-review-empty" aria-label="등록된 리뷰 없음">
+            <Star size={12} /><span>리뷰 없음</span>
+          </div>
+        )}
         <h3>{product.title}</h3>
         <p>{product.author}</p>
         <div><strong>{product.price}</strong><span>공구 참여</span></div>
@@ -525,26 +625,63 @@ const HomePageV3 = () => {
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchProducts = async () => {
       try {
         const response = await fetch('http://localhost:8080/api/products');
         if (!response.ok) throw new Error('Failed to fetch products');
 
         const data = await response.json();
-        setProducts(
-          data
-            .filter((item) => item.status === 'OPEN' && new Date(item.deadline) >= new Date())
-            .map(mapProduct),
+        if (isCancelled) return;
+
+        const mappedProducts = data
+          .filter((item) => item.status === 'OPEN' && new Date(item.deadline) >= new Date())
+          .map(mapProduct);
+        setProducts(mappedProducts);
+        setIsLoading(false);
+
+        const popularForMetadata = [...mappedProducts]
+          .sort((a, b) => b.progress - a.progress || a.diffDays - b.diffDays)
+          .slice(0, 6);
+        const urgentForMetadata = [...mappedProducts]
+          .filter((product) => product.diffDays >= 0 && product.diffDays <= 5)
+          .sort((a, b) => a.diffDays - b.diffDays || b.progress - a.progress)
+          .slice(0, 4);
+        const bookIsbns = [...new Set(
+          [...popularForMetadata, ...urgentForMetadata]
+            .filter((product) => product.rawType === 'BOOK' && product.isbn)
+            .map((product) => product.isbn),
+        )];
+        const googleMetadata = new Map(
+          await Promise.all(bookIsbns.map(async (isbn) => [isbn, await fetchGoogleBookMetadata(isbn)])),
         );
+
+        if (!isCancelled) {
+          setProducts((currentProducts) => currentProducts.map((product) => {
+            const metadata = googleMetadata.get(product.isbn);
+            if (!metadata) return product;
+            return {
+              ...product,
+              thumbnail: metadata.thumbnail || product.thumbnail,
+              reviewCount: metadata.reviewCount,
+              rating: metadata.rating,
+            };
+          }));
+        }
       } catch (error) {
+        if (isCancelled) return;
         console.error('Error fetching products:', error);
         setLoadError(true);
-      } finally {
-        setIsLoading(false);
+        if (!isCancelled) setIsLoading(false);
       }
     };
 
     fetchProducts();
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   const popularProducts = useMemo(
@@ -584,7 +721,7 @@ const HomePageV3 = () => {
   };
 
   return (
-    <div className="v3-page">
+    <div className="v3-page v3-design-page">
       <main className="v3-main">
         <section className="v3-bookcase">
           <IntegratedHeader />
@@ -667,8 +804,9 @@ const HomePageV3 = () => {
             </div>
           )}
         </section>
+
       </main>
-    </div>
+    </div >
   );
 };
 

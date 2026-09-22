@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, BarChart3, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import Header from '../../../components/layout/Header';
+import AdminHeader from '../../../components/admin/AdminHeader';
 
 const AdminSellersStatsPage = () => {
   const navigate = useNavigate();
@@ -15,10 +15,10 @@ const AdminSellersStatsPage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
-      <Header />
+    <div className="v3-page admin-v3-page min-h-screen flex flex-col text-gray-900">
+      <AdminHeader />
       
-      <section className="bg-slate-900 text-white py-8 px-6 shadow-md">
+      <section className="admin-v3-hero bg-slate-900 text-white py-8 px-6 shadow-md">
         <div className="max-w-7xl mx-auto flex flex-col gap-2 relative">
           <button 
             onClick={() => navigate('/admin/dashboard')}
@@ -36,7 +36,7 @@ const AdminSellersStatsPage = () => {
         </div>
       </section>
 
-      <main className="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-6">
+      <main className="admin-v3-main flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-6">
         
         <div className="flex justify-between items-end">
           <h3 className="text-xl font-bold tracking-tight">전체 판매자 수익 데이터</h3>
@@ -45,7 +45,7 @@ const AdminSellersStatsPage = () => {
           </span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 text-sm">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Store, BarChart3, TrendingUp, Users, Eye, ArrowUpRight, DollarSign, Calendar, Wallet } from 'lucide-react';
-import Header from '../../../components/layout/Header';
+import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 
 const SellerAnalyticsPage = () => {
   const [timeRange, setTimeRange] = useState('7D');
@@ -25,7 +25,7 @@ const SellerAnalyticsPage = () => {
   if (loading || !analyticsData) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        <Header />
+        <V3SiteHeader />
         <div className="flex-grow flex items-center justify-center">
           <span className="text-gray-500 font-bold">분석 데이터를 불러오는 중입니다...</span>
         </div>
@@ -42,7 +42,7 @@ const SellerAnalyticsPage = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
 
       {/* 1. 글로벌 헤더 */}
-      <Header />
+      <V3SiteHeader />
 
       {/* 2. 상단 다크 배너 (Seller Hub 패밀리 룩) */}
       <section className="bg-slate-900 text-white py-12 px-6 shadow-md">

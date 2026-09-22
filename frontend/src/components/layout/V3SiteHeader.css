@@ -1,0 +1,17 @@
+.v3-site-header-shell,
+.v3-site-header-shell *,
+.v3-site-header-shell *::before,
+.v3-site-header-shell *::after {
+  box-sizing: border-box;
+}
+
+.v3-site-header-shell {
+  position: sticky;
+  z-index: 40;
+  top: 0;
+  width: 100%;
+}
+
+.v3-site-header-shell .v3-integrated-header {
+  margin-bottom: 0;
+}

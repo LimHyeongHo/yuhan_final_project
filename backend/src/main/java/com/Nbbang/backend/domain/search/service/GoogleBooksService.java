@@ -43,7 +43,7 @@ public class GoogleBooksService {
                 .queryParam("q", "isbn:" + normalizedIsbn)
                 .queryParam("printType", "books")
                 .queryParam("maxResults", 5)
-                .queryParam("fields", "items(volumeInfo(industryIdentifiers,mainCategory,categories,imageLinks))")
+                .queryParam("fields", "items(volumeInfo(industryIdentifiers,mainCategory,categories,imageLinks,averageRating,ratingsCount))")
                 .queryParam("key", apiKey)
                 .build()
                 .encode()
@@ -61,20 +61,28 @@ public class GoogleBooksService {
             for (GoogleVolume volume : items) {
                 GoogleVolumeInfo info = volume.volumeInfo();
                 if (info != null && containsIsbn(info.industryIdentifiers(), normalizedIsbn)) {
-                    return new BookMetadata(selectImage(info.imageLinks()), selectCategory(info));
+                    return toMetadata(info);
                 }
             }
 
             // Google이 ISBN 검색 결과를 한 권만 반환하면서 식별자를 OTHER로 제공하는 경우가 있다.
             if (items.size() == 1 && items.get(0).volumeInfo() != null) {
-                GoogleVolumeInfo info = items.get(0).volumeInfo();
-                return new BookMetadata(selectImage(info.imageLinks()), selectCategory(info));
+                return toMetadata(items.get(0).volumeInfo());
             }
         } catch (RestClientException e) {
             log.warn("Google Books metadata lookup failed: type={}", e.getClass().getSimpleName());
         }
 
         return BookMetadata.empty();
+    }
+
+    private static BookMetadata toMetadata(GoogleVolumeInfo info) {
+        return new BookMetadata(
+                selectImage(info.imageLinks()),
+                selectCategory(info),
+                info.averageRating(),
+                info.ratingsCount() == null ? 0 : info.ratingsCount()
+        );
     }
 
     private static boolean containsIsbn(List<IndustryIdentifier> identifiers, String expectedIsbn) {
@@ -142,9 +150,9 @@ public class GoogleBooksService {
         return new RestTemplate(requestFactory);
     }
 
-    public record BookMetadata(String imageUrl, String category) {
+    public record BookMetadata(String imageUrl, String category, Double averageRating, Integer ratingsCount) {
         static BookMetadata empty() {
-            return new BookMetadata("", "");
+            return new BookMetadata("", "", null, 0);
         }
     }
 
@@ -158,7 +166,9 @@ public class GoogleBooksService {
             List<IndustryIdentifier> industryIdentifiers,
             String mainCategory,
             List<String> categories,
-            ImageLinks imageLinks
+            ImageLinks imageLinks,
+            Double averageRating,
+            Integer ratingsCount
     ) {
     }
 
