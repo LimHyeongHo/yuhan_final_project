@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 //아래 import문 삭제
 // import { useParams, Link } from 'react-router-dom';
-import { Clock, Users, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon, X, Copy, Heart, Info } from 'lucide-react';
+import { Clock, Users, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon, X, Copy, Heart, Info, ImageOff } from 'lucide-react';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import { getProductCategoryName } from '../../../constants/productCategories';
 import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
@@ -382,7 +382,10 @@ const BuyerProductDetailPage = () => {
           <div className="lg:col-span-7 flex flex-col gap-6">
             {/* 큰 이미지 박스 */}
             <div className="bg-white rounded-[32px] border border-gray-200 p-4 md:p-6 shadow-sm flex items-center justify-center aspect-[4/3] md:aspect-[16/10] overflow-hidden relative">
-              <span className="text-gray-400 text-sm font-semibold">이미지 없음</span>
+              <div className="flex flex-col items-center gap-2 text-gray-400">
+                <ImageOff size={100} strokeWidth={1.5} />
+                <span className="text-xl font-semibold">이미지 없음</span>
+              </div>
               {product.thumbnail && (
                 <img
                   src={product.thumbnail}

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, BookOpen, Package, Search, Filter, Edit2, Trash2, CheckCircle, Clock, ExternalLink } from 'lucide-react';
+import { Store, ImageOff, Package, Search, Filter, Edit2, Trash2, CheckCircle, Clock, ExternalLink } from 'lucide-react';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
+import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
 
 const SellerProductsPage = () => {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ const SellerProductsPage = () => {
           id: item.productId,
           type: item.type,
           title: item.title,
+          thumbnail: getDisplayProductImageUrl(item.imageUrl),
           price: item.price,
           currentCount: item.currentCount,
           targetCount: item.targetCount,
@@ -178,8 +180,17 @@ const SellerProductsPage = () => {
               return (
                 <div key={item.id} className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm grid grid-cols-1 md:grid-cols-12 gap-6 items-center hover:shadow-md transition">
                   <div className="md:col-span-6 flex items-center gap-5">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 border ${item.type === 'BOOK' ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-purple-50 border-purple-100 text-purple-600'}`}>
-                      {item.type === 'BOOK' ? <BookOpen size={24} /> : <Package size={24} />}
+                    <div className={`relative w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden border ${item.type === 'BOOK' ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-purple-50 border-purple-100 text-purple-600'}`}>
+                      {item.type === 'BOOK' ? <ImageOff aria-label="이미지 없음" size={24} /> : <Package size={24} />}
+                      {item.thumbnail && (
+                        <img
+                          src={item.thumbnail}
+                          alt={`${item.title} 이미지`}
+                          className={`absolute inset-0 w-full h-full bg-white ${item.type === 'BOOK' ? 'object-contain p-1' : 'object-cover'}`}
+                          onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
                     </div>
                     <div className="flex flex-col gap-1 w-full overflow-hidden">
                       <div className="flex items-center gap-2 flex-wrap">

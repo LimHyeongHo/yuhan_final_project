@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Layers, AlertTriangle, CheckCircle, Clock, Filter, Trash2, ShieldAlert, History, Info } from 'lucide-react';
+import { BookOpen, ImageOff, Layers, AlertTriangle, CheckCircle, Clock, Filter, Trash2, ShieldAlert, History, Info } from 'lucide-react';
 import AdminHeader from '../../../components/admin/AdminHeader';
+import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
 
 const GroupManagementPage = () => {
   const navigate = useNavigate();
@@ -33,7 +34,10 @@ const GroupManagementPage = () => {
   const fetchProductsAndLogs = () => {
     fetch('http://localhost:8080/api/admin/products', { credentials: 'include' })
       .then(res => res.json())
-      .then(data => setProducts(data))
+      .then(data => setProducts(data.map(item => ({
+        ...item,
+        thumbnail: getDisplayProductImageUrl(item.imageUrl),
+      }))))
       .catch(err => console.error("상품 데이터 로드 실패:", err));
 
     fetch('http://localhost:8080/api/admin/logs?type=SECURITY', { credentials: 'include' })
@@ -210,9 +214,20 @@ const GroupManagementPage = () => {
                     item.suspicious ? 'border-red-200 ring-2 ring-red-50/50' : ''
                   }`}
                 >
-                  {/* 더미 책 커버 레이아웃 */}
-                  <div className="w-16 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl shadow-inner border border-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
-                    <BookOpen size={24} />
+                  {/* 상품 커버 */}
+                  <div className="relative w-16 h-24 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl shadow-inner border border-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
+                    {item.type === 'BOOK'
+                      ? <ImageOff aria-label={`${item.title} 이미지 없음`} size={24} />
+                      : <BookOpen size={24} />}
+                    {item.type === 'BOOK' && item.thumbnail && (
+                      <img
+                        src={item.thumbnail}
+                        alt={`${item.title} 이미지`}
+                        className="absolute inset-0 w-full h-full bg-white object-contain p-1"
+                        onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
                   </div>
                   
                   {/* 정보 설명 상세 정보 피드 */}

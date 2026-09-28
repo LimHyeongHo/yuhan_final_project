@@ -259,6 +259,10 @@
   background: #faf7f0 !important;
 }
 
+.admin-v3-page .demo-hash-table tbody tr:hover {
+  background: transparent !important;
+}
+
 .admin-v3-page button,
 .admin-v3-page a {
   transition: color 180ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;

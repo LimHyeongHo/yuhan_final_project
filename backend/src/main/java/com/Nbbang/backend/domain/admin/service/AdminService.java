@@ -227,7 +227,9 @@ public class AdminService {
             .map(product -> {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", product.getProductId());
+                map.put("type", product.getType());
                 map.put("title", product.getTitle());
+                map.put("imageUrl", product.getImageUrl());
                 map.put("category", product.getCategory() != null ? product.getCategory() : "기타");
                 map.put("price", product.getPrice());
                 map.put("targetCount", product.getTargetCount());

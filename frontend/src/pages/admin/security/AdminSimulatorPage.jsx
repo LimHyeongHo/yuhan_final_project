@@ -192,7 +192,7 @@ const DemoHashChain = ({ chain, product, loading, processing, progress, tamperPr
                   const pending = processing && index >= progress;
                   const normal = !pending && node.valid;
                   return (
-                    <article className={`min-w-[235px] rounded-2xl border p-5 ${pending ? 'border-slate-200 bg-slate-50' : normal ? 'border-sky-200 bg-sky-50' : 'border-red-300 bg-red-50'}`}>
+                    <article className={`min-w-[230px] rounded-2xl border p-5 ${pending ? 'border-slate-200 bg-slate-50' : normal ? 'border-sky-200 bg-sky-50' : 'border-red-300 bg-red-50'}`}>
                       <div className="flex items-center justify-between gap-2">
                         <p className={`text-xs font-black tracking-wide ${pending ? 'text-slate-500' : normal ? 'text-sky-700' : 'text-red-700'}`}>NODE #{node.sequence}</p>
                         {pending ? <Clock size={17} className="text-slate-400" /> : normal ? <CheckCircle size={17} className="text-sky-600" /> : <AlertTriangle size={17} className="text-red-600" />}
@@ -224,24 +224,32 @@ const DemoHashChain = ({ chain, product, loading, processing, progress, tamperPr
             ))}
           </div>
           <p className="text-xs leading-5 text-slate-400">빨간 노드는 데이터 자체의 해시가 맞지 않거나, 앞 노드와 연결된 해시가 달라진 상태입니다. 이 영역은 실제 DB·블록체인을 변경하지 않는 시연용 데이터입니다.</p>
-          <details open className="mt-6 rounded-2xl border border-slate-200 bg-slate-900 p-5 text-xs text-slate-300">
-            <summary className="cursor-pointer font-bold text-white">시연용 체인 추가 해시 정보</summary>
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-900 p-5 text-xs text-slate-300">
+            <p className="font-bold text-white">시연용 체인 추가 해시 정보</p>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <div className="rounded-xl bg-slate-800 p-3">
-                <p className="text-slate-400">대상 상품</p>
-                <p className="mt-1 font-bold text-white">#{product?.productId} {product?.title}</p>
+              <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
+                <p className="font-bold text-slate-500">대상 상품</p>
+                <p className="mt-1 font-bold text-slate-700">
+                  #{product?.productId} {product?.title}
+                </p>
               </div>
-              <div className="rounded-xl bg-slate-800 p-3">
-                <p className="text-slate-400">Genesis 해시</p>
-                <p className="mt-1 break-all font-mono text-[11px] text-sky-200">{DEMO_GENESIS_HASH}</p>
+
+              <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
+                <p className="font-bold text-slate-500">Genesis 해시</p>
+                <p className="font-bold mt-1 break-all text-[11px] text-slate-700">
+                  {DEMO_GENESIS_HASH}
+                </p>
               </div>
-              <div className="rounded-xl bg-slate-800 p-3">
-                <p className="text-slate-400">마지막 노드 해시</p>
-                <p className="mt-1 break-all font-mono text-[11px] text-sky-200">{chain[chain.length - 1]?.storedHash || '-'}</p>
+
+              <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
+                <p className="font-bold text-slate-500">마지막 노드 해시</p>
+                <p className="font-bold mt-1 break-all text-[11px] text-slate-700">
+                  {chain[chain.length - 1]?.storedHash || '-'}
+                </p>
               </div>
             </div>
             <div className="mt-4 overflow-x-auto rounded-xl border border-slate-700">
-              <table className="w-full min-w-[900px] text-left font-mono text-[11px]">
+              <table className="demo-hash-table w-full min-w-[900px] text-left font-mono text-[11px]">
                 <thead className="bg-slate-800 text-slate-300">
                   <tr>
                     <th className="px-3 py-2">노드</th>
@@ -274,7 +282,7 @@ const DemoHashChain = ({ chain, product, loading, processing, progress, tamperPr
                 </tbody>
               </table>
             </div>
-          </details>
+          </div>
         </>
       )}
     </section>
@@ -631,7 +639,7 @@ const AdminSimulatorPage = () => {
         )}
 
         {error && <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700"><ServerCrash size={20} className="shrink-0" />{error}</div>}
-
+        {/* [*] 레거시 동기화는 더이상 필요 없기 때문에 주석처리
         <section className="rounded-3xl border border-slate-200 bg-white shadow-sm md:p-2">
           <button
             type="button"
@@ -657,7 +665,7 @@ const AdminSimulatorPage = () => {
               {migration && <p className="mt-4 text-sm font-bold text-slate-600">상태: {migration.status} · 처리 {migration.processedCount ?? 0}/{migration.totalCount ?? 0}</p>}
             </div>
           )}
-        </section>
+        </section> */}
       </main>
     </div>
   );

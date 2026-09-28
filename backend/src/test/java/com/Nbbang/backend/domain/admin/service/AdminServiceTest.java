@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -118,6 +120,28 @@ class AdminServiceTest {
         assertThat(product.getBlockchainLastError()).isNotBlank();
         assertThat(result).containsEntry("mismatchCount", 1);
         verify(productRepository).save(product);
+    }
+
+    @Test
+    void adminProductListIncludesTypeAndImageUrl() {
+        Product product = new Product();
+        product.setProductId(5L);
+        product.setType("BOOK");
+        product.setTitle("자료구조");
+        product.setImageUrl("https://example.com/cover.jpg");
+        product.setPrice(BigDecimal.valueOf(20_000));
+        product.setCurrentCount(1);
+        product.setTargetCount(5);
+        product.setStatus("OPEN");
+        product.setCreatedAt(LocalDateTime.of(2026, 9, 28, 12, 0));
+        when(productRepository.findAll()).thenReturn(List.of(product));
+
+        List<Map<String, Object>> result = adminService.getAllProductsForAdmin();
+
+        assertThat(result).singleElement().satisfies(item -> {
+            assertThat(item).containsEntry("type", "BOOK");
+            assertThat(item).containsEntry("imageUrl", "https://example.com/cover.jpg");
+        });
     }
 
     private Product product(Long productId) {
