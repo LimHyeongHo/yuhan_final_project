@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
 /// [신규] 인증서 만료 타이머(헤더 +5분/-5분, 00:00 만료 로그아웃) 전역 상태 Provider
 import { CertificateTimerProvider } from './contexts/CertificateTimerContext';
@@ -70,9 +70,20 @@ import MyPageMyReviews from './pages/shared/mypage/MyPageMyReviews';
 // (결제 완료 후 백엔드 리다이렉트도 이 접두사 없이 오기 때문에 동일하게 백지화됨).
 const routerBasename = process.env.NODE_ENV === 'production' ? process.env.PUBLIC_URL : '';
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [pathname]);
+
+  return null;
+};
+
 function App() {
   return (
     <BrowserRouter basename={routerBasename}>
+      <ScrollToTop />
       <SessionProvider>
       {/* [신규] 인증서 타이머 Provider로 전체 라우트를 감싸 어느 페이지에서도 남은 시간을 공유 */}
       <CertificateTimerProvider>

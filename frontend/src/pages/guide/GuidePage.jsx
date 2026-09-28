@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { UserPlus, ShieldCheck, Users, CreditCard, Store, ArrowRight } from 'lucide-react';
 import V3SiteHeader from '../../components/layout/V3SiteHeader';
+import { useSession } from '../../contexts/SessionContext';
 
 const buyerSteps = [
   { icon: UserPlus, title: '1. 회원가입', desc: '이메일과 비밀번호로 가입하고 구매자 계정을 만듭니다.' },
@@ -31,49 +32,60 @@ const StepCard = ({ icon: Icon, title, desc }) => (
 );
 
 const GuidePage = () => {
+  const { session, loading } = useSession();
+  const role = session?.authenticated ? session.role : null;
+  const isBuyer = role === 'ROLE_BUYER' || role === 'ROLE_SELLER_PENDING';
+  const isSeller = role === 'ROLE_SELLER';
+  const showBuyerFlow = !loading && !isSeller;
+  const showSellerFlow = !loading && !isBuyer;
+
   // [임시][fix/seller-page] 상품 등록 화면의 role 검증이 정리되기 전까지, 이 버튼에서의 이동만 임시로 막아둠
   const goToSellerProducts = () => {
     alert('현재 준비 중인 서비스입니다.');
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
+    <div className="bg-gray-50 flex flex-col text-gray-900">
       <V3SiteHeader />
 
-      <main className="flex-grow max-w-4xl w-full mx-auto p-6 md:p-8 flex flex-col gap-10">
+      <main className="max-w-4xl w-full mx-auto p-6 md:p-8 flex flex-col gap-10">
         <div className="flex flex-col gap-2 text-center pt-4">
           <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Getting Started</span>
           <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900">YU-BOOK 이용 가이드</h1>
           <p className="text-sm text-gray-500">전공책 공동구매, 이렇게 이용하세요.</p>
         </div>
 
-        <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-extrabold text-gray-900 border-b border-gray-100 pb-3">구매자 이용 흐름</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {buyerSteps.map((step) => (
-              <StepCard key={step.title} {...step} />
-            ))}
-          </div>
-          <Link to="/buyer/products" className="self-start flex items-center gap-1 text-sm font-bold text-blue-600 hover:underline mt-1">
-            공구 찾으러 가기 <ArrowRight size={14} />
-          </Link>
-        </section>
+        {showBuyerFlow && (
+          <section className="flex flex-col gap-4">
+            <h2 className="text-lg font-extrabold text-gray-900 border-b border-gray-100 pb-3">구매자 이용 방법</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {buyerSteps.map((step) => (
+                <StepCard key={step.title} {...step} />
+              ))}
+            </div>
+            <Link to="/buyer/products" className="self-start flex items-center gap-1 text-sm font-bold text-blue-600 hover:underline mt-1">
+              공구 찾으러 가기 <ArrowRight size={14} />
+            </Link>
+          </section>
+        )}
 
-        <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-extrabold text-gray-900 border-b border-gray-100 pb-3">판매자 이용 흐름</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {sellerSteps.map((step) => (
-              <StepCard key={step.title} {...step} />
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={goToSellerProducts}
-            className="self-start flex items-center gap-1 text-sm font-bold text-blue-600 hover:underline mt-1"
-          >
-            상품 등록하러 가기 <ArrowRight size={14} />
-          </button>
-        </section>
+        {showSellerFlow && (
+          <section className="flex flex-col gap-4">
+            <h2 className="text-lg font-extrabold text-gray-900 border-b border-gray-100 pb-3">판매자 이용 방법</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {sellerSteps.map((step) => (
+                <StepCard key={step.title} {...step} />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={goToSellerProducts}
+              className="self-start flex items-center gap-1 text-sm font-bold text-blue-600 hover:underline mt-1"
+            >
+              상품 등록하러 가기 <ArrowRight size={14} />
+            </button>
+          </section>
+        )}
       </main>
     </div>
   );
