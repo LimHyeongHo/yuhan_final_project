@@ -38,7 +38,7 @@
   line-height: 1.18;
 }
 
-.buyer-products-heading > span {
+.buyer-products-heading>span {
   display: block;
   margin-top: 10px;
   color: #d8d1c7;
@@ -101,13 +101,13 @@
   border-bottom: 1px solid var(--site-border, rgba(201, 187, 163, 0.52));
 }
 
-.buyer-filter-search > label {
+.buyer-filter-search>label {
   color: #28231d;
   font-size: 13px;
   font-weight: 800;
 }
 
-.buyer-filter-search > div {
+.buyer-filter-search>div {
   position: relative;
 }
 
@@ -243,19 +243,19 @@
   border-bottom: 2px solid #28231d;
 }
 
-.buyer-results-toolbar > div:first-child {
+.buyer-results-toolbar>div:first-child {
   display: flex;
   align-items: baseline;
   gap: 12px;
 }
 
-.buyer-results-toolbar > div:first-child > span {
+.buyer-results-toolbar>div:first-child>span {
   color: #776f64;
   font-size: 12px;
   font-weight: 600;
 }
 
-.buyer-results-toolbar > div:first-child strong {
+.buyer-results-toolbar>div:first-child strong {
   color: var(--site-brown, #7e570b);
 }
 
@@ -286,7 +286,7 @@
   cursor: pointer;
 }
 
-.buyer-view-switch button + button {
+.buyer-view-switch button+button {
   border-left: 1px solid var(--site-border, rgba(201, 187, 163, 0.52));
 }
 
@@ -340,7 +340,7 @@
   align-items: center;
   gap: 8px;
   color: #92877a;
-  font-size: 11px;
+  font-size: 20px;
   font-weight: 700;
 }
 
@@ -381,7 +381,7 @@
   font-weight: 700;
 }
 
-.buyer-product-meta > span {
+.buyer-product-meta>span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -439,14 +439,14 @@
   margin-top: 14px;
 }
 
-.buyer-product-purchase > strong {
+.buyer-product-purchase>strong {
   color: var(--site-ink, #0d0904);
   font-size: 18px;
   font-weight: 900;
   letter-spacing: -0.025em;
 }
 
-.buyer-product-purchase > div {
+.buyer-product-purchase>div {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 12px;
@@ -540,6 +540,7 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+
   .buyer-product-skeleton div,
   .buyer-product-skeleton span {
     animation: buyer-skeleton 1.4s ease infinite;
@@ -547,7 +548,9 @@
 }
 
 @keyframes buyer-skeleton {
-  to { background-position: -200% 0; }
+  to {
+    background-position: -200% 0;
+  }
 }
 
 .buyer-products-state {
@@ -633,7 +636,7 @@
     font-size: 28px;
   }
 
-  .buyer-products-heading > span {
+  .buyer-products-heading>span {
     font-size: 13px;
   }
 
@@ -687,11 +690,11 @@
     align-items: flex-end;
   }
 
-  .buyer-results-toolbar > div:first-child {
+  .buyer-results-toolbar>div:first-child {
     display: block;
   }
 
-  .buyer-results-toolbar > div:first-child > span {
+  .buyer-results-toolbar>div:first-child>span {
     display: block;
     margin-top: 4px;
   }

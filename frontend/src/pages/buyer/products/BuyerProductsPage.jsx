@@ -5,7 +5,7 @@ import {
   CheckCircle,
   ChevronDown,
   Clock,
-  Image as ImageIcon,
+  ImageOff,
   LayoutGrid,
   List,
   Search,
@@ -348,7 +348,7 @@ const BuyerProductsPage = () => {
                   >
                     <div className="buyer-product-image">
                       <div className="buyer-image-fallback">
-                        <ImageIcon size={30} />
+                        <ImageOff size={80} />
                         <span>이미지 없음</span>
                       </div>
                       {item.thumbnail && (
