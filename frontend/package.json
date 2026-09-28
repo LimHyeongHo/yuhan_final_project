@@ -1,7 +1,6 @@
 {
   "name": "frontend",
   "version": "0.1.0",
-  "homepage": "https://limhyeongho.github.io/yuhan_final_project",
   "private": true,
   "dependencies": {
     "@stomp/stompjs": "^7.3.0",

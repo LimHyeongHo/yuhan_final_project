@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 //아래 import문 삭제
 // import { useParams, Link } from 'react-router-dom';
-import { Clock, Users, BookOpen, ChevronLeft, ChevronRight, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, AlertOctagon, X, Copy, Heart, Info, ImageOff } from 'lucide-react';
+import { Clock, Users, ChevronLeft, ChevronRight, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, X, Copy, Heart, Info, ImageOff } from 'lucide-react';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import { getProductCategoryName } from '../../../constants/productCategories';
 import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';

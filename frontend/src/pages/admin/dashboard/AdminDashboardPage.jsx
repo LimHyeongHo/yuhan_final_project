@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Activity, BarChart3, ShieldAlert, ArrowUpRight, Clock } from 'lucide-react';
+import { Users, Activity, BarChart3, ShieldAlert, ArrowUpRight, Clock } from 'lucide-react';
 import AdminHeader from '../../../components/admin/AdminHeader';
 import { getProductCategoryName } from '../../../constants/productCategories';
 

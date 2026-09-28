@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, CheckCircle, AlertTriangle, Clock, RefreshCw, Download, Filter, BellRing } from 'lucide-react';
+import { Shield, CheckCircle, AlertTriangle, Clock, RefreshCw, BellRing } from 'lucide-react';
 import AdminHeader from '../../../components/admin/AdminHeader';
 
 const SecurityLogPage = () => {

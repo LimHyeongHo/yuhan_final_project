@@ -144,24 +144,6 @@ const ProductsEditPage = () => {
     }));
   };
 
-  // 3. 유형 변경 시 입력 폼 초기화 및 상태값 변경 함수
-  const handleTypeChange = (type) => {
-    setProductType(type);
-    setFormData({
-      title: '',
-      author: '',
-      publisher: '',
-      price: '',
-      targetCount: '',
-      description: '',
-      category: 'GENERAL',
-      imageUrl: '',
-      isbn: '',
-      originalPrice: '',
-    });
-    setImagePreview(null); // 유형 변경 시 이미지 미리보기도 초기화
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (Number(formData.price) <= 0 || Number(formData.targetCount) <= 0) {

@@ -8,6 +8,7 @@ import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 // [수정] localhost 고정 → 접속 호스트 기준 동적화
 const API_BASE = `http://${window.location.hostname}:8080/api`;
 const WS_URL = `http://${window.location.hostname}:8080/ws`;
+const FETCH_OPTIONS = { credentials: 'include' };
 
 const formatTime = (dateTimeStr) => {
   if (!dateTimeStr) return '';
@@ -87,12 +88,11 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   const isResizingRef = useRef(false);
 
   const currentEmail = localStorage.getItem('email');
-  const fetchOptions = { credentials: 'include' };
 
   // ── 채팅방 목록 로드 ──────────────────────────────────────────
   const loadRooms = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/chat/rooms`, fetchOptions);
+      const res = await fetch(`${API_BASE}/chat/rooms`, FETCH_OPTIONS);
       if (!res.ok) return;
       const data = await res.json();
       setRooms(data);
@@ -104,7 +104,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   // ── 메시지 내역 로드 ──────────────────────────────────────────
   const loadMessages = useCallback(async (roomId) => {
     try {
-      const res = await fetch(`${API_BASE}/chat/rooms/${roomId}/messages`, fetchOptions);
+      const res = await fetch(`${API_BASE}/chat/rooms/${roomId}/messages`, FETCH_OPTIONS);
       if (!res.ok) return;
       setMessages(await res.json());
     } catch (e) {
@@ -123,7 +123,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     try {
       await fetch(`${API_BASE}/chat/rooms/${roomId}/read`, {
         method: 'POST',
-        ...fetchOptions,
+        ...FETCH_OPTIONS,
       });
     } catch (e) {
       console.error('읽음 처리 실패', e);
@@ -256,20 +256,23 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   }, [connected, roomsKey]);
 
   // ── 방 선택 시: 메시지 로드 + 읽음 처리 + (나가 있던 방이면) 재입장 ──
+  const activeRoomId = activeRoom?.roomId;
+  const activeRoomLeft = activeRoom?.iLeft;
+
   useEffect(() => {
     setRoomMenuOpen(false); // [CHAT-RQ-001] 방 전환 시 더보기 메뉴 닫기
-    if (!activeRoom) return;
+    if (!activeRoomId) return;
     // loadMessages/markAsRead는 REST라 connected 가드로 막지 않는다 (막으면 배지가 안 사라짐)
-    loadMessages(activeRoom.roomId);
-    markAsRead(activeRoom.roomId);
+    loadMessages(activeRoomId);
+    markAsRead(activeRoomId);
 
     // [CHAT-RQ-001] 나가 있던 판매자가 방을 다시 열면 재입장 (iLeft는 판매자-나감일 때만 true)
-    if (activeRoom.iLeft) {
-      fetch(`${API_BASE}/chat/rooms/${activeRoom.roomId}/rejoin`, { method: 'POST', ...fetchOptions })
-        .then(() => { loadRooms(); loadMessages(activeRoom.roomId); })
+    if (activeRoomLeft) {
+      fetch(`${API_BASE}/chat/rooms/${activeRoomId}/rejoin`, { method: 'POST', ...FETCH_OPTIONS })
+        .then(() => { loadRooms(); loadMessages(activeRoomId); })
         .catch(e => console.error('채팅방 재입장 실패', e));
     }
-  }, [activeRoom?.roomId, connected]);
+  }, [activeRoomId, activeRoomLeft, connected, loadMessages, loadRooms, markAsRead]);
 
   // 구매자 화면: 방을 열면 상대(판매자) 프로필 요약을 불러와 상단 카드에 표시
   useEffect(() => {
@@ -286,7 +289,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   useEffect(() => {
     setReviewEligibility(null);
     if (userRole !== 'BUYER' || !activeRoom?.productId || activeRoom.productStatus !== 'CLOSED_SUCCESS') return;
-    fetch(`${API_BASE}/reviews/eligibility?productId=${activeRoom.productId}`, fetchOptions)
+    fetch(`${API_BASE}/reviews/eligibility?productId=${activeRoom.productId}`, FETCH_OPTIONS)
       .then(res => (res.ok ? res.json() : null))
       .then(elig => elig && setReviewEligibility(elig))
       .catch(() => {});
@@ -299,13 +302,14 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
 
   // 방을 열고 있는데 상대 메시지가 새로 오면 바로 읽음 처리 (좌측/헤더 배지 안 남게)
   // 내가 보낸 메시지로 messages가 늘어난 경우엔 호출하지 않는다 (불필요한 READ 브로드캐스트 방지).
+  const lastMessageSenderEmail = messages[messages.length - 1]?.senderEmail;
+
   useEffect(() => {
-    if (!activeRoom || messages.length === 0) return;
-    const last = messages[messages.length - 1];
-    if (last?.senderEmail && last.senderEmail !== currentEmail) {
-      markAsRead(activeRoom.roomId);
+    if (!activeRoomId || !lastMessageSenderEmail) return;
+    if (lastMessageSenderEmail !== currentEmail) {
+      markAsRead(activeRoomId);
     }
-  }, [activeRoom?.roomId, messages.length, currentEmail, markAsRead]);
+  }, [activeRoomId, messages.length, lastMessageSenderEmail, currentEmail, markAsRead]);
 
   // 지금 열어 둔 방 id를 전역 알림 Context에 알려 준다 (그 방 메시지만 토스트 생략)
   useEffect(() => {
@@ -387,7 +391,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     try {
       const res = await fetch(`${API_BASE}/chat/rooms/${leavingRoomId}/leave`, {
         method: 'POST',
-        ...fetchOptions,
+        ...FETCH_OPTIONS,
       });
       if (!res.ok) throw new Error('채팅방 나가기에 실패했습니다.');
       setActiveRoom(null);
@@ -414,7 +418,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     try {
       const res = await fetch(`${API_BASE}/chat/rooms/${activeRoom.roomId}/messages/${messageId}`, {
         method: 'DELETE',
-        ...fetchOptions,
+        ...FETCH_OPTIONS,
       });
       if (!res.ok) throw new Error('메시지 삭제에 실패했습니다.');
       // WebSocket DELETE 이벤트도 오지만, 내 화면은 즉시 반영

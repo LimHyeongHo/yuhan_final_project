@@ -1,21 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { BookOpen, ImageOff, Layers, AlertTriangle, CheckCircle, Clock, Filter, Trash2, ShieldAlert, History, Info } from 'lucide-react';
+import { BookOpen, ImageOff, Layers, AlertTriangle, CheckCircle, Clock, Trash2, ShieldAlert } from 'lucide-react';
 import AdminHeader from '../../../components/admin/AdminHeader';
 import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
 
 const GroupManagementPage = () => {
-  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [activeTab, setActiveTab] = useState('전체 거래');
-  const [showOnlyOpen, setShowOnlyOpen] = useState(false);
   const [syncLogs, setSyncLogs] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   const filteredProducts = products.filter(item => {
-    if (showOnlyOpen && item.status !== 'OPEN') return false;
-    
     if (activeTab === '승인 대기' && item.status !== '승인 대기') return false;
     
     // 신고를 받아 이상 상태인 경우 (suspicious = true)
@@ -58,7 +53,7 @@ const GroupManagementPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, showOnlyOpen]);
+  }, [activeTab]);
 
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectingProductId, setRejectingProductId] = useState(null);

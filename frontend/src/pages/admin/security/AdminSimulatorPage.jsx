@@ -5,8 +5,6 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  ChevronDown,
-  Database,
   RefreshCw,
   ServerCrash,
 } from 'lucide-react';
@@ -299,9 +297,6 @@ const AdminSimulatorPage = () => {
   const [productPage, setProductPage] = useState(1);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [error, setError] = useState('');
-  const [migration, setMigration] = useState(null);
-  const [migrating, setMigrating] = useState(false);
-  const [migrationOpen, setMigrationOpen] = useState(false);
   const [demoChain, setDemoChain] = useState([]);
   const [demoProduct, setDemoProduct] = useState(null);
   const [demoTamperPrice, setDemoTamperPrice] = useState('');
@@ -444,32 +439,6 @@ const AdminSimulatorPage = () => {
     setDemoChain(chain);
     setDemoProgress(chain.length);
     setDemoProcessing(false);
-  };
-
-  const runMigration = async () => {
-    if (!window.confirm('온체인 기록이 없는 레거시 상품을 동기화하시겠습니까?')) return;
-    setMigrating(true);
-    setError('');
-    try {
-      const response = await fetch(`${API}/migrate-legacy`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error(await getErrorMessage(response));
-      let data = await response.json();
-      setMigration(data);
-      while (data.status === 'QUEUED' || data.status === 'RUNNING') {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        const statusResponse = await fetch(`${API}/migrate-legacy/${data.jobId}`, { credentials: 'include' });
-        if (!statusResponse.ok) throw new Error(await getErrorMessage(statusResponse));
-        data = await statusResponse.json();
-        setMigration(data);
-      }
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setMigrating(false);
-    }
   };
 
   return (
@@ -639,33 +608,6 @@ const AdminSimulatorPage = () => {
         )}
 
         {error && <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700"><ServerCrash size={20} className="shrink-0" />{error}</div>}
-        {/* [*] 레거시 동기화는 더이상 필요 없기 때문에 주석처리
-        <section className="rounded-3xl border border-slate-200 bg-white shadow-sm md:p-2">
-          <button
-            type="button"
-            onClick={() => setMigrationOpen((open) => !open)}
-            className="flex w-full items-center justify-between gap-4 p-6 text-left md:p-6"
-            aria-expanded={migrationOpen}
-          >
-            <span>
-              <span className="flex items-center gap-2 text-lg font-bold text-slate-800"><Database size={20} className="text-blue-600" /> 레거시 데이터 동기화</span>
-              <span className="mt-1 block text-sm text-slate-500">필요할 때만 과거 상품의 온체인 원본을 동기화합니다.</span>
-            </span>
-            <ChevronDown size={20} className={`shrink-0 text-slate-500 transition-transform ${migrationOpen ? 'rotate-180' : ''}`} />
-          </button>
-          {migrationOpen && (
-            <div className="border-t border-slate-100 px-6 pb-6 pt-5">
-              <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                <p className="text-sm text-slate-500">동기화를 시작하면 온체인 원본이 없는 과거 상품을 별도로 처리합니다.</p>
-                <button onClick={runMigration} disabled={migrating} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-700 px-5 py-3 font-bold text-white hover:bg-slate-800 disabled:bg-slate-400">
-                  {migrating ? <Clock size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-                  {migrating ? '동기화 중...' : '레거시 동기화 실행'}
-                </button>
-              </div>
-              {migration && <p className="mt-4 text-sm font-bold text-slate-600">상태: {migration.status} · 처리 {migration.processedCount ?? 0}/{migration.totalCount ?? 0}</p>}
-            </div>
-          )}
-        </section> */}
       </main>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Users, Calendar, ArrowRight, User, ShoppingCart, Loader } from 'lucide-react';
+import { Package, Users, Calendar, User, ShoppingCart, Loader } from 'lucide-react';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 
 const SellerOrdersPage = () => {

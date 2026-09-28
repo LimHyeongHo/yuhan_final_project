@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Store, BarChart3, TrendingUp, Users, Eye, ArrowUpRight, DollarSign, Calendar, Wallet } from 'lucide-react';
+import { BarChart3, Eye, ArrowUpRight, DollarSign, Calendar, Wallet } from 'lucide-react';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 
 const SellerAnalyticsPage = () => {
