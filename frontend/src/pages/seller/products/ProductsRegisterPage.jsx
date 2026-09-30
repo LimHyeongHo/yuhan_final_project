@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Store, PlusCircle, BookOpen, Package, DollarSign, Users, FileText, Upload, AlertCircle, X, Search } from 'lucide-react';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import { PRODUCT_CATEGORIES } from '../../../constants/productCategories';
-import { getDepartmentBooks } from '../../../constants/departmentBooks';
+import {
+  DEPARTMENT_BOOKS_CURRICULUM_YEAR,
+  getDepartmentBooks,
+} from '../../../constants/departmentBooks';
 
 const BOOK_SEARCH_ERROR_FALLBACKS = {
   BOOK_SEARCH_INVALID_QUERY: '검색어를 입력해 주세요.',
@@ -370,25 +373,30 @@ const ProductRegisterPage = () => {
             {productType === 'BOOK' && formData.category !== 'GENERAL' && (
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-gray-700">학과 추천 전공책</span>
+                  <span className="text-sm font-bold text-gray-700">
+                    {DEPARTMENT_BOOKS_CURRICULUM_YEAR} 교육과정 추천 도서
+                  </span>
                   <span className="text-xs font-semibold text-gray-400">{recommendedBooks.length}권</span>
                 </div>
                 {recommendedBooks.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {recommendedBooks.map((book) => (
                       <button
-                        key={book.title}
+                        key={`${book.grade}-${book.course}-${book.title}`}
                         type="button"
                         onClick={() => searchProduct(book.title)}
                         disabled={isSearching}
                         className="p-3.5 text-left rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 transition"
                       >
-                        <span className="block text-sm font-extrabold text-gray-900 line-clamp-2">{book.title}</span>
-                        {book.description && (
-                          <span className="block mt-1.5 text-xs font-bold text-blue-600">
-                            {book.description}
+                        <span className="mb-2 flex flex-wrap items-center gap-1.5">
+                          <span className="rounded-md bg-blue-100 px-2 py-0.5 text-[11px] font-extrabold text-blue-700">
+                            {book.grade}학년
                           </span>
-                        )}
+                          <span className="text-xs font-bold text-gray-500">
+                            {book.course}
+                          </span>
+                        </span>
+                        <span className="block text-sm font-extrabold text-gray-900 line-clamp-2">{book.title}</span>
                       </button>
                     ))}
                   </div>
