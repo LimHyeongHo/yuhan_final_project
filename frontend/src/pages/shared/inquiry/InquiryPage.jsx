@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   CheckCircle2,
   ChevronRight,
+  CircleHelp,
   Clock3,
   LockKeyhole,
   Megaphone,
@@ -13,8 +14,8 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
+import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import { useSession } from '../../../contexts/SessionContext';
-import { IntegratedHeader } from '../../home/homePage_v3';
 import './InquiryPage.css';
 
 const API_BASE = `http://${window.location.hostname}:8080`;
@@ -200,26 +201,24 @@ const InquiryPage = () => {
 
   return (
     <div className="inquiry-page">
-      <div className="inquiry-header-shell v3-design-header-shell">
-        <IntegratedHeader />
-      </div>
+      <V3SiteHeader />
 
       <main className="inquiry-main">
-        <section className="inquiry-board" aria-label="문의사항 목록">
-          <header className="inquiry-page-heading">
-            <h1>문의사항</h1>
-            <div className="inquiry-heading-actions">
-              {isAdmin && (
-                <button className="inquiry-notice-button" type="button" onClick={() => openComposer(true)}>
-                  <Megaphone size={18} /> 전체 공지 작성
-                </button>
-              )}
-              <button className="inquiry-primary-button" type="button" onClick={() => openComposer(false)}>
-                <Plus size={18} /> 문의 작성
+        <header className="inquiry-page-heading">
+          <h1><CircleHelp size={28} aria-hidden="true" />문의사항</h1>
+          <div className="inquiry-heading-actions">
+            {isAdmin && (
+              <button className="inquiry-notice-button" type="button" onClick={() => openComposer(true)}>
+                <Megaphone size={18} /> 전체 공지 작성
               </button>
-            </div>
-          </header>
+            )}
+            <button className="inquiry-primary-button" type="button" onClick={() => openComposer(false)}>
+              <Plus size={18} /> 문의 작성
+            </button>
+          </div>
+        </header>
 
+        <section className="inquiry-board" aria-label="문의사항 목록">
           {isAdmin && (
             <div className="inquiry-toolbar">
               <div className="inquiry-filter" aria-label="작성자 유형 필터">

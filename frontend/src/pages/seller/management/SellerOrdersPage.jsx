@@ -32,21 +32,20 @@ const SellerOrdersPage = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
       <V3SiteHeader />
       <div className="flex-grow max-w-7xl w-full mx-auto p-6 flex flex-col gap-8">
-        
+
         <header className="bg-white rounded-3xl p-8 shadow-sm flex flex-col items-start gap-4 border border-gray-100">
-          <div className="flex flex-col md:flex-row md:items-center gap-4">
+          <div className="flex w-full flex-col gap-4 md:flex-row md:items-center">
             <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3 whitespace-nowrap">
               <Users className="text-blue-600" size={32} />
               주문/구매자 관리
             </h1>
-            <div className="bg-blue-50 px-4 py-3 rounded-2xl flex items-center gap-3 whitespace-nowrap">
+            <div className="self-end bg-blue-50 px-4 py-3 rounded-2xl flex items-center gap-3 whitespace-nowrap md:ml-auto">
               <ShoppingCart className="text-blue-700" size={24} />
-              <p className="text-sm text-blue-700 font-semibold">
+              <p className="text-right text-sm font-semibold text-blue-700">
                 총 결제자 수 <strong className="ml-1 text-xl font-black text-gray-900">{orders.length}명</strong>
               </p>
             </div>
           </div>
-          <p className="text-gray-500 font-medium">내 상품을 결제한 사람들의 명단을 확인하고 전달 상태를 체크해보세요.</p>
         </header>
 
         {isLoading ? (
@@ -80,7 +79,7 @@ const SellerOrdersPage = () => {
                       </td>
                       <td className="px-6 py-5">
                         <div className="flex items-center justify-center gap-2">
-                          <div className="bg-gray-100 p-1.5 rounded-full"><User size={14} className="text-gray-500"/></div>
+                          <div className="bg-gray-100 p-1.5 rounded-full"><User size={14} className="text-gray-500" /></div>
                           <span className="font-medium text-gray-700">{order.buyerNickname}</span>
                         </div>
                       </td>
@@ -88,11 +87,10 @@ const SellerOrdersPage = () => {
                         <span className="font-bold text-gray-900">{order.productPrice?.toLocaleString()}원</span>
                       </td>
                       <td className="px-6 py-5">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          order.productStatus === 'SUCCESS' ? 'bg-green-100 text-green-700' :
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${order.productStatus === 'SUCCESS' ? 'bg-green-100 text-green-700' :
                           order.productStatus === 'FAIL' ? 'bg-red-100 text-red-700' :
-                          'bg-blue-100 text-blue-700'
-                        }`}>
+                            'bg-blue-100 text-blue-700'
+                          }`}>
                           {order.productStatus === 'OPEN' ? '진행중' : order.productStatus === 'SUCCESS' ? '성사완료' : '실패(환불)'}
                         </span>
                       </td>
@@ -103,7 +101,7 @@ const SellerOrdersPage = () => {
                         </div>
                       </td>
                       <td className="px-6 py-5 text-center">
-                        <button 
+                        <button
                           className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold rounded-xl transition"
                           onClick={() => alert('실제 배송/전달 처리를 위한 기능은 추후 확장 가능합니다.')}
                         >
