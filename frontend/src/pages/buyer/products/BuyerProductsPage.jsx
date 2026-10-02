@@ -174,7 +174,7 @@ const BuyerProductsPage = () => {
           </button>
         </div>
 
-        <div className="buyer-catalog-layout v3-design-panel">
+        <div className="buyer-catalog-layout">
           <aside className={`buyer-filter-panel ${isAdvancedOpen ? 'is-open' : ''}`}>
             <div className="buyer-filter-heading">
               <h2>상세 필터</h2>
@@ -348,7 +348,7 @@ const BuyerProductsPage = () => {
                   >
                     <div className="buyer-product-image">
                       <div className="buyer-image-fallback">
-                        <ImageOff size={80} />
+                        <ImageOff size={44} />
                         <span>이미지 없음</span>
                       </div>
                       {item.thumbnail && (

@@ -28,3 +28,21 @@ test('every selectable department has curriculum-based book recommendations', ()
       });
     });
 });
+
+test('every configured grade has exactly two distinct book recommendations', () => {
+  PRODUCT_CATEGORIES
+    .filter(({ code }) => code !== 'GENERAL')
+    .forEach(({ code }) => {
+      const booksByGrade = getDepartmentBooks(code).reduce((groups, book) => {
+        const books = groups.get(book.grade) || [];
+        books.push(book);
+        groups.set(book.grade, books);
+        return groups;
+      }, new Map());
+
+      booksByGrade.forEach((books) => {
+        expect(books).toHaveLength(2);
+        expect(new Set(books.map(({ title }) => title)).size).toBe(2);
+      });
+    });
+});
