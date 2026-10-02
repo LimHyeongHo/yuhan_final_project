@@ -23,6 +23,10 @@ public enum ErrorCode {
     AUTH_WITHDRAWN_ACCOUNT(403, "탈퇴된 계정입니다. 고객센터에 문의해주세요"),
     AUTH_PORTONE_SERVER_ERROR(502, "본인인증에 실패했습니다. 다시 시도해주세요"),
 
+    // ========== 문의사항 (INQUIRY) ==========
+    INQUIRY_NOT_FOUND(404, "존재하지 않는 문의글입니다"),
+    INQUIRY_ACCESS_DENIED(403, "해당 문의글을 볼 수 없습니다"),
+
     // ========== 회원 (MEMBER) ==========
     MEMBER_DUPLICATE_EMAIL(409, "이미 사용 중인 이메일입니다"),
     MEMBER_DUPLICATE_CI(409, "이미 가입된 계정입니다"),

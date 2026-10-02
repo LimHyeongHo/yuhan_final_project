@@ -61,6 +61,7 @@ import MyPageProjects from './pages/shared/mypage/MyPageProjects';
 import MyPageSettlement from './pages/shared/mypage/MyPageSettlement';
 // [UI-RQ-003][feature/ui-fixes] 판매자 "내가 받은 후기" 진입점
 import MyPageMyReviews from './pages/shared/mypage/MyPageMyReviews';
+import InquiryPage from './pages/shared/inquiry/InquiryPage';
 
 
 
@@ -105,6 +106,14 @@ function App() {
           <Route path="/home-v3" element={<HomePageV3 />} />
           {/* [UI-RQ-006][feature/ui-fixes] 이용 가이드 - 로그인 여부 무관 공개 라우트 */}
           <Route path="/guide" element={<GuidePage />} />
+          <Route
+            path="/inquiries"
+            element={(
+              <PrivateRoute allowedRoles={['ROLE_ADMIN', 'ROLE_SELLER', 'ROLE_BUYER', 'ROLE_SELLER_PENDING']}>
+                <InquiryPage />
+              </PrivateRoute>
+            )}
+          />
 
           { /* ----------------관리자 페이지-----------------*/}
           { /* 보안 로그 화면으로 접속했을 때 보여줄 화면 */}
