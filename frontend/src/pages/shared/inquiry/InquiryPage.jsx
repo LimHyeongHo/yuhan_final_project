@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   CheckCircle2,
   ChevronRight,
-  CircleHelp,
   Clock3,
   LockKeyhole,
   Megaphone,
@@ -206,31 +205,23 @@ const InquiryPage = () => {
       </div>
 
       <main className="inquiry-main">
-        <section className="inquiry-hero">
-          <div>
-            <span className="inquiry-eyebrow"><CircleHelp size={15} /> HELP DESK</span>
-            <h1>문의사항</h1>
-            <p>서비스 이용 중 궁금한 내용을 남겨주세요. 관리자가 확인 후 답변드립니다.</p>
-          </div>
-          <div className="inquiry-hero-actions">
-            {isAdmin && (
-              <button className="inquiry-notice-button" type="button" onClick={() => openComposer(true)}>
-                <Megaphone size={18} /> 전체 공지 작성
-              </button>
-            )}
-            <button className="inquiry-primary-button" type="button" onClick={() => openComposer(false)}>
-              <Plus size={18} /> 문의 작성
-            </button>
-          </div>
-        </section>
-
         <section className="inquiry-board" aria-label="문의사항 목록">
-          <div className="inquiry-toolbar">
-            <div>
-              <strong>전체 문의</strong>
-              <span>{inquiries.length}건</span>
+          <header className="inquiry-page-heading">
+            <h1>문의사항</h1>
+            <div className="inquiry-heading-actions">
+              {isAdmin && (
+                <button className="inquiry-notice-button" type="button" onClick={() => openComposer(true)}>
+                  <Megaphone size={18} /> 전체 공지 작성
+                </button>
+              )}
+              <button className="inquiry-primary-button" type="button" onClick={() => openComposer(false)}>
+                <Plus size={18} /> 문의 작성
+              </button>
             </div>
-            {isAdmin && (
+          </header>
+
+          {isAdmin && (
+            <div className="inquiry-toolbar">
               <div className="inquiry-filter" aria-label="작성자 유형 필터">
                 {[
                   ['ALL', '모두 보기'],
@@ -247,8 +238,8 @@ const InquiryPage = () => {
                   </button>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {error && <div className="inquiry-error" role="alert">{error}</div>}
 
