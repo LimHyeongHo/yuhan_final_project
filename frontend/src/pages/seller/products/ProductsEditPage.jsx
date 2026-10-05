@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Store, Edit2, BookOpen, Package, DollarSign, Users, FileText, Upload, AlertCircle, X, Search } from 'lucide-react';
+import { Edit2, BookOpen, Package, DollarSign, Users, FileText, Upload, AlertCircle, X, Search } from 'lucide-react';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import { PRODUCT_CATEGORIES, normalizeProductCategory } from '../../../constants/productCategories';
 
@@ -199,18 +199,14 @@ const ProductsEditPage = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900 ">
       <V3SiteHeader />
 
-      {/* 상단 다크 배너 */}
-      <section className="bg-slate-900 text-white py-12 px-6 shadow-md">
-        <div className="max-w-4xl mx-auto flex flex-col gap-2">
-          <span className="bg-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-max border border-blue-500/30 flex items-center gap-1.5">
-            <Store size={14} /> Seller Hub
-          </span>
-          <h2 className="text-4xl font-extrabold tracking-tight mt-1">프로젝트 수정하기</h2>
-          <p className="text-slate-400 font-medium text-base mt-1">등록한 전공 도서나 학과 물품의 정보를 수정하세요.</p>
-        </div>
-      </section>
+      <div className="v3-unified-page-card is-narrow">
+        <header className="v3-unified-page-card__header">
+          <h1 className="v3-unified-page-card__title">
+            <Edit2 size={28} /> 프로젝트 수정하기
+          </h1>
+        </header>
 
-      <main className="flex-grow max-w-4xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
+        <main className="v3-unified-page-card__body flex-grow">
 
         {/* 등록 유형 선택 토글 탭 */}
         <div className="flex gap-2 p-1.5 bg-gray-200/70 rounded-2xl w-full sm:w-max mx-auto shadow-inner opacity-80 pointer-events-none">
@@ -478,7 +474,8 @@ const ProductsEditPage = () => {
             </button>
           </div>
         </form>
-      </main>
+        </main>
+      </div>
       {productType !== 'BOOK' && isModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">

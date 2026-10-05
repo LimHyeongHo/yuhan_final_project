@@ -84,20 +84,12 @@ const AdminSettlementPage = () => {
     <div className="v3-page admin-v3-page min-h-screen flex flex-col text-gray-900">
       <AdminHeader />
 
-      <section className="admin-v3-hero bg-slate-900 text-white py-12 px-6 shadow-md">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2">
-          <span className="bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-max border border-emerald-500/30">
-            Settlement
-          </span>
-          <h2 className="text-4xl font-extrabold tracking-tight">출금 신청 관리</h2>
-          <p className="text-slate-400 font-medium text-base max-w-2xl mt-1">
-            판매자가 신청한 출금 건을 확인하고 승인/거절 처리합니다. 실제 은행 송금 자동화는 없으며,
-            승인 시 관리자가 직접 계좌로 입금했다는 것을 확인하는 절차입니다.
-          </p>
-        </div>
-      </section>
+      <div className="v3-unified-page-card">
+        <header className="v3-unified-page-card__header">
+          <h1 className="v3-unified-page-card__title"><Wallet size={28} />출금 신청 관리</h1>
+        </header>
 
-      <main className="admin-v3-main flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
+        <main className="v3-unified-page-card__body admin-v3-main flex-grow">
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center">
             <div className="flex flex-col gap-1">
@@ -148,7 +140,8 @@ const AdminSettlementPage = () => {
             )}
           </div>
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 };

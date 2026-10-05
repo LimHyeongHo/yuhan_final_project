@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, Eye, ArrowUpRight, DollarSign, Calendar, Wallet } from 'lucide-react';
+import { BarChart3, Eye, DollarSign, Calendar, Wallet } from 'lucide-react';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 
 const SellerAnalyticsPage = () => {
@@ -44,23 +44,15 @@ const SellerAnalyticsPage = () => {
       {/* 1. 글로벌 헤더 */}
       <V3SiteHeader />
 
-      {/* 2. 상단 다크 배너 (Seller Hub 패밀리 룩) */}
-      <section className="bg-slate-900 text-white py-12 px-6 shadow-md">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2">
-          <span className="bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-max border border-emerald-500/30 flex items-center gap-1.5">
-            <BarChart3 size={14} /> Analytics Hub
-          </span>
-          <h2 className="text-4xl font-extrabold tracking-tight mt-1">
-            분석 데이터
-          </h2>
-          <p className="text-slate-400 font-medium text-base max-w-2xl mt-1">
-            내 프로젝트의 방문자 유입 추이와 매출 데이터를 상세하게 분석하여 다음 공동구매 전략을 세워보세요.
-          </p>
-        </div>
-      </section>
+      <div className="v3-unified-page-card">
+        <header className="v3-unified-page-card__header">
+          <h1 className="v3-unified-page-card__title">
+            <BarChart3 size={28} /> 분석 데이터
+          </h1>
+        </header>
 
-      {/* 3. 메인 콘텐츠 영역 */}
-      <main className="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
+        {/* 3. 메인 콘텐츠 영역 */}
+        <main className="v3-unified-page-card__body flex-grow">
 
         {/* ✨ 컨트롤 패널 (기간 설정 필터 버튼) */}
         <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
@@ -87,30 +79,27 @@ const SellerAnalyticsPage = () => {
         {/* ✨ 상단 3종 요약 통계 카드 */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* 카드 1: 선택 기간 누적 조회수 (동적) */}
-          <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center transition-all duration-300">
-            <div className="flex flex-col gap-1">
+          <div className="bg-white rounded-[24px] p-6 shadow-md flex justify-between items-center relative overflow-hidden group">
+            <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl group-hover:bg-indigo-500/30 transition-all"></div>
+            <div className="flex flex-col gap-1 relative z-10">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{currentData.label} 조회수</span>
               <h3 className="text-3xl font-black text-gray-950 mt-1">{currentData.summary.views} 회</h3>
-              <span className="text-emerald-600 text-xs font-bold mt-1 flex items-center gap-0.5">
-                <ArrowUpRight size={14} /> 안정적 유입 유지
-              </span>
+              <span className="text-slate-400 text-xs font-bold mt-1">안정적 유입 유지</span>
             </div>
-            <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+            <div className="w-12 h-12 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 relative z-10">
               <Eye size={24} />
             </div>
           </div>
 
           {/* 카드 2: 선택 기간 총 결제액 (동적) */}
-          <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm flex justify-between items-center transition-all duration-300 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-full -mr-6 -mt-6 opacity-50 pointer-events-none"></div>
+          <div className="bg-white rounded-[24px] p-6 shadow-md flex justify-between items-center relative overflow-hidden group">
+            <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl group-hover:bg-indigo-500/30 transition-all"></div>
             <div className="flex flex-col gap-1 relative z-10">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{currentData.label} 결제액</span>
               <h3 className="text-3xl font-black text-gray-950 mt-1">₩{currentData.summary.revenue}</h3>
-              <span className="text-emerald-600 text-xs font-bold mt-1 flex items-center gap-0.5">
-                <ArrowUpRight size={14} /> +34.2% 성장
-              </span>
+              <span className="text-slate-400 text-xs font-bold mt-1">선택 기간 결제 합계</span>
             </div>
-            <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 relative z-10">
+            <div className="w-12 h-12 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 relative z-10">
               <DollarSign size={24} />
             </div>
           </div>
@@ -229,7 +218,8 @@ const SellerAnalyticsPage = () => {
           </div>
 
         </section>
-      </main>
+        </main>
+      </div>
 
       {/* 차트 애니메이션용 CSS */}
       <style dangerouslySetInnerHTML={{

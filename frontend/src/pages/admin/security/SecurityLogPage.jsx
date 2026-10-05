@@ -66,29 +66,16 @@ const SecurityLogPage = () => {
         </div>
       )}
 
-      {/* 2. 상단 묵직한 다크 보안 배너 */}
-      <section className="admin-v3-hero bg-slate-900 text-white py-12 px-6 shadow-md">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="flex flex-col gap-2">
-            <span className="bg-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-max border border-blue-500/30">
-              Security Operations Hub
-            </span>
-            <h2 className="text-4xl font-extrabold tracking-tight">
-              시스템 보안 및 감사 로그
-            </h2>
-            <p className="text-slate-400 font-medium text-base max-w-2xl">
-              블록체인 고유 해시 기반 실시간 검증 엔진이 가동 중입니다. 플랫폼 내의 모든 공동구매 계약 데이터 무결성을 실시간으로 보호하고 모니터링합니다.
-            </p>
-          </div>
+      <div className="v3-unified-page-card">
+        <header className="v3-unified-page-card__header">
+          <h1 className="v3-unified-page-card__title"><Shield size={28} />시스템 보안 및 감사 로그</h1>
           <Link to="/admin/simulator" className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg flex items-center gap-2 whitespace-nowrap">
             <AlertTriangle size={20} />
             보안 검증 시뮬레이터 실행
           </Link>
-        </div>
-      </section>
+        </header>
 
-      {/* 3. 메인 콘텐츠 영역 */}
-      <main className="admin-v3-main flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
+        <main className="v3-unified-page-card__body admin-v3-main flex-grow">
         
         {/* 상단 3종 요약 통계 카드 */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -312,7 +299,8 @@ const SecurityLogPage = () => {
           </div>
 
         </section>
-      </main>
+        </main>
+      </div>
     </div>
   );
 };

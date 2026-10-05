@@ -66,21 +66,14 @@ const PaymentPage = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900">
       <V3SiteHeader />
 
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 py-16 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col gap-4">
-          <span className="bg-white/20 text-white text-[10px] font-black tracking-widest px-3 py-1.5 rounded-full w-max uppercase">
-            Yuhan University Joint Purchase
-          </span>
-          <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white mt-1">
-            결제 <span className="text-yellow-400">진행</span>
-          </h2>
-          <p className="text-blue-100 text-sm md:text-base font-medium max-w-2xl leading-relaxed mt-1">
-            아래 상품 정보를 확인하고 결제를 완료하세요.
-          </p>
-        </div>
-      </div>
+      <div className="v3-unified-page-card is-narrow">
+        <header className="v3-unified-page-card__header">
+          <h1 className="v3-unified-page-card__title">
+            <CreditCard size={28} /> 결제 진행
+          </h1>
+        </header>
 
-      <main className="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col items-center gap-6">
+        <main className="v3-unified-page-card__body flex-grow items-center">
 
         <div className="w-full max-w-xl bg-white rounded-[32px] border border-gray-200 shadow-sm overflow-hidden">
 
@@ -167,7 +160,8 @@ const PaymentPage = () => {
           </div>
         </div>
 
-      </main>
+        </main>
+      </div>
     </div>
   );
 };

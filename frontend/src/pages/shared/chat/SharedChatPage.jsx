@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Store, Send, Image as ImageIcon, MoreVertical, Search, User, Calendar, X, LogOut, Trash2, ChevronRight, ShieldCheck, Star } from 'lucide-react';
+import { Store, Send, Image as ImageIcon, MoreVertical, Search, User, Calendar, X, LogOut, Trash2, ChevronRight, ShieldCheck, Star, MessageCircle } from 'lucide-react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -508,25 +508,17 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900 h-screen">
       <V3SiteHeader />
 
-      {/* 권한에 따라 변하는 상단 배너 (조건부 렌더링) */}
-      {userRole === 'SELLER' && (
-        <section className="bg-slate-900 text-white py-6 px-6 shadow-md shrink-0">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full w-max border border-emerald-500/30 flex items-center gap-1">
-                <Store size={12} /> Seller Hub
-              </span>
-              <h2 className="text-2xl font-extrabold tracking-tight">메시지 관리</h2>
-              <p className="text-sm text-gray-400">구매자와의 소통을 한 곳에서 관리하세요.</p>
-            </div>
-          </div>
-        </section>
-      )}
+      <div className="v3-unified-page-card is-chat">
+        <header className="v3-unified-page-card__header">
+          <h1 className="v3-unified-page-card__title">
+            <MessageCircle size={28} /> 메시지 관리
+          </h1>
+        </header>
 
-      {/* 메인 채팅 레이아웃 (좌측 리스트 + 우측 대화창) */}
-      {/* 상품명/이름 등 콘텐츠 길이로 레이아웃 폭이 흔들리던 문제 — 목록 폭을 고정값(state)으로 관리하고
-          사용자가 구분선을 드래그할 때만 바뀌도록 함. 텍스트는 그 안에서 말줄임(truncate)으로만 줄어든다. */}
-      <main className="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 pb-8 md:pb-12 flex overflow-hidden min-h-0">
+        {/* 메인 채팅 레이아웃 (좌측 리스트 + 우측 대화창) */}
+        {/* 상품명/이름 등 콘텐츠 길이로 레이아웃 폭이 흔들리던 문제 — 목록 폭을 고정값(state)으로 관리하고
+            사용자가 구분선을 드래그할 때만 바뀌도록 함. 텍스트는 그 안에서 말줄임(truncate)으로만 줄어든다. */}
+        <main className="v3-unified-page-card__body flex-grow flex-row overflow-hidden min-h-0">
 
         {/* 좌측: 채팅방 목록 — 폭 고정, 드래그로만 조절 */}
         <aside
@@ -935,7 +927,8 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
           )}
         </section>
 
-      </main>
+        </main>
+      </div>
 
       {/* 이미지 라이트박스 모달 */}
       {lightboxImage && (

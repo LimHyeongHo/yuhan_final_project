@@ -18,7 +18,7 @@ import {
   getProductCategoryName,
   normalizeProductCategory,
 } from '../../../constants/productCategories';
-import { IntegratedHeader } from '../../home/homePage_v3';
+import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import './BuyerProductsPage.css';
 
 const PAGE_SIZE = 10;
@@ -145,23 +145,16 @@ const BuyerProductsPage = () => {
 
   return (
     <div className="buyer-products-page v3-design-page">
-      <div className="buyer-products-header-shell v3-design-header-shell">
-        <div className="buyer-products-container v3-design-container">
-          <IntegratedHeader />
-        </div>
-      </div>
+      <V3SiteHeader />
 
-      <section className="buyer-products-masthead">
-        <div className="buyer-products-container v3-design-container">
-          <div className="buyer-products-heading">
-            <p>유한대학교 공동구매</p>
-            <h1>함께 고르고, 더 좋은 가격으로</h1>
-            <span>전공도서와 학과 물품을 한곳에서 찾아보세요.</span>
-          </div>
-        </div>
-      </section>
+      <div className="v3-unified-page-card">
+        <header className="v3-unified-page-card__header">
+          <h1 className="v3-unified-page-card__title">
+            <Search size={28} /> 함께 고르고, 더 좋은 가격으로
+          </h1>
+        </header>
 
-      <main className="buyer-products-container v3-design-container buyer-products-main">
+        <main className="v3-unified-page-card__body buyer-products-main">
         <div className="buyer-mobile-filter-row">
           <button
             type="button"
@@ -397,7 +390,8 @@ const BuyerProductsPage = () => {
             )}
           </section>
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 };

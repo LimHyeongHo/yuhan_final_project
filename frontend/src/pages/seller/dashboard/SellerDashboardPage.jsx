@@ -85,23 +85,15 @@ const SellerDashboardPage = () => {
       {/* 1. 글로벌 헤더 */}
       <V3SiteHeader />
 
-      {/* 2. 판매자 전용 다크 배너 */}
-      <section className="bg-slate-900 text-white py-12 px-6 shadow-md">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2">
-          <span className="bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-max border border-emerald-500/30 flex items-center gap-1.5">
-            <Store size={14} /> Seller Hub
-          </span>
-          <h2 className="text-4xl font-extrabold tracking-tight mt-1">
-            판매자 대시보드
-          </h2>
-          <p className="text-slate-400 font-medium text-base max-w-2xl mt-1">
-            내가 개설한 전공책 공동구매 현황과 누적 판매 수익, 그리고 구매자들의 최근 문의를 한눈에 관리하세요.
-          </p>
-        </div>
-      </section>
+      <div className="v3-unified-page-card">
+        <header className="v3-unified-page-card__header">
+          <h1 className="v3-unified-page-card__title">
+            <Store size={28} /> 판매자 대시보드
+          </h1>
+        </header>
 
-      {/* 3. 메인 콘텐츠 영역 */}
-      <main className="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
+        {/* 3. 메인 콘텐츠 영역 */}
+        <main className="v3-unified-page-card__body flex-grow">
 
         {/* 상단 3종 요약 통계 카드 */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -271,7 +263,8 @@ const SellerDashboardPage = () => {
           </div>
 
         </section>
-      </main>
+        </main>
+      </div>
 
       {/* 알림 상세 모달 */}
       {selectedNotification && (

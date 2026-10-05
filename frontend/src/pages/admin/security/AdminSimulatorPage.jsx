@@ -7,6 +7,7 @@ import {
   Clock,
   RefreshCw,
   ServerCrash,
+  ShieldCheck,
 } from 'lucide-react';
 
 const API = 'http://localhost:8080/api/admin/security';
@@ -444,19 +445,12 @@ const AdminSimulatorPage = () => {
   return (
     <div className="v3-page admin-v3-page min-h-screen">
       <AdminHeader />
-      <section className="admin-v3-hero bg-slate-900 px-6 py-12 text-white shadow-md">
-        <div className="mx-auto flex max-w-[1500px] flex-col gap-3">
-          <span className="w-max rounded-full border border-red-400/30 bg-red-500/20 px-3 py-1 text-xs font-bold tracking-widest text-red-300">
-            BLOCKCHAIN INTEGRITY DEMO
-          </span>
-          <h1 className="text-4xl font-extrabold">보안 검증 시뮬레이터</h1>
-          <p className="max-w-3xl text-base leading-relaxed text-slate-300">
-            데이터베이스의 현재 상품 정보와 블록체인에 등록된 원본 지문을 비교해 변조 여부를 확인합니다.
-          </p>
-        </div>
-      </section>
+      <div className="v3-unified-page-card">
+        <header className="v3-unified-page-card__header">
+          <h1 className="v3-unified-page-card__title"><ShieldCheck size={28} />보안 검증 시뮬레이터</h1>
+        </header>
 
-      <main className="admin-v3-main mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-6 md:p-8">
+        <main className="v3-unified-page-card__body admin-v3-main">
         <button onClick={() => navigate('/admin/security')} className="w-max text-sm text-blue-600 hover:underline">
           ← 보안 로그로 돌아가기
         </button>
@@ -608,7 +602,8 @@ const AdminSimulatorPage = () => {
         )}
 
         {error && <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700"><ServerCrash size={20} className="shrink-0" />{error}</div>}
-      </main>
+        </main>
+      </div>
     </div>
   );
 };

@@ -18,25 +18,18 @@ const AdminSellersStatsPage = () => {
     <div className="v3-page admin-v3-page min-h-screen flex flex-col text-gray-900">
       <AdminHeader />
       
-      <section className="admin-v3-hero bg-slate-900 text-white py-8 px-6 shadow-md">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2 relative">
+      <div className="v3-unified-page-card">
+        <header className="v3-unified-page-card__header">
+          <h1 className="v3-unified-page-card__title"><BarChart3 size={28} />판매자 활동 통계</h1>
           <button 
             onClick={() => navigate('/admin/dashboard')}
-            className="absolute -top-4 left-0 flex items-center gap-1 text-sm text-slate-400 hover:text-white transition"
+            className="flex items-center gap-1 text-sm font-bold text-gray-600 transition hover:text-gray-900"
           >
             <ArrowLeft size={16} /> 대시보드로 돌아가기
           </button>
-          <div className="flex items-center gap-3 mt-6">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <BarChart3 size={20} />
-            </div>
-            <h2 className="text-3xl font-extrabold tracking-tight">판매자 활동 통계</h2>
-          </div>
-          <p className="text-slate-400 font-medium mt-1">활성 판매자들의 상품 등록 건수 및 총 누적 수익을 모니터링합니다.</p>
-        </div>
-      </section>
+        </header>
 
-      <main className="admin-v3-main flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col gap-6">
+        <main className="v3-unified-page-card__body admin-v3-main flex-grow">
         
         <div className="flex justify-between items-end">
           <h3 className="text-xl font-bold tracking-tight">전체 판매자 수익 데이터</h3>
@@ -77,7 +70,8 @@ const AdminSellersStatsPage = () => {
           </table>
         </div>
 
-      </main>
+        </main>
+      </div>
     </div>
   );
 };
