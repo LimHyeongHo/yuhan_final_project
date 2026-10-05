@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, PlusCircle, BookOpen, Package, DollarSign, Users, FileText, Upload, AlertCircle, X, Search } from 'lucide-react';
+import { PlusCircle, BookOpen, Package, DollarSign, Users, FileText, Upload, AlertCircle, X, Search } from 'lucide-react';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import { PRODUCT_CATEGORIES } from '../../../constants/productCategories';
 import { getDepartmentBooks } from '../../../constants/departmentBooks';
@@ -264,22 +264,14 @@ const ProductRegisterPage = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900 ">
       <V3SiteHeader />
 
-      {/* 상단 다크 배너 */}
-      <section className="bg-slate-900 text-white py-12 px-6 shadow-md">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2">
-          <span className="bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full w-max border border-emerald-500/30 flex items-center gap-1.5">
-            <Store size={14} /> Seller Hub
-          </span>
-          <h2 className="text-4xl font-extrabold tracking-tight mt-1">
-            물품 등록
-          </h2>
-          <p className="text-slate-400 font-medium text-base max-w-2xl mt-1">
-            전공 도서 및 학과 생활에 필요한 실습 물품을 등록하고 공동구매 프로젝트를 개설하세요.
-          </p>
-        </div>
-      </section>
+      <div className="v3-unified-page-card is-narrow">
+        <header className="v3-unified-page-card__header">
+          <h1 className="v3-unified-page-card__title">
+            <PlusCircle size={28} /> 물품 등록
+          </h1>
+        </header>
 
-      <main className="flex-grow max-w-4xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
+        <main className="v3-unified-page-card__body flex-grow">
 
         {/* 등록 유형 선택 토글 탭 */}
         <div className="flex gap-2 p-1.5 bg-gray-200/70 rounded-2xl w-full sm:w-max mx-auto shadow-inner">
@@ -551,7 +543,8 @@ const ProductRegisterPage = () => {
             </button>
           </div>
         </form>
-      </main>
+        </main>
+      </div>
 
       {/* 검색 결과 리스트 팝업 모달 */}
       {isModalOpen && (

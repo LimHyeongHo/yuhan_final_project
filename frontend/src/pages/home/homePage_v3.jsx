@@ -6,6 +6,7 @@ import {
   BookOpen,
   Bookmark,
   ClipboardList,
+  CircleHelp,
   Home,
   Info,
   LayoutDashboard,
@@ -155,6 +156,9 @@ const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
         <NavLink aria-label="정산 관리" title="정산 관리" to="/admin/settlements" onClick={closeMenu}>
           <WalletCards size={18} /><span>정산 관리</span>
         </NavLink>
+        <NavLink aria-label="문의사항" title="문의사항" to="/inquiries" onClick={closeMenu}>
+          <CircleHelp size={18} /><span>문의사항</span>
+        </NavLink>
         <NavLink aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
           <Info size={18} /><span>이용가이드</span>
         </NavLink>
@@ -183,6 +187,9 @@ const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
         <NavLink aria-label="채팅" title="채팅" className="v3-nav-chat" to="/seller/chat" onClick={closeMenu}>
           <MessageCircle size={18} /><span>채팅</span>{unreadCount > 0 && <i />}
         </NavLink>
+        <NavLink aria-label="문의사항" title="문의사항" to="/inquiries" onClick={closeMenu}>
+          <CircleHelp size={18} /><span>문의사항</span>
+        </NavLink>
         <NavLink aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
           <Info size={18} /><span>이용가이드</span>
         </NavLink>
@@ -200,6 +207,9 @@ const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
       </NavLink>
       <NavLink aria-label="채팅" title="채팅" className="v3-nav-chat" to="/buyer/chat" onClick={closeMenu}>
         <MessageCircle size={18} /><span>채팅</span>{unreadCount > 0 && <i />}
+      </NavLink>
+      <NavLink aria-label="문의사항" title="문의사항" to="/inquiries" onClick={closeMenu}>
+        <CircleHelp size={18} /><span>문의사항</span>
       </NavLink>
       <NavLink aria-label="이용가이드" title="이용가이드" to="/guide" onClick={closeMenu}>
         <Info size={18} /><span>이용가이드</span>
