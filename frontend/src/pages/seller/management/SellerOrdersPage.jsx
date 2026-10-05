@@ -87,11 +87,11 @@ const SellerOrdersPage = () => {
                         <span className="font-bold text-gray-900">{order.productPrice?.toLocaleString()}원</span>
                       </td>
                       <td className="px-6 py-5">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${order.productStatus === 'SUCCESS' ? 'bg-green-100 text-green-700' :
-                          order.productStatus === 'FAIL' ? 'bg-red-100 text-red-700' :
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${order.productStatus === 'CLOSED_SUCCESS' ? 'bg-green-100 text-green-700' :
+                          order.productStatus === 'CLOSED_FAIL' ? 'bg-red-100 text-red-700' :
                             'bg-blue-100 text-blue-700'
                           }`}>
-                          {order.productStatus === 'OPEN' ? '진행중' : order.productStatus === 'SUCCESS' ? '성사완료' : '실패(환불)'}
+                          {order.productStatus === 'OPEN' ? '진행중' : order.productStatus === 'CLOSED_SUCCESS' ? '성사완료' : '실패(환불)'}
                         </span>
                       </td>
                       <td className="px-6 py-5">

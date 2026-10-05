@@ -222,7 +222,7 @@ const Header = () => {
           {userRole === 'ROLE_SELLER' && (
             <>
               <Link to="/seller/dashboard" className="hover:text-gray-950 transition">대시보드</Link>
-              <Link to="/seller/products" className="hover:text-gray-950 transition">물품 등록</Link>
+              <Link to="/seller/products" className="hover:text-gray-950 transition">전공도서 등록</Link>
               <Link to="/seller/status" className="hover:text-gray-950 transition">판매 현황</Link>
               <Link to="/seller/analytics" className="hover:text-gray-950 transition">분석 데이터</Link>
               <Link to="/seller/orders" className="hover:text-gray-950 transition">주문 관리</Link>
@@ -414,7 +414,7 @@ const Header = () => {
             {userRole === 'ROLE_SELLER' && (
               <>
                 <Link to="/seller/dashboard" onClick={() => setIsMobileMenuOpen(false)}>대시보드</Link>
-                <Link to="/seller/products" onClick={() => setIsMobileMenuOpen(false)}>물품 등록</Link>
+                <Link to="/seller/products" onClick={() => setIsMobileMenuOpen(false)}>전공도서 등록</Link>
                 <Link to="/seller/status" onClick={() => setIsMobileMenuOpen(false)}>판매 현황</Link>
                 <Link to="/seller/analytics" onClick={() => setIsMobileMenuOpen(false)}>분석 데이터</Link>
                 <Link to="/seller/orders" onClick={() => setIsMobileMenuOpen(false)}>주문 관리</Link>

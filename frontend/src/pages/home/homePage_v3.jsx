@@ -646,7 +646,7 @@ const HomePageV3 = () => {
         if (isCancelled) return;
 
         const mappedProducts = data
-          .filter((item) => item.status === 'OPEN' && new Date(item.deadline) >= new Date())
+          .filter((item) => item.type === 'BOOK' && item.status === 'OPEN' && new Date(item.deadline) >= new Date())
           .map(mapProduct);
         setProducts(mappedProducts);
         setIsLoading(false);
@@ -757,10 +757,7 @@ const HomePageV3 = () => {
             <div className="v3-feature-column">
               <div className="v3-type-tabs">
                 <button className={activeType === 'BOOK' ? 'is-active' : ''} onClick={() => selectType('BOOK')} type="button">
-                  <BookOpen size={14} />도서
-                </button>
-                <button className={activeType === 'ITEM' ? 'is-active' : ''} onClick={() => selectType('ITEM')} type="button">
-                  <ShoppingBag size={14} />학과 상품
+                  <BookOpen size={14} />전공도서
                 </button>
               </div>
               {isLoading ? (

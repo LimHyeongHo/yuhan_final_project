@@ -31,6 +31,9 @@ public class SellerAnalyticsService {
     }
 
     private SellerAnalyticsResponseDto buildAnalytics(List<Product> allProducts) {
+        allProducts = allProducts.stream()
+                .filter(product -> "BOOK".equals(product.getType()))
+                .toList();
 
         long totalRevenue = allProducts.stream()
                 .mapToLong(p -> p.getPrice().longValue() * p.getCurrentCount())

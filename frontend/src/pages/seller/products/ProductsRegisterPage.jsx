@@ -28,8 +28,7 @@ const ProductRegisterPage = () => {
   const bookMetadataRequestRef = useRef(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 1. 등록 유형 상태 관리 ('BOOK' 또는 'ITEM')
-  const [productType, setProductType] = useState('BOOK');
+  const productType = 'BOOK';
 
   // [신규] 바코드 관련 상태 및 감지 로직
   const [barcode, setBarcode] = useState('');
@@ -173,30 +172,6 @@ const ProductRegisterPage = () => {
     }));
   };
 
-  // 3. 유형 변경 시 입력 폼 초기화 및 상태값 변경 함수
-  const handleTypeChange = (type) => {
-    if (type === 'ITEM') {
-      window.alert('네이버 상품 검색 API 문제를 해결하는 동안 학과 물품을 등록할 수 없습니다.');
-      return;
-    }
-
-    bookMetadataRequestRef.current += 1;
-    setProductType(type);
-    setFormData({
-      title: '',
-      author: '',
-      publisher: '',
-      price: '',
-      targetCount: '',
-      description: '',
-      imageUrl: '',
-      category: 'GENERAL',
-      isbn: '',
-      originalPrice: '',
-    });
-    setImagePreview(null); // 유형 변경 시 이미지 미리보기도 초기화
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (submitLockRef.current) return;
@@ -267,282 +242,259 @@ const ProductRegisterPage = () => {
       <div className="v3-unified-page-card is-narrow">
         <header className="v3-unified-page-card__header">
           <h1 className="v3-unified-page-card__title">
-            <PlusCircle size={28} /> 물품 등록
+            <PlusCircle size={28} /> 전공도서 등록
           </h1>
         </header>
-
         <main className="v3-unified-page-card__body flex-grow">
 
-        {/* 등록 유형 선택 토글 탭 */}
-        <div className="flex gap-2 p-1.5 bg-gray-200/70 rounded-2xl w-full sm:w-max mx-auto shadow-inner">
-          <button
-            onClick={() => handleTypeChange('BOOK')}
-            className={`flex-1 sm:flex-none px-8 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 ${productType === 'BOOK'
-              ? 'bg-white text-blue-600 shadow-sm ring-1 ring-gray-900/5'
-              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
-              }`}
-          >
-            <BookOpen size={18} /> 전공 도서
-          </button>
-          <button
-            onClick={() => handleTypeChange('ITEM')}
-            className={`flex-1 sm:flex-none px-8 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 ${productType === 'ITEM'
-              ? 'bg-white text-blue-600 shadow-sm ring-1 ring-gray-900/5'
-              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
-              }`}
-          >
-            <Package size={18} /> 학과 물품
-          </button>
-        </div>
+          {/* 입력 폼 전체 카드 패널 */}
+          <form onSubmit={handleSubmit} className="bg-white rounded-[28px] p-8 md:p-10 border border-gray-200 shadow-sm flex flex-col gap-8">
 
-        {/* 입력 폼 전체 카드 패널 */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-[28px] p-8 md:p-10 border border-gray-200 shadow-sm flex flex-col gap-8">
+            {/* 섹션 1: 기본 정보 */}
+            <div className="flex flex-col gap-5">
+              <h3 className="text-xl font-extrabold text-gray-950 tracking-tight flex items-center gap-2 border-b border-gray-100 pb-3">
+                {productType === 'BOOK' ? <BookOpen size={20} className="text-blue-600" /> : <Package size={20} className="text-blue-600" />}
+                {productType === 'BOOK' ? '도서 기본 정보' : '물품 기본 정보'}
+              </h3>
 
-          {/* 섹션 1: 기본 정보 */}
-          <div className="flex flex-col gap-5">
-            <h3 className="text-xl font-extrabold text-gray-950 tracking-tight flex items-center gap-2 border-b border-gray-100 pb-3">
-              {productType === 'BOOK' ? <BookOpen size={20} className="text-blue-600" /> : <Package size={20} className="text-blue-600" />}
-              {productType === 'BOOK' ? '도서 기본 정보' : '물품 기본 정보'}
-            </h3>
-
-            {/* [신규] 바코드 스캔 영역 */}
-            <div className="flex flex-col gap-1.5 mb-2 bg-blue-50 p-4 rounded-xl border border-blue-100">
-              <label htmlFor="barcode" className="text-sm font-bold text-blue-800 flex items-center gap-2">
-                <Search size={16} /> {productType === 'BOOK' ? '바코드 스캔 (또는 직접 입력 후 검색)' : '상품 이름 검색'}
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text" id="barcode"
-                  value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
-                  onKeyDown={handleBarcodeKeyDown}
-                  placeholder={productType === 'BOOK' ? "스캐너로 찍거나, 직접 상품명 입력 후 우측 검색 버튼 클릭" : "직접 상품명 입력 후 우측 검색 버튼 클릭"}
-                  className="flex-grow p-3.5 rounded-xl border border-blue-200 bg-white focus:ring-2 focus:ring-blue-500 outline-none transition text-base font-bold text-gray-900"
-                  disabled={isSearching}
-                />
-                <button
-                  type="button"
-                  onClick={() => handleBarcodeKeyDown({ key: 'Enter', preventDefault: () => { } })}
-                  disabled={isSearching}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-xl font-bold transition whitespace-nowrap"
-                >
-                  {isSearching ? '검색 중...' : '검색'}
-                </button>
-              </div>
-            </div>
-
-            {/* 제목/물품명 */}
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="title" className="text-sm font-bold text-gray-700">
-                {productType === 'BOOK' ? '전공서적 명' : '물품 명'}
-              </label>
-              <input
-                type="text" id="title" required
-                value={formData.title} onChange={handleChange}
-                placeholder={productType === 'BOOK' ? "예) 컴퓨터 구조 및 설계 6판" : "예) 카시오 공학용 계산기 fx-991EX"}
-                className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
-              />
-            </div>
-
-            {/* 학과 분류 */}
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="category" className="text-sm font-bold text-gray-700">학과 분류</label>
-              <select
-                id="category"
-                value={formData.category} onChange={handleChange}
-                className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
-                required
-              >
-                {PRODUCT_CATEGORIES.map(({ code, name }) => (
-                  <option key={code} value={code}>{name}</option>
-                ))}
-              </select>
-            </div>
-
-            {productType === 'BOOK' && formData.category !== 'GENERAL' && (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-gray-700">학과 추천 전공책</span>
-                  <span className="text-xs font-semibold text-gray-400">{recommendedBooks.length}권</span>
-                </div>
-                {recommendedBooks.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {recommendedBooks.map((book) => (
-                      <button
-                        key={book.title}
-                        type="button"
-                        onClick={() => searchProduct(book.title)}
-                        disabled={isSearching}
-                        className="p-3.5 text-left rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 transition"
-                      >
-                        <span className="block text-sm font-extrabold text-gray-900 line-clamp-2">{book.title}</span>
-                        {book.description && (
-                          <span className="block mt-1.5 text-xs font-bold text-blue-600">
-                            {book.description}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 text-center text-xs font-medium text-gray-400">
-                    이 학과에 등록된 추천 전공책이 없습니다.
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 조건부 렌더링: 저자 및 출판사/제조사 */}
-            <div className={`grid grid-cols-1 ${productType === 'BOOK' ? 'md:grid-cols-2' : ''} gap-5`}>
-              {productType === 'BOOK' && (
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="author" className="text-sm font-bold text-gray-700">저자</label>
-                  <input
-                    type="text" id="author" required
-                    value={formData.author} onChange={handleChange}
-                    placeholder="예) David A. Patterson"
-                    className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
-                  />
-                </div>
-              )}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="publisher" className="text-sm font-bold text-gray-700">
-                  {productType === 'BOOK' ? '출판사' : '제조사 / 브랜드'}
+              {/* [신규] 바코드 스캔 영역 */}
+              <div className="flex flex-col gap-1.5 mb-2 bg-blue-50 p-4 rounded-xl border border-blue-100">
+                <label htmlFor="barcode" className="text-sm font-bold text-blue-800 flex items-center gap-2">
+                  <Search size={16} /> {productType === 'BOOK' ? '바코드 스캔 (또는 직접 입력 후 검색)' : '상품 이름 검색'}
                 </label>
-                <input
-                  type="text" id="publisher" required
-                  value={formData.publisher} onChange={handleChange}
-                  placeholder={productType === 'BOOK' ? "예) 한티미디어" : "예) 카시오 (CASIO)"}
-                  className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 섹션 2: 가격 및 조건 */}
-          <div className="flex flex-col gap-5">
-            <h3 className="text-xl font-extrabold text-gray-950 tracking-tight flex items-center gap-2 border-b border-gray-100 pb-3">
-              <DollarSign size={20} className="text-blue-600" /> 공동구매 가격 및 조건
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="price" className="text-sm font-bold text-gray-700">공동구매 제안 가격 (₩)</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">₩</span>
+                <div className="flex gap-2">
                   <input
-                    type="number" id="price" required step="100"
-                    value={formData.price} onChange={handleChange}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="예) 35000"
-                    className="w-full p-3.5 pl-9 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-semibold"
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="targetCount" className="text-sm font-bold text-gray-700">목표 달성 인원 (명)</label>
-                <div className="relative">
-                  <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                  <input
-                    type="number" id="targetCount" required step="1"
-                    value={formData.targetCount} onChange={handleChange}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="예) 10"
-                    className="w-full p-3.5 pl-11 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-semibold"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 섹션 3: 이미지 및 상세 설명 */}
-          <div className="flex flex-col gap-5">
-            <h3 className="text-xl font-extrabold text-gray-950 tracking-tight flex items-center gap-2 border-b border-gray-100 pb-3">
-              <FileText size={20} className="text-blue-600" /> 상세 설명 및 실물 인증
-            </h3>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-bold text-gray-700">
-                {productType === 'BOOK' ? '도서 실물 이미지 등록' : '물품 실물 이미지 등록'} (최대 1장)
-              </label>
-              {/* 🌟 수정된 부분: 미리보기가 있으면 이미지를, 없으면 업로드 박스를 보여줍니다 */}
-              {imagePreview ? (
-                <div className="relative w-full sm:w-1/2 md:w-1/3 aspect-[4/3] rounded-2xl overflow-hidden border border-gray-200 group">
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400 text-sm font-medium">
-                    이미지 없음
-                  </div>
-                  <img
-                    src={imagePreview}
-                    alt=""
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                    className={`relative w-full h-full ${productType === 'BOOK' ? 'object-contain bg-white' : 'object-cover'}`}
+                    type="text" id="barcode"
+                    value={barcode}
+                    onChange={(e) => setBarcode(e.target.value)}
+                    onKeyDown={handleBarcodeKeyDown}
+                    placeholder={productType === 'BOOK' ? "스캐너로 찍거나, 직접 상품명 입력 후 우측 검색 버튼 클릭" : "직접 상품명 입력 후 우측 검색 버튼 클릭"}
+                    className="flex-grow p-3.5 rounded-xl border border-blue-200 bg-white focus:ring-2 focus:ring-blue-500 outline-none transition text-base font-bold text-gray-900"
+                    disabled={isSearching}
                   />
                   <button
                     type="button"
-                    onClick={handleRemoveImage}
-                    className="absolute top-2 right-2 bg-white/90 text-red-500 p-1.5 rounded-full shadow-md hover:bg-red-50 hover:text-red-600 transition"
+                    onClick={() => handleBarcodeKeyDown({ key: 'Enter', preventDefault: () => { } })}
+                    disabled={isSearching}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-xl font-bold transition whitespace-nowrap"
                   >
-                    <X size={16} strokeWidth={3} />
+                    {isSearching ? '검색 중...' : '검색'}
                   </button>
                 </div>
-              ) : (
-                <label className="border-2 border-dashed border-gray-200 rounded-2xl p-6 bg-gray-50 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-gray-100/70 transition group">
-                  <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400 group-hover:text-blue-500 transition">
-                    <Upload size={18} />
-                  </div>
-                  <span className="text-xs font-bold text-gray-700 mt-1 group-hover:text-blue-600 transition">
-                    {productType === 'BOOK' ? '클릭하여 전공책 앞표지 업로드' : '클릭하여 물품의 전체 형태가 보이는 사진 업로드'}
-                  </span>
-                  <span className="text-[10px] text-gray-400">PNG, JPG 파일 지원 (최대 5MB)</span>
+              </div>
 
-                  {/* 클릭 이벤트를 받아줄 숨겨진 input 태그 */}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
+              {/* 제목/물품명 */}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="title" className="text-sm font-bold text-gray-700">
+                  {productType === 'BOOK' ? '전공서적 명' : '물품 명'}
                 </label>
+                <input
+                  type="text" id="title" required
+                  value={formData.title} onChange={handleChange}
+                  placeholder={productType === 'BOOK' ? "예) 컴퓨터 구조 및 설계 6판" : "예) 카시오 공학용 계산기 fx-991EX"}
+                  className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
+                />
+              </div>
+
+              {/* 학과 분류 */}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="category" className="text-sm font-bold text-gray-700">학과 분류</label>
+                <select
+                  id="category"
+                  value={formData.category} onChange={handleChange}
+                  className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
+                  required
+                >
+                  {PRODUCT_CATEGORIES.map(({ code, name }) => (
+                    <option key={code} value={code}>{name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {productType === 'BOOK' && formData.category !== 'GENERAL' && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-gray-700">학과 추천 전공책</span>
+                    <span className="text-xs font-semibold text-gray-400">{recommendedBooks.length}권</span>
+                  </div>
+                  {recommendedBooks.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {recommendedBooks.map((book) => (
+                        <button
+                          key={book.title}
+                          type="button"
+                          onClick={() => searchProduct(book.title)}
+                          disabled={isSearching}
+                          className="p-3.5 text-left rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 transition"
+                        >
+                          <span className="block text-sm font-extrabold text-gray-900 line-clamp-2">{book.title}</span>
+                          {book.description && (
+                            <span className="block mt-1.5 text-xs font-bold text-blue-600">
+                              {book.description}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 text-center text-xs font-medium text-gray-400">
+                      이 학과에 등록된 추천 전공책이 없습니다.
+                    </div>
+                  )}
+                </div>
               )}
+
+              {/* 조건부 렌더링: 저자 및 출판사/제조사 */}
+              <div className={`grid grid-cols-1 ${productType === 'BOOK' ? 'md:grid-cols-2' : ''} gap-5`}>
+                {productType === 'BOOK' && (
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="author" className="text-sm font-bold text-gray-700">저자</label>
+                    <input
+                      type="text" id="author" required
+                      value={formData.author} onChange={handleChange}
+                      placeholder="예) David A. Patterson"
+                      className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
+                    />
+                  </div>
+                )}
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="publisher" className="text-sm font-bold text-gray-700">
+                    {productType === 'BOOK' ? '출판사' : '제조사 / 브랜드'}
+                  </label>
+                  <input
+                    type="text" id="publisher" required
+                    value={formData.publisher} onChange={handleChange}
+                    placeholder={productType === 'BOOK' ? "예) 한티미디어" : "예) 카시오 (CASIO)"}
+                    className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="description" className="text-sm font-bold text-gray-700">상세 설명</label>
-              <textarea
-                id="description" required rows={5}
-                value={formData.description} onChange={handleChange}
-                placeholder={productType === 'BOOK' ? "학과 내 수업 연계 정보 등을 상세히 기재해 주세요." : "물품의 실측 사이즈 등을 상세히 기재해 주세요."}
-                className="w-full p-4 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium resize-none leading-relaxed"
-              ></textarea>
-            </div>
-          </div>
+            {/* 섹션 2: 가격 및 조건 */}
+            <div className="flex flex-col gap-5">
+              <h3 className="text-xl font-extrabold text-gray-950 tracking-tight flex items-center gap-2 border-b border-gray-100 pb-3">
+                <DollarSign size={20} className="text-blue-600" /> 공동구매 가격 및 조건
+              </h3>
 
-          <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex items-start gap-3 mt-2">
-            <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
-            <div className="flex flex-col gap-0.5">
-              <span className="text-xs font-bold text-amber-800">허위 매물 및 변조 등록 금지 수칙</span>
-              <p className="text-[11px] text-amber-700 leading-relaxed font-medium mt-0.5">
-                등록된 데이터는 플랫폼 관리 센터에 의해 실시간 추적 검증됩니다. 의도적인 위변조나 허위 기재 적발 시 판매자 권한이 영구 제한될 수 있습니다.
-              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="price" className="text-sm font-bold text-gray-700">공동구매 제안 가격 (₩)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">₩</span>
+                    <input
+                      type="number" id="price" required step="100"
+                      value={formData.price} onChange={handleChange}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      placeholder="예) 35000"
+                      className="w-full p-3.5 pl-9 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-semibold"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="targetCount" className="text-sm font-bold text-gray-700">목표 달성 인원 (명)</label>
+                  <div className="relative">
+                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input
+                      type="number" id="targetCount" required step="1"
+                      value={formData.targetCount} onChange={handleChange}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      placeholder="예) 10"
+                      className="w-full p-3.5 pl-11 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="flex gap-4 border-t border-gray-100 pt-6 mt-2">
-            <button
-              type="button" onClick={() => navigate('/seller/dashboard')}
-              className="px-6 py-4 border border-gray-200 text-gray-600 text-base font-bold rounded-xl hover:bg-gray-100 transition"
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-grow py-4 bg-emerald-600 text-white rounded-xl font-bold text-lg shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              <PlusCircle size={20} /> {isSubmitting ? '등록 중...' : '공동구매 프로젝트 개설 완료'}
-            </button>
-          </div>
-        </form>
+            {/* 섹션 3: 이미지 및 상세 설명 */}
+            <div className="flex flex-col gap-5">
+              <h3 className="text-xl font-extrabold text-gray-950 tracking-tight flex items-center gap-2 border-b border-gray-100 pb-3">
+                <FileText size={20} className="text-blue-600" /> 상세 설명 및 실물 인증
+              </h3>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-bold text-gray-700">
+                  {productType === 'BOOK' ? '도서 실물 이미지 등록' : '물품 실물 이미지 등록'} (최대 1장)
+                </label>
+                {/* 🌟 수정된 부분: 미리보기가 있으면 이미지를, 없으면 업로드 박스를 보여줍니다 */}
+                {imagePreview ? (
+                  <div className="relative w-full sm:w-1/2 md:w-1/3 aspect-[4/3] rounded-2xl overflow-hidden border border-gray-200 group">
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400 text-sm font-medium">
+                      이미지 없음
+                    </div>
+                    <img
+                      src={imagePreview}
+                      alt=""
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      className={`relative w-full h-full ${productType === 'BOOK' ? 'object-contain bg-white' : 'object-cover'}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-2 right-2 bg-white/90 text-red-500 p-1.5 rounded-full shadow-md hover:bg-red-50 hover:text-red-600 transition"
+                    >
+                      <X size={16} strokeWidth={3} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-gray-200 rounded-2xl p-6 bg-gray-50 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-gray-100/70 transition group">
+                    <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400 group-hover:text-blue-500 transition">
+                      <Upload size={18} />
+                    </div>
+                    <span className="text-xs font-bold text-gray-700 mt-1 group-hover:text-blue-600 transition">
+                      {productType === 'BOOK' ? '클릭하여 전공책 앞표지 업로드' : '클릭하여 물품의 전체 형태가 보이는 사진 업로드'}
+                    </span>
+                    <span className="text-[10px] text-gray-400">PNG, JPG 파일 지원 (최대 5MB)</span>
+
+                    {/* 클릭 이벤트를 받아줄 숨겨진 input 태그 */}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="description" className="text-sm font-bold text-gray-700">상세 설명</label>
+                <textarea
+                  id="description" required rows={5}
+                  value={formData.description} onChange={handleChange}
+                  placeholder={productType === 'BOOK' ? "학과 내 수업 연계 정보 등을 상세히 기재해 주세요." : "물품의 실측 사이즈 등을 상세히 기재해 주세요."}
+                  className="w-full p-4 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium resize-none leading-relaxed"
+                ></textarea>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex items-start gap-3 mt-2">
+              <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-bold text-amber-800">허위 매물 및 변조 등록 금지 수칙</span>
+                <p className="text-[11px] text-amber-700 leading-relaxed font-medium mt-0.5">
+                  등록된 데이터는 플랫폼 관리 센터에 의해 실시간 추적 검증됩니다. 의도적인 위변조나 허위 기재 적발 시 판매자 권한이 영구 제한될 수 있습니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4 border-t border-gray-100 pt-6 mt-2">
+              <button
+                type="button" onClick={() => navigate('/seller/dashboard')}
+                className="px-6 py-4 border border-gray-200 text-gray-600 text-base font-bold rounded-xl hover:bg-gray-100 transition"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-grow py-4 bg-emerald-600 text-white rounded-xl font-bold text-lg shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                <PlusCircle size={20} /> {isSubmitting ? '등록 중...' : '공동구매 프로젝트 개설 완료'}
+              </button>
+            </div>
+          </form>
         </main>
       </div>
 

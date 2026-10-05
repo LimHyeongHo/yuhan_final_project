@@ -44,7 +44,7 @@ const SellerDashboardPage = () => {
         return res.json();
       })
       .then(data => {
-        const formattedData = data.map(item => ({
+        const formattedData = data.filter(item => item.type === 'BOOK').map(item => ({
           id: item.productId,
           title: item.title,
           price: item.price,
@@ -151,7 +151,7 @@ const SellerDashboardPage = () => {
                 <p className="text-xs text-gray-400 mt-1">진행 중인 공동구매의 목표 달성률을 확인하세요.</p>
               </div>
               <Link to="/seller/products" className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition shadow-md shadow-slate-200">
-                <PlusCircle size={16} /> 새 물품 등록
+                <PlusCircle size={16} /> 새 전공도서 등록
               </Link>
             </div>
 
