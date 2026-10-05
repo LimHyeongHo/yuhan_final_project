@@ -313,21 +313,21 @@ const BuyerProductDetailPage = () => {
       case 'GOOD_DEAL':
         badgeContent = (
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-sm font-bold rounded-full border border-blue-200 shadow-sm">
-            <CheckCircle size={16} /> 검증 완료 (착한 가격)
+            <CheckCircle size={16} /> 블록체인 검증 완료 (착한 가격)
           </div>
         );
         break;
       case 'ANCHORING_WARNING':
         badgeContent = (
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-orange-700 text-sm font-bold rounded-full border border-orange-200 shadow-sm">
-            <AlertCircle size={16} /> 시세 조작 주의
+            <AlertCircle size={16} /> 블록체인 검증 완료 (시세 주의)
           </div>
         );
         break;
       case 'FORGED':
         badgeContent = (
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 text-sm font-bold rounded-full border border-red-200 shadow-sm">
-            <AlertCircle size={16} /> 데이터 위변조 감지됨
+            <AlertCircle size={16} /> 블록체인 검증 실패, 데이터 위변조 감지됨
           </div>
         );
         break;
@@ -524,7 +524,7 @@ const BuyerProductDetailPage = () => {
                   {(() => {
                     const diffRatio = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
                     if (diffRatio > 0) {
-                      return <span className="text-xs text-emerald-600 font-black mt-0.5">-{diffRatio}% 파괴 할인가</span>;
+                      return <span className="text-xs text-emerald-600 font-black mt-0.5">-{diffRatio}% 할인가</span>;
                     } else if (diffRatio < 0) {
                       return <span className="text-xs text-orange-500 font-black mt-0.5">정가보다 {Math.abs(diffRatio)}% 비쌈</span>;
                     } else {

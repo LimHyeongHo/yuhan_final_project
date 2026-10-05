@@ -13,7 +13,7 @@ const SellerProductsPage = () => {
     fetch('http://localhost:8080/api/products/seller/me', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
-        const formattedData = data.map(item => ({
+        const formattedData = data.filter(item => item.type === 'BOOK').map(item => ({
           id: item.productId,
           type: item.type,
           title: item.title,
@@ -89,7 +89,7 @@ const SellerProductsPage = () => {
             <Store size={14} /> Seller Hub
           </span>
           <h2 className="text-4xl font-extrabold tracking-tight mt-1">판매 현황</h2>
-          <p className="text-slate-400 font-medium text-base max-w-2xl mt-1">내가 개설한 전공 도서 및 학과 물품의 공동구매 진행률을 확인하고 게시글을 관리하세요.</p>
+          <p className="text-slate-400 font-medium text-base max-w-2xl mt-1">내가 개설한 전공도서 공동구매 진행률을 확인하고 게시글을 관리하세요.</p>
         </div>
       </section>
 
@@ -116,7 +116,7 @@ const SellerProductsPage = () => {
 
             {/* 탭 버튼 영역 */}
             <div className="flex gap-2 bg-gray-100 p-1 rounded-xl">
-              {[{ id: 'ALL', label: '전체 보기' }, { id: 'BOOK', label: '전공 도서' }, { id: 'ITEM', label: '학과 물품' }].map((tab) => (
+              {[{ id: 'ALL', label: '전체 보기' }, { id: 'BOOK', label: '전공도서' }].map((tab) => (
                 <button
                   key={tab.id} onClick={() => setActiveTab(tab.id)}
                   className={`px-4 py-2 text-xs font-bold rounded-lg transition ${activeTab === tab.id ? 'bg-white text-blue-600 shadow-sm ring-1 ring-gray-900/5' : 'text-gray-600 hover:bg-gray-200/50'}`}

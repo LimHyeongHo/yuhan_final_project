@@ -28,8 +28,7 @@ const ProductRegisterPage = () => {
   const bookMetadataRequestRef = useRef(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 1. 등록 유형 상태 관리 ('BOOK' 또는 'ITEM')
-  const [productType, setProductType] = useState('BOOK');
+  const productType = 'BOOK';
 
   // [신규] 바코드 관련 상태 및 감지 로직
   const [barcode, setBarcode] = useState('');
@@ -173,30 +172,6 @@ const ProductRegisterPage = () => {
     }));
   };
 
-  // 3. 유형 변경 시 입력 폼 초기화 및 상태값 변경 함수
-  const handleTypeChange = (type) => {
-    if (type === 'ITEM') {
-      window.alert('네이버 상품 검색 API 문제를 해결하는 동안 학과 물품을 등록할 수 없습니다.');
-      return;
-    }
-
-    bookMetadataRequestRef.current += 1;
-    setProductType(type);
-    setFormData({
-      title: '',
-      author: '',
-      publisher: '',
-      price: '',
-      targetCount: '',
-      description: '',
-      imageUrl: '',
-      category: 'GENERAL',
-      isbn: '',
-      originalPrice: '',
-    });
-    setImagePreview(null); // 유형 변경 시 이미지 미리보기도 초기화
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (submitLockRef.current) return;
@@ -271,37 +246,15 @@ const ProductRegisterPage = () => {
             <Store size={14} /> Seller Hub
           </span>
           <h2 className="text-4xl font-extrabold tracking-tight mt-1">
-            물품 등록
+            전공도서 등록
           </h2>
           <p className="text-slate-400 font-medium text-base max-w-2xl mt-1">
-            전공 도서 및 학과 생활에 필요한 실습 물품을 등록하고 공동구매 프로젝트를 개설하세요.
+            전공도서를 등록하고 공동구매 프로젝트를 개설하세요.
           </p>
         </div>
       </section>
 
       <main className="flex-grow max-w-4xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
-
-        {/* 등록 유형 선택 토글 탭 */}
-        <div className="flex gap-2 p-1.5 bg-gray-200/70 rounded-2xl w-full sm:w-max mx-auto shadow-inner">
-          <button
-            onClick={() => handleTypeChange('BOOK')}
-            className={`flex-1 sm:flex-none px-8 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 ${productType === 'BOOK'
-              ? 'bg-white text-blue-600 shadow-sm ring-1 ring-gray-900/5'
-              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
-              }`}
-          >
-            <BookOpen size={18} /> 전공 도서
-          </button>
-          <button
-            onClick={() => handleTypeChange('ITEM')}
-            className={`flex-1 sm:flex-none px-8 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 ${productType === 'ITEM'
-              ? 'bg-white text-blue-600 shadow-sm ring-1 ring-gray-900/5'
-              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
-              }`}
-          >
-            <Package size={18} /> 학과 물품
-          </button>
-        </div>
 
         {/* 입력 폼 전체 카드 패널 */}
         <form onSubmit={handleSubmit} className="bg-white rounded-[28px] p-8 md:p-10 border border-gray-200 shadow-sm flex flex-col gap-8">

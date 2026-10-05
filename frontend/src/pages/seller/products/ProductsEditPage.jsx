@@ -99,7 +99,12 @@ const ProductsEditPage = () => {
     fetch(`http://localhost:8080/api/products/${id}`)
       .then(res => res.json())
       .then(data => {
-        setProductType(data.type || 'BOOK');
+        if (data.type !== 'BOOK') {
+          alert('전공도서만 관리할 수 있습니다.');
+          navigate('/seller/status', { replace: true });
+          return;
+        }
+        setProductType('BOOK');
         setFormData({
           title: data.title || '',
           author: data.author || '',
@@ -206,33 +211,11 @@ const ProductsEditPage = () => {
             <Store size={14} /> Seller Hub
           </span>
           <h2 className="text-4xl font-extrabold tracking-tight mt-1">프로젝트 수정하기</h2>
-          <p className="text-slate-400 font-medium text-base mt-1">등록한 전공 도서나 학과 물품의 정보를 수정하세요.</p>
+          <p className="text-slate-400 font-medium text-base mt-1">등록한 전공도서의 정보를 수정하세요.</p>
         </div>
       </section>
 
       <main className="flex-grow max-w-4xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
-
-        {/* 등록 유형 선택 토글 탭 */}
-        <div className="flex gap-2 p-1.5 bg-gray-200/70 rounded-2xl w-full sm:w-max mx-auto shadow-inner opacity-80 pointer-events-none">
-          <button
-            type="button"
-            className={`flex-1 sm:flex-none px-8 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 ${productType === 'BOOK'
-              ? 'bg-white text-blue-600 shadow-sm ring-1 ring-gray-900/5'
-              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
-              }`}
-          >
-            <BookOpen size={18} /> 전공 도서
-          </button>
-          <button
-            type="button"
-            className={`flex-1 sm:flex-none px-8 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 ${productType === 'ITEM'
-              ? 'bg-white text-blue-600 shadow-sm ring-1 ring-gray-900/5'
-              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
-              }`}
-          >
-            <Package size={18} /> 학과 물품
-          </button>
-        </div>
 
         {/* 입력 폼 전체 카드 패널 */}
         <form onSubmit={handleSubmit} className="bg-white rounded-[28px] p-8 md:p-10 border border-gray-200 shadow-sm flex flex-col gap-8">

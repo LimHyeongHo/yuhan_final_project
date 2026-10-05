@@ -404,6 +404,13 @@ select {
   outline: none;
 }
 
+.global-v3-theme textarea.chat-message-input,
+.global-v3-theme textarea.chat-message-input:focus {
+  background-color: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
 .global-v3-theme table thead,
 .global-v3-theme table thead tr {
   color: #665e54 !important;

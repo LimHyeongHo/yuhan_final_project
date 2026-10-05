@@ -295,9 +295,10 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       .catch(() => {});
   }, [activeRoom?.roomId, activeRoom?.productId, activeRoom?.productStatus, userRole]);
 
-  // ── 새 메시지 → 스크롤 맨 아래 ────────────────────────────────
+  // ── 새 메시지 → 대화 목록만 맨 아래로 이동 (페이지 자체는 이동하지 않음) ──
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const messageList = messagesEndRef.current?.parentElement;
+    messageList?.scrollTo({ top: messageList.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
   // 방을 열고 있는데 상대 메시지가 새로 오면 바로 읽음 처리 (좌측/헤더 배지 안 남게)
@@ -909,7 +910,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                         : (connected ? '메시지를 입력하세요...' : '연결 중...')
                     }
                     disabled={!connected || activeRoom.targetWithdrawn}
-                    className="flex-grow bg-transparent outline-none text-sm resize-none py-2.5 max-h-32 min-h-[44px] disabled:opacity-50"
+                    className="chat-message-input flex-grow outline-none text-sm resize-none py-2.5 max-h-32 min-h-[44px] disabled:opacity-50"
                     rows={1}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
