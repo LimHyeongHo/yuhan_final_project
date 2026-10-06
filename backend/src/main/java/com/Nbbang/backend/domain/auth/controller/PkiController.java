@@ -345,6 +345,12 @@ public class PkiController {
     @GetMapping("/login/challenge")
     public ResponseEntity<Map<String, String>> getChallenge(@RequestParam String deviceId) {
         String normalizedDeviceId = deviceId != null ? deviceId.replaceAll("\\s", "") : "";
+        // 인증서 타이머 만료로 폐기된 인증서는 challenge 단계에서 바로 거부해 프론트가 재발급 버튼을 띄우게 한다.
+        // (그대로 통과시키면 /login/verify에서 범용 AUTH_SIGNATURE_VERIFICATION_FAILED로 떨어져 재발급 대상인지 구분 불가)
+        deviceCertRepository.findByDeviceId(normalizedDeviceId)
+                .filter(DeviceCert::isRevoked)
+                .ifPresent(cert -> { throw new CustomException(ErrorCode.AUTH_CERTIFICATE_REVOKED); });
+
         // 기기 공개키로 암호화된 챌린지를 내려준다. 클라이언트가 개인키로 복호화해 되돌려줘야 로그인 성립.
         String encryptedChallenge = pkiService.createEncryptedChallenge(normalizedDeviceId);
 
