@@ -12,7 +12,8 @@ import java.util.List;
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
     // 채팅방 메시지 내역 (최근 50개) — CHAT, IMAGE 등 화면에 표시되는 타입만 (JOIN/LEAVE/READ 이벤트는 제외)
-    List<ChatMessage> findTop50ByRoomIdAndTypeInOrderBySentAtAsc(Long roomId, List<MessageType> types);
+    // [수정] Asc는 가장 오래된 50개를 가져와서 Desc로 변경 — 화면 순서는 서비스에서 다시 오래된 순으로 뒤집음
+    List<ChatMessage> findTop50ByRoomIdAndTypeInOrderBySentAtDesc(Long roomId, List<MessageType> types);
 
     // [CHAT-RQ-002] 마지막 메시지 취소 시 채팅방 미리보기 재계산용 — 취소되지 않은 가장 최근 메시지
     java.util.Optional<ChatMessage> findTopByRoomIdAndTypeInAndDeletedFalseOrderBySentAtDesc(Long roomId, List<MessageType> types);

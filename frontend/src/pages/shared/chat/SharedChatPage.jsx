@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Store, Send, Image as ImageIcon, MoreVertical, Search, User, Calendar, X, LogOut, Trash2, ChevronRight, ShieldCheck, Star, MessageCircle } from 'lucide-react';
+import { Store, Send, Image as ImageIcon, MoreVertical, Search, User, Calendar, X, LogOut, Trash2, ChevronRight, ChevronLeft, ShieldCheck, Star, MessageCircle, TriangleAlert } from 'lucide-react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
+import './SharedChatPage.css';
 
 // [수정] localhost 고정 → 접속 호스트 기준 동적화
 const API_BASE = `http://${window.location.hostname}:8080/api`;
@@ -64,6 +65,8 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   const [activeRoom, setActiveRoom] = useState(null);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
+  // [신규] 방별 입력 임시저장 { roomId: 쓰던 글 } — 채팅 페이지를 벗어나면 초기화
+  const draftsRef = useRef({});
   const [connected, setConnected] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -76,8 +79,17 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   const [reviewEligibility, setReviewEligibility] = useState(null);
   // 안전거래 안내 모달
   const [safetyOpen, setSafetyOpen] = useState(false);
+  // [신규] alert/confirm 대체 모달 { message, confirm, resolve } — 첫 줄은 제목, 나머지 줄은 설명
+  const [dialog, setDialog] = useState(null);
+  const showDialog = (message, { confirm = false } = {}) =>
+    new Promise((resolve) => setDialog({ message, confirm, resolve }));
+  const closeDialog = (result) => {
+    dialog?.resolve(result);
+    setDialog(null);
+  };
   // 좌측 목록 폭 — 상품명/이름 길이 등 콘텐츠로는 절대 안 바뀌고, 사용자가 구분선을 드래그할 때만 바뀐다
-  const [listWidth, setListWidth] = useState(360);
+  // [수정] 기본 폭 360 → 300 (대화창 영역 확대)
+  const [listWidth, setListWidth] = useState(300);
 
   const fileInputRef = useRef(null);
   const stompClientRef = useRef(null);
@@ -274,6 +286,11 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     }
   }, [activeRoomId, activeRoomLeft, connected, loadMessages, loadRooms, markAsRead]);
 
+  // [수정] 방 전환 시 그 방의 임시저장 글로 교체 (이전 방 글이 다른 방으로 전송되는 것 방지)
+  useEffect(() => {
+    setMessage(draftsRef.current[activeRoomId] ?? '');
+  }, [activeRoomId]);
+
   // 구매자 화면: 방을 열면 상대(판매자) 프로필 요약을 불러와 상단 카드에 표시
   useEffect(() => {
     setSellerProfile(null);
@@ -296,10 +313,23 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   }, [activeRoom?.roomId, activeRoom?.productId, activeRoom?.productStatus, userRole]);
 
   // ── 새 메시지 → 대화 목록만 맨 아래로 이동 (페이지 자체는 이동하지 않음) ──
-  useEffect(() => {
+  // [수정] 텍스트·이미지 공용 스크롤 함수로 분리
+  const scrollToBottom = useCallback(() => {
     const messageList = messagesEndRef.current?.parentElement;
     messageList?.scrollTo({ top: messageList.scrollHeight, behavior: 'smooth' });
-  }, [messages]);
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  // [수정] 이미지 로드 후 바닥 근처에 있을 때만 재스크롤 (이전 대화 보는 중엔 끌어내리지 않음)
+  const handleImageLoad = useCallback(() => {
+    const messageList = messagesEndRef.current?.parentElement;
+    if (!messageList) return;
+    const distanceFromBottom = messageList.scrollHeight - messageList.scrollTop - messageList.clientHeight;
+    if (distanceFromBottom < 300) scrollToBottom();
+  }, [scrollToBottom]);
 
   // 방을 열고 있는데 상대 메시지가 새로 오면 바로 읽음 처리 (좌측/헤더 배지 안 남게)
   // 내가 보낸 메시지로 messages가 늘어난 경우엔 호출하지 않는다 (불필요한 READ 브로드캐스트 방지).
@@ -374,6 +404,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       body: JSON.stringify({ roomId: activeRoom.roomId, content: message.trim() }),
     });
     setMessage('');
+    delete draftsRef.current[activeRoom.roomId];
   };
 
   // [CHAT-RQ-001] 채팅방 나가기 — 구매자는 영구(복구 불가), 판매자는 다시 열면 재입장
@@ -386,7 +417,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     const confirmMsg = isSeller
       ? '이 채팅방에서 나가시겠습니까?\n나가 있는 동안에는 새 메시지 알림을 받지 않습니다. (다시 열면 재입장)'
       : '이 채팅방에서 나가시겠습니까?\n나간 뒤에는 이전 대화 내용을 복구할 수 없습니다.';
-    if (!window.confirm(confirmMsg)) return;
+    if (!(await showDialog(confirmMsg, { confirm: true }))) return;
 
     const leavingRoomId = activeRoom.roomId;
     try {
@@ -407,7 +438,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       window.dispatchEvent(new CustomEvent('chat-rooms-changed'));
     } catch (e) {
       console.error('채팅방 나가기 실패', e);
-      alert('채팅방 나가기에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      showDialog('채팅방 나가기에 실패했습니다.\n잠시 후 다시 시도해주세요.');
     }
   };
 
@@ -415,7 +446,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   // 작성자 본인만 가능. 원문은 양측 화면에서 "삭제된 메시지"로 대체되고 새로고침 후에도 유지된다.
   const handleDeleteMessage = async (messageId) => {
     if (!activeRoom || !messageId) return;
-    if (!window.confirm('이 메시지를 삭제할까요?\n상대방 화면에서도 "삭제된 메시지"로 표시됩니다.')) return;
+    if (!(await showDialog('이 메시지를 삭제할까요?\n상대방 화면에서도 "삭제된 메시지"로 표시됩니다.', { confirm: true }))) return;
     try {
       const res = await fetch(`${API_BASE}/chat/rooms/${activeRoom.roomId}/messages/${messageId}`, {
         method: 'DELETE',
@@ -426,7 +457,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       setMessages(prev => prev.map(m => m.id === messageId ? { ...m, deleted: true, content: '' } : m));
     } catch (e) {
       console.error('메시지 삭제 실패', e);
-      alert('메시지 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      showDialog('메시지 삭제에 실패했습니다.\n잠시 후 다시 시도해주세요.');
     }
   };
 
@@ -435,7 +466,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   const handleGoToProduct = async () => {
     const productId = activeRoom?.productId;
     if (!productId) {
-      alert('연결된 상품 정보가 없습니다.');
+      showDialog('연결된 상품 정보가 없습니다.');
       return;
     }
     try {
@@ -443,7 +474,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       if (!res.ok) throw new Error('not-found');
       navigate(`/buyer/products/${productId}`);
     } catch (e) {
-      alert('삭제되었거나 판매가 종료된 상품입니다.');
+      showDialog('삭제되었거나 판매가 종료된 상품입니다.');
     }
   };
 
@@ -483,7 +514,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       });
     } catch (err) {
       console.error('이미지 전송 실패', err);
-      alert('이미지 전송에 실패했습니다.');
+      showDialog('이미지 전송에 실패했습니다.');
     } finally {
       setUploadingImage(false);
     }
@@ -506,7 +537,8 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900 h-screen">
+    // [수정] shared-chat-page: SharedChatPage.css 여백 조정용
+    <div className="shared-chat-page min-h-screen bg-gray-50 flex flex-col text-gray-900 h-screen">
       <V3SiteHeader />
 
       <div className="v3-unified-page-card is-chat">
@@ -522,10 +554,13 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
         <main className="v3-unified-page-card__body flex-grow flex-row overflow-hidden min-h-0">
 
         {/* 좌측: 채팅방 목록 — 폭 고정, 드래그로만 조절 */}
+        {/* [수정] 모바일: 방 선택 전엔 목록만 전체 폭으로 표시, 데스크톱 폭은 listWidth 그대로 */}
         <aside
           ref={asideRef}
-          style={{ width: listWidth }}
-          className="shrink-0 bg-white rounded-2xl border border-gray-200 shadow-sm flex-col overflow-hidden h-full hidden md:flex"
+          style={{ '--chat-list-width': `${listWidth}px` }}
+          className={`shrink-0 bg-white rounded-2xl border border-gray-200 shadow-sm flex-col overflow-hidden h-full w-full md:w-[var(--chat-list-width)] md:flex ${
+            activeRoom ? 'hidden' : 'flex'
+          }`}
         >
           <div className="p-4 border-b border-gray-100 bg-gray-50/50">
             <div className="relative">
@@ -640,7 +675,10 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
         </div>
 
         {/* 우측: 대화창 */}
-        <section className="flex-grow min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden h-full">
+        {/* [수정] 모바일: 방 선택 후에만 대화창 표시 */}
+        <section className={`flex-grow min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm flex-col overflow-hidden h-full md:flex ${
+          activeRoom ? 'flex' : 'hidden'
+        }`}>
           {!activeRoom ? (
             <div className="flex-grow flex items-center justify-center text-sm text-gray-400">
               채팅방을 선택해주세요
@@ -651,6 +689,15 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
               <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
                 {/* 상품명 길이에 따라 헤더 너비가 늘었다 줄었다 하던 문제 — flex-1 min-w-0로 폭을 고정하고 말줄임이 실제로 동작하게 함 */}
                 <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
+                  {/* [신규] 모바일 전용 뒤로가기 — 목록으로 복귀 */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveRoom(null)}
+                    aria-label="채팅방 목록으로"
+                    className="md:hidden -ml-2 p-1 text-gray-500 hover:text-gray-800 shrink-0"
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
                   {/* [QA-5] 구매자 헤더는 상대 자리가 상품명이니 아이콘도 상품 썸네일로 — 삭제/탈퇴 상태는 아이콘이 더 명확하므로 폴백 */}
                   <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 shrink-0 overflow-hidden">
                     {userRole === 'BUYER' && activeRoom.productImageUrl
@@ -719,11 +766,24 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
               {/* 안전거래 안내 배너 (구매자·판매자 공통, 클릭 시 모달) */}
               <button
                 onClick={() => setSafetyOpen(true)}
-                className="mx-4 mt-3 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-blue-50 text-blue-700 text-xs font-bold shrink-0 hover:bg-blue-100 transition"
+                // [수정] 판매자 배너는 나가기 메뉴와 같은 빨간 계열
+                className={`mx-4 mt-3 flex items-center gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold shrink-0 transition ${
+                  userRole === 'SELLER'
+                    ? 'bg-red-50 text-red-600 hover:brightness-95'
+                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                }`}
               >
-                <ShieldCheck size={16} className="shrink-0 text-blue-500" />
-                <span className="flex-grow text-left">공동구매 외 개인 거래·선입금 요청은 주의하세요</span>
-                <ChevronRight size={16} className="shrink-0 text-blue-400" />
+                {/* [수정] 판매자 배너는 경고 아이콘 */}
+                {userRole === 'SELLER'
+                  ? <TriangleAlert size={16} className="shrink-0 text-red-500" />
+                  : <ShieldCheck size={16} className="shrink-0 text-blue-500" />}
+                {/* [수정] 판매자에겐 판매자용 문구 */}
+                <span className="flex-grow text-left">
+                  {userRole === 'SELLER'
+                    ? '개인 거래·선입금 요청은 제재 대상이에요'
+                    : '공동구매 외 개인 거래·선입금 요청은 주의하세요'}
+                </span>
+                <ChevronRight size={16} className={`shrink-0 ${userRole === 'SELLER' ? 'text-red-400' : 'text-blue-400'}`} />
               </button>
 
               {/* [신규] 후기 작성 유도 배너 — 정산 완료 + 결제 완료 + 미작성 상태일 때만 노출 */}
@@ -835,7 +895,9 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                                 <img
                                   src={msg.content}
                                   alt="전송된 이미지"
-                                  className="max-w-[220px] max-h-[220px] rounded-2xl object-cover cursor-pointer"
+                                  // [수정] 로드 전에도 높이가 확정되도록 220px 고정 칸
+                                  className="w-[220px] h-[220px] rounded-2xl object-cover cursor-pointer bg-gray-100"
+                                  onLoad={handleImageLoad}
                                   onClick={() => setLightboxImage(msg.content)}
                                 />
                               ) : (
@@ -895,7 +957,10 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                   </button>
                   <textarea
                     value={message}
-                    onChange={(e) => setMessage(e.target.value)}
+                    onChange={(e) => {
+                      setMessage(e.target.value);
+                      draftsRef.current[activeRoom.roomId] = e.target.value;
+                    }}
                     placeholder={
                       activeRoom.targetWithdrawn
                         ? '탈퇴한 상대와는 대화를 할 수 없어요'
@@ -968,27 +1033,101 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
             >
               <X size={22} />
             </button>
-            <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
-              <ShieldCheck size={28} />
+            {/* [수정] 판매자 모달은 배너와 같은 빨간 계열 */}
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
+              userRole === 'SELLER' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-500'
+            }`}>
+              {/* [수정] 판매자 모달은 경고 아이콘 */}
+              {userRole === 'SELLER' ? <TriangleAlert size={28} /> : <ShieldCheck size={28} />}
             </div>
-            <h3 className="text-lg font-extrabold text-gray-900 leading-snug">
-              안전한 거래를 위한<br /><span className="text-blue-600">개인 거래 주의 안내</span>
-            </h3>
-            <p className="text-sm text-gray-500 leading-relaxed">
-              모든 결제는 <b className="font-bold text-gray-700">공동구매 참여하기(N빵 탑승)</b>를 통해 앱 안에서 이루어져요.
-              공동구매를 거치지 않고 직접 거래하거나, 먼저 돈을 보내달라는 요청은 사기일 수 있습니다.
-            </p>
-            <p className="text-sm text-gray-500 leading-relaxed">
-              모든 판매자는 <b className="font-bold text-gray-700">운영진 승인</b>을 거쳐 등록되며,
-              신고된 거래는 운영진이 직접 확인·조치해요.
-            </p>
-            <div className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-xs text-gray-500 leading-relaxed">
-              계좌번호·외부 링크 등으로 개인 거래를 유도하는 메시지는 상대에게 전달되지 않을 수 있으며,
-              반복 시 이용이 제한될 수 있습니다.
+            {/* [수정] 판매자에겐 판매자용 안내 */}
+            {userRole === 'SELLER' ? (
+              <>
+                <h3 className="text-lg font-extrabold text-gray-900 leading-snug">
+                  안전한 거래를 위한<br /><span className="text-red-600">판매자 거래 원칙 안내</span>
+                </h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  모든 결제는 구매자의 <b className="font-bold text-gray-700">공동구매 참여하기(N빵 탑승)</b>를 통해서만 받아야 해요.
+                  채팅으로 직접 거래를 제안하거나 선입금을 요청하지 마세요.
+                </p>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  신고가 접수되면 <b className="font-bold text-gray-700">운영진</b>이 직접 확인·조치해요.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-extrabold text-gray-900 leading-snug">
+                  안전한 거래를 위한<br /><span className="text-blue-600">개인 거래 주의 안내</span>
+                </h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  모든 결제는 <b className="font-bold text-gray-700">공동구매 참여하기(N빵 탑승)</b>를 통해 앱 안에서 이루어져요.
+                  공동구매를 거치지 않고 직접 거래하거나, 먼저 돈을 보내달라는 요청은 사기일 수 있습니다.
+                </p>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  모든 판매자는 <b className="font-bold text-gray-700">운영진 승인</b>을 거쳐 등록돼요.
+                  {/* [수정] 신고 경로를 문의사항으로 안내 */}
+                  의심되는 요청을 받았다면 <b className="font-bold text-gray-700">문의사항</b>으로 신고할 수 있어요.
+                  운영진이 직접 확인·조치해요.
+                </p>
+              </>
+            )}
+            {/* [수정] 판매자 모달 하단 안내도 빨간 계열 */}
+            <div className={`w-full border rounded-2xl p-4 text-xs leading-relaxed ${
+              userRole === 'SELLER'
+                ? 'bg-red-50 border-[#a04b3c]/15 text-red-600'
+                : 'bg-gray-50 border-gray-100 text-gray-500'
+            }`}>
+              {/* [수정] 역할별 하단 안내 — 판매자는 개인 거래 유도 경고, 구매자는 신고·허위 신고 안내 */}
+              {userRole === 'SELLER'
+                ? '계좌번호·외부 링크 등으로 개인 거래 유도를 반복하면 이용이 제한될 수 있어요.'
+                : '판매자가 계좌번호·외부 링크 등으로 결제를 유도하면 응하지 말고 문의사항으로 알려주세요. 단, 반복된 허위 신고는 이용이 제한될 수 있어요.'}
             </div>
           </div>
         </div>
       )}
+      {/* [신규] alert/confirm 대체 모달 — PrivateRoute 로그인 안내 모달과 같은 디자인 */}
+      {dialog && (() => {
+        const [title, ...details] = dialog.message.split('\n');
+        return (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50"
+            onClick={() => closeDialog(false)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-xs mx-4 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center py-8 px-6">
+                <p className="text-base font-bold text-gray-900">{title}</p>
+                {details.length > 0 && (
+                  <p className="mt-2 text-sm text-gray-500 whitespace-pre-line">{details.join('\n')}</p>
+                )}
+              </div>
+              <div className="flex border-t border-gray-100">
+                {dialog.confirm && (
+                  <button
+                    type="button"
+                    onClick={() => closeDialog(false)}
+                    className="flex-1 py-3.5 text-sm font-medium text-gray-500 hover:bg-gray-50 transition"
+                  >
+                    취소
+                  </button>
+                )}
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => closeDialog(true)}
+                  className={`flex-1 py-3.5 text-sm font-bold text-blue-600 hover:bg-gray-50 transition ${
+                    dialog.confirm ? 'border-l border-gray-100' : ''
+                  }`}
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
