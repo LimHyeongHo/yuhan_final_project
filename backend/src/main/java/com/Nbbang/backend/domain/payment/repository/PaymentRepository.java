@@ -2,6 +2,8 @@ package com.Nbbang.backend.domain.payment.repository;
 
 import com.Nbbang.backend.domain.payment.entity.Payment;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -22,9 +24,25 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     // (CANCEL_REQUESTED/REFUND_FAILED 상태에서의 재시도까지 같은 쿼리로 커버하기 위해 상태로 좁히지 않음)
     Optional<Payment> findFirstByProductIdAndMember_EmailOrderByIdDesc(Long productId, String email);
 
+    // [신규] 참여 취소 시 실제 인출된(환불 대상) 결제를 우선 고르기 위함 — 최근 건이 미결제 PENDING이어도 놓치지 않게
+    Optional<Payment> findFirstByProductIdAndMember_EmailAndStatusInOrderByIdDesc(Long productId, String email,
+                                                                                 List<String> statuses);
+
     // [신규] PRD-RQ-004: 가격 변경 제한 판단용 — 이 상품에 결제 완료(DONE) 건이 하나라도 있는지
     boolean existsByProductIdAndStatus(Long productId, String status);
     
     // [MEM-RQ-001] 회원 탈퇴 시 결제 이력의 개인 표시 정보(buyerName) 익명화용
     List<Payment> findByMember_Email(String email);
+
+    // [신규] 같은 구매자·상품에 이 결제(excludeId) 말고 다른 결제가 해당 상태로 있는지 — 참여가 이 결제 몫인지 판별용
+    boolean existsByProductIdAndMember_EmailAndStatusInAndIdNot(Long productId, String email,
+                                                               List<String> statuses, Long excludeId);
+
+    // [신규] 환불 대상 고아 결제: 인출됐는데(statuses) 상품이 삭제됐거나 종료 상태(productStatuses)인 건.
+    // 상품 삭제/모집 실패/판매자 탈퇴 경로에는 환불 단계가 없어서 결제만 완료로 남는다.
+    @Query("SELECT p FROM Payment p WHERE p.status IN :statuses AND ("
+            + " NOT EXISTS (SELECT 1 FROM Product pr WHERE pr.productId = p.productId)"
+            + " OR EXISTS (SELECT 1 FROM Product pr WHERE pr.productId = p.productId AND pr.status IN :productStatuses))")
+    List<Payment> findOrphanedPayments(@Param("statuses") List<String> statuses,
+                                       @Param("productStatuses") List<String> productStatuses);
 }
