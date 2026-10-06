@@ -1,0 +1,48 @@
+/* 채팅 페이지 전용 — 공통 카드(globalDesignSystem.css)의 여백만 줄여 대화창 높이 확보. 디자인 나머지는 공통 CSS 그대로 사용 */
+
+/* 모바일 브라우저 주소창 높이 변화에도 화면에 맞도록 dvh 사용 (미지원 브라우저는 h-screen 100vh 유지) */
+.global-v3-theme .shared-chat-page {
+  height: 100dvh;
+  min-height: 100dvh;
+}
+
+.global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat {
+  gap: 16px;
+  margin-block: 16px;
+}
+
+.global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat .v3-unified-page-card__header {
+  padding: 16px 28px !important;
+}
+
+.global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat .v3-unified-page-card__body {
+  padding: 16px 20px !important;
+}
+
+/* 모바일 (Tailwind md 미만 — 목록/대화창 전환 기준과 동일) */
+@media (max-width: 767px) {
+  .global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat {
+    gap: 8px;
+    width: calc(100% - 16px);
+    margin-block: 8px;
+  }
+
+  .global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat .v3-unified-page-card__header {
+    padding: 10px 16px !important;
+    border-radius: 14px;
+  }
+
+  .global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat .v3-unified-page-card__title {
+    font-size: 20px;
+  }
+
+  .global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat .v3-unified-page-card__title > svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat .v3-unified-page-card__body {
+    padding: 8px !important;
+    border-radius: 14px;
+  }
+}

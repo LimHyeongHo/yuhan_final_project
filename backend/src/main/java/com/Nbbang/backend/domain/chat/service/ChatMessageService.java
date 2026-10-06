@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -74,9 +75,10 @@ public class ChatMessageService {
     public List<ChatMessageResponse> getHistory(ChatRoom room, String viewerEmail) {
         try {
             LocalDateTime clip = viewerEmail.equals(room.getBuyerEmail()) ? room.getBuyerHistoryFrom() : null;
-            return chatMessageRepository
+            List<ChatMessageResponse> history = chatMessageRepository
                     // JOIN/LEAVE 시스템 메시지도 내역에 포함해 가운데 안내로 표시
-                    .findTop50ByRoomIdAndTypeInOrderBySentAtAsc(room.getId(),
+                    // [수정] 최신 50개 조회 (Desc)
+                    .findTop50ByRoomIdAndTypeInOrderBySentAtDesc(room.getId(),
                             List.of(MessageType.CHAT, MessageType.IMAGE, MessageType.JOIN, MessageType.LEAVE))
                     .stream()
                     .filter(msg -> clip == null || !msg.getSentAt().isBefore(clip))
@@ -87,6 +89,9 @@ public class ChatMessageService {
                         return ChatMessageResponse.from(msg, nickname);
                     })
                     .collect(Collectors.toList());
+            // [수정] 화면은 오래된 → 최신 순이라 다시 뒤집음
+            Collections.reverse(history);
+            return history;
         } catch (Exception e) {
             throw new CustomException(ErrorCode.CHAT_HISTORY_LOAD_FAILED);
         }

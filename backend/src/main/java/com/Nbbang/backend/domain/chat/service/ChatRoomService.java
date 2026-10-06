@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -35,6 +36,8 @@ public class ChatRoomService {
         // [CHAT-RQ-001] 구매자가 나간 방은 목록에서 제외 (판매자 나간 방은 유지 — 방 열면 재입장)
         return rooms.stream()
                 .filter(room -> !(myEmail.equals(room.getBuyerEmail()) && room.getBuyerLeftAt() != null))
+                // [수정] 메시지 없는 새 방(lastSentAt null)은 개설 시각 기준으로 최신순 정렬
+                .sorted(Comparator.comparing(ChatRoomService::lastActivityAt).reversed())
                 .map(room -> {
                     String targetEmail = myEmail.equals(room.getBuyerEmail())
                             ? room.getSellerEmail()
@@ -55,6 +58,12 @@ public class ChatRoomService {
                             productStatus, productImageUrl);
                 })
                 .collect(Collectors.toList());
+    }
+
+    // [수정] 목록 정렬 기준: 마지막 메시지 시각, 없으면 방 개설 시각
+    private static LocalDateTime lastActivityAt(ChatRoom room) {
+        if (room.getLastSentAt() != null) return room.getLastSentAt();
+        return room.getCreatedAt() != null ? room.getCreatedAt() : LocalDateTime.MIN;
     }
 
     /**
