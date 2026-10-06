@@ -20,6 +20,7 @@ public enum ErrorCode {
     AUTH_ACCOUNT_LOCKED(403, "계정이 잠겼습니다. 잠시 후 다시 시도해주세요"),
     AUTH_UNREGISTERED_DEVICE(403, "등록되지 않은 기기입니다"),
     AUTH_SIGNATURE_VERIFICATION_FAILED(401, "인증에 실패했습니다. 다시 로그인해주세요"),
+    AUTH_CERTIFICATE_REVOKED(401, "인증서 유효시간이 만료되어 폐기되었습니다. 인증서를 재발급해주세요"),
     AUTH_WITHDRAWN_ACCOUNT(403, "탈퇴된 계정입니다. 고객센터에 문의해주세요"),
     AUTH_PORTONE_SERVER_ERROR(502, "본인인증에 실패했습니다. 다시 시도해주세요"),
 

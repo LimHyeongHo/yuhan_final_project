@@ -212,8 +212,10 @@ const LoginPage = () => {
       const deviceId = getDeviceId();
       const chalRes = await fetch(`http://localhost:8080/api/pki/login/challenge?deviceId=${deviceId}`);
       if (!chalRes.ok) {
+        // 미등록 기기(AUTH_UNREGISTERED_DEVICE) / 폐기된 인증서(AUTH_CERTIFICATE_REVOKED) 모두 재발급 대상.
+        const err = await chalRes.json().catch(() => ({}));
         reissueNeeded = true;
-        throw new Error("서버에서 기기 정보를 찾을 수 없습니다.");
+        throw new Error(err.message || "서버에서 기기 정보를 찾을 수 없습니다.");
       }
       const { challenge } = await chalRes.json();
 
@@ -262,8 +264,9 @@ const LoginPage = () => {
         return;
       } else {
         const message = result.message || "로그인에 실패했습니다.";
-        // 기기 인증서가 없거나 폐기/서명 불일치인 경우도 재발급 대상.
-        if (message.includes("기기 인증 정보가 없습니다") || message.includes("기기 인증 실패")) {
+        // 기기 인증서가 없거나 폐기된 경우 재발급 대상. 메시지 문자열은 ErrorCode 정리 때 바뀔 수 있으므로 code로 판단.
+        // (AUTH_SIGNATURE_VERIFICATION_FAILED는 CI 불일치 등에도 쓰여 재발급 대상에서 제외)
+        if (result.code === 'AUTH_UNREGISTERED_DEVICE' || result.code === 'AUTH_CERTIFICATE_REVOKED') {
           reissueNeeded = true;
         }
         throw new Error(message);
