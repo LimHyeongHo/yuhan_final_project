@@ -259,16 +259,23 @@ public class PaymentService {
                 .getMember().getEmail());
 
         // 참여가 이미 있으면(DONE 전환 직전에 죽은 경우) 재조인하면 ALREADY_JOINED로 실패해 정상 결제를 오환불하게 됨
-        boolean alreadyJoined = participationRepository
-                .existsByProduct_ProductIdAndMember_Email(productId, buyerEmail);
+        boolean alreadyJoined = isJoinedByThisPayment(productId, buyerEmail, paymentId);
 
         if (!alreadyJoined) {
             try {
                 productService.joinProduct(productId, buyerEmail);
             } catch (CustomException e) {
-                log.warn("결제는 승인됐지만 참여 확정 실패, 자동 환불: orderId={}, reason={}", orderId, e.getErrorCode());
-                refundViaToss(paymentId, "참여 확정 실패 자동 환불");
-                throw new CustomException(ErrorCode.PAYMENT_JOIN_FAILED);
+                // [수정] 같은 콜백이 동시에 두 번 들어오면(승인 중 새로고침) 둘 다 위 확인을 통과하고, 늦은 쪽이
+                // ALREADY_JOINED로 실패해 정상 결제를 환불하고 참여만 남겼다. 먼저 끝난 쪽이 이 결제로
+                // 참여를 확정한 것이면 환불하지 않고 DONE으로 진행한다.
+                if (e.getErrorCode() == ErrorCode.PURCHASE_ALREADY_JOINED
+                        && isJoinedByThisPayment(productId, buyerEmail, paymentId)) {
+                    log.warn("[PAYMENT-AUDIT] 동시 콜백이 먼저 참여 확정 - 환불 없이 진행: orderId={}", orderId);
+                } else {
+                    log.warn("결제는 승인됐지만 참여 확정 실패, 자동 환불: orderId={}, reason={}", orderId, e.getErrorCode());
+                    refundViaToss(paymentId, "참여 확정 실패 자동 환불");
+                    throw new CustomException(ErrorCode.PAYMENT_JOIN_FAILED);
+                }
             }
         }
 
@@ -282,6 +289,14 @@ public class PaymentService {
         }));
 
         return doneResponse(orderId, method);
+    }
+
+    // 참여가 있고, 같은 구매자의 다른 완료 결제가 없을 때만 그 참여를 이 결제 몫으로 본다.
+    // 다른 DONE 결제가 있으면 탭 두 개로 이중 결제한 경우라 이 결제는 참여 없이 환불돼야 한다.
+    private boolean isJoinedByThisPayment(Long productId, String buyerEmail, Long paymentId) {
+        return participationRepository.existsByProduct_ProductIdAndMember_Email(productId, buyerEmail)
+                && !paymentRepository.existsByProductIdAndMember_EmailAndStatusInAndIdNot(
+                        productId, buyerEmail, List.of("DONE"), paymentId);
     }
 
     private PaymentResponse doneResponse(String orderId) {
@@ -385,6 +400,78 @@ public class PaymentService {
         }));
     }
 
+    // [신규] 상품 삭제/모집 실패/판매자 탈퇴로 끝난 공구의 미환불 결제 자동 환불 (PaymentRefundScheduler가 호출).
+    // 그 경로들(ProductService/AdminService/SettlementScheduler/회원탈퇴)엔 환불 단계가 없어 결제만 DONE으로 남았다.
+    // APPROVED는 콜백이 아직 진행 중일 수 있어 승인 후 10분이 지난 건만 대상으로 한다.
+    // CANCEL_REQUESTED는 환불 도중 프로세스가 죽어 멈춘 건 — 10분 넘게 그대로면 재개한다(refundViaToss가
+    // Toss 실제 상태를 먼저 대조하므로 이미 취소된 건은 로컬 상태만 맞춘다). 종료된 공구라 구매자가 직접
+    // 취소로 재시도할 수도 없어서, 여기서 안 잡으면 영구히 멈춘다.
+    // REFUND_FAILED(예: 다른 Toss 키로 결제된 옛 건)는 매분 같은 실패를 반복하지 않도록 자동 재시도하지 않는다.
+    private static final List<String> ORPHAN_PRODUCT_STATUSES = List.of("CLOSED_FAIL", "SELLER_WITHDRAWN");
+
+    public List<Long> findOrphanedPaymentIds() {
+        return paymentRepository.findOrphanedPayments(
+                        List.of("DONE", "APPROVED", "CANCEL_REQUESTED"), ORPHAN_PRODUCT_STATUSES)
+                .stream()
+                .filter(this::isOrphanRefundTarget)
+                .map(Payment::getId)
+                .toList();
+    }
+
+    private boolean isOrphanRefundTarget(Payment payment) {
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(10);
+        return switch (payment.getStatus()) {
+            case "DONE" -> true;
+            case "APPROVED" -> payment.getApprovedAt() != null && payment.getApprovedAt().isBefore(cutoff);
+            case "CANCEL_REQUESTED" -> payment.getCancelRequestedAt() == null
+                    || payment.getCancelRequestedAt().isBefore(cutoff);
+            default -> false;
+        };
+    }
+
+    public void refundOrphanedPayment(Long paymentId) {
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+
+        // 대상 재확인: 조회 이후 상태가 바뀌었으면(다른 경로에서 이미 환불 등) 건너뛴다
+        String reason = tx.execute(status -> {
+            Payment payment = paymentRepository.findById(paymentId).orElse(null);
+            if (payment == null || !isOrphanRefundTarget(payment)) {
+                return null;
+            }
+            String productStatus = productRepository.findById(payment.getProductId())
+                    .map(Product::getStatus)
+                    .orElse(null);
+            if (productStatus == null) {
+                return "상품 삭제로 인한 자동 환불";
+            }
+            if ("CLOSED_FAIL".equals(productStatus)) {
+                return "공동구매 모집 실패 자동 환불";
+            }
+            if ("SELLER_WITHDRAWN".equals(productStatus)) {
+                return "판매자 탈퇴로 인한 자동 환불";
+            }
+            return null;
+        });
+        if (reason == null) {
+            return;
+        }
+
+        log.info("[PAYMENT-AUDIT] 종료된 공구 자동 환불 시작: paymentId={}, reason={}", paymentId, reason);
+        try {
+            refundViaToss(paymentId, reason);
+        } catch (CustomException e) {
+            // Toss 조회 실패로 CANCEL_REQUESTED에 멈춘 경우도 REFUND_FAILED로 남겨 관리자가 확인할 수 있게 한다
+            tx.executeWithoutResult(status -> paymentRepository.findById(paymentId).ifPresent(payment -> {
+                if ("CANCEL_REQUESTED".equals(payment.getStatus())) {
+                    payment.setStatus("REFUND_FAILED");
+                    paymentRepository.save(payment);
+                }
+            }));
+            log.error("[PAYMENT-AUDIT] 종료된 공구 자동 환불 실패(REFUND_FAILED): paymentId={}, code={}",
+                    paymentId, e.getErrorCode());
+        }
+    }
+
     // [신규] PRD-RQ-001 + PAY-RQ-001: 구매자 본인의 참여 취소.
     // 결제 완료 건이 있으면 Toss 환불이 성공한 뒤에만 Participation/currentCount를 확정적으로
     // 정리한다 (환불 실패 시 인원/참여는 그대로 유지).
@@ -411,8 +498,12 @@ public class PaymentService {
                     .findByProduct_ProductIdAndMember_Email(productId, email)
                     .orElseThrow(() -> new CustomException(ErrorCode.PARTICIPATION_NOT_FOUND));
 
+            // [수정] 인출된 결제를 우선 고른다. 예전엔 가장 최근 결제만 봐서, 탭 두 개로 결제창을 열고 먼저 연
+            // 쪽으로 결제하면 최근 건이 PENDING이라 "미결제 참여"로 판정돼 환불 없이 참여만 지워졌다.
             Payment payment = paymentRepository
-                    .findFirstByProductIdAndMember_EmailOrderByIdDesc(productId, email)
+                    .findFirstByProductIdAndMember_EmailAndStatusInOrderByIdDesc(productId, email,
+                            List.of("APPROVED", "DONE", "REFUND_FAILED", "CANCEL_REQUESTED"))
+                    .or(() -> paymentRepository.findFirstByProductIdAndMember_EmailOrderByIdDesc(productId, email))
                     .orElse(null);
             String st = payment == null ? null : payment.getStatus();
 
