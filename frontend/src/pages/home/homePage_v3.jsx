@@ -69,6 +69,8 @@ const fetchGoogleBookMetadata = async (isbn) => {
 const mapProduct = (item) => {
   const current = Number(item.currentCount || 0);
   const target = Number(item.targetCount || 1);
+  const originalPrice = Number(item.originalPrice || item.price || 0);
+  const price = Number(item.price || 0);
   const deadline = new Date(item.deadline);
   const diffDays = Math.ceil((deadline - new Date()) / (1000 * 60 * 60 * 24));
   const reviewCount = Number(item.reviewCount || 0);
@@ -82,8 +84,9 @@ const mapProduct = (item) => {
     author: item.author || '판매자 정보 없음',
     current,
     target,
-    originalPrice: formatPrice(item.originalPrice || item.price),
-    price: formatPrice(item.price),
+    originalPrice: formatPrice(originalPrice),
+    price: formatPrice(price),
+    isOriginalPrice: originalPrice === price,
     dDay: diffDays > 0 ? `D-${diffDays}` : 'D-DAY',
     diffDays,
     progress: Math.min(Math.round((current / target) * 100), 100),
@@ -533,8 +536,14 @@ const FeaturedProduct = ({ product, isFlipped, onFlip, onOpen }) => {
           <strong>{product.title}</strong>
           <small>{product.author}</small>
           <div className="v3-flip-price">
-            <del>{product.originalPrice}</del>
-            <b>{product.price}</b>
+            {product.isOriginalPrice ? (
+              <b>정가 {product.price}</b>
+            ) : (
+              <>
+                <del>{product.originalPrice}</del>
+                <b>{product.price}</b>
+              </>
+            )}
           </div>
           <div className="v3-flip-progress"><i style={{ width: `${product.progress}%` }} /></div>
           <p>{product.current}/{product.target}명 · 달성률 {product.progress}%</p>
@@ -616,7 +625,16 @@ const ClosingCard = ({ product }) => {
         <div className="v3-card-progress"><span style={{ width: `${product.progress}%` }} /></div>
         <div className="v3-card-goal"><strong>달성률 {product.progress}%</strong><span>목표 {product.target}명 ({remaining}명 남음)</span></div>
         <div className="v3-card-footer">
-          <div><del>{product.originalPrice}</del><strong>{product.price}</strong></div>
+          <div>
+            {product.isOriginalPrice ? (
+              <strong>정가 {product.price}</strong>
+            ) : (
+              <>
+                <del>{product.originalPrice}</del>
+                <strong>{product.price}</strong>
+              </>
+            )}
+          </div>
           <Link to={`/buyer/products/${product.id}`}>탑승하기</Link>
         </div>
       </div>

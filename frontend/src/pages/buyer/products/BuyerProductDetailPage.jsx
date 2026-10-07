@@ -520,17 +520,23 @@ const BuyerProductDetailPage = () => {
               {/* 가격 정보 (정가 대비 할인가 구조 적용) */}
               <div className="bg-gray-50 rounded-2xl p-4 flex justify-between items-center">
                 <div className="flex flex-col">
-                  <span className="text-xs text-gray-400 line-through font-bold">정가 {product.originalPrice.toLocaleString()}원</span>
-                  {(() => {
-                    const diffRatio = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
-                    if (diffRatio > 0) {
-                      return <span className="text-xs text-emerald-600 font-black mt-0.5">-{diffRatio}% 할인가</span>;
-                    } else if (diffRatio < 0) {
-                      return <span className="text-xs text-orange-500 font-black mt-0.5">정가보다 {Math.abs(diffRatio)}% 비쌈</span>;
-                    } else {
-                      return <span className="text-xs text-gray-500 font-black mt-0.5">정가와 동일</span>;
-                    }
-                  })()}
+                  {product.originalPrice === product.price ? (
+                    <>
+                      <span className="text-xs text-gray-500 font-bold">정가와 동일</span>
+                      <span className="text-xs text-gray-500 font-black mt-0.5">할인율 없음</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-xs text-gray-400 line-through font-bold">정가 {product.originalPrice.toLocaleString()}원</span>
+                      {(() => {
+                        const diffRatio = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+                        if (diffRatio > 0) {
+                          return <span className="text-xs text-emerald-600 font-black mt-0.5">-{diffRatio}% 할인가</span>;
+                        }
+                        return <span className="text-xs text-orange-500 font-black mt-0.5">정가보다 {Math.abs(diffRatio)}% 비쌈</span>;
+                      })()}
+                    </>
+                  )}
                 </div>
                 <div className="text-right">
                   <span className="text-2xl md:text-3xl font-black text-blue-600">{product.price.toLocaleString()}원</span>

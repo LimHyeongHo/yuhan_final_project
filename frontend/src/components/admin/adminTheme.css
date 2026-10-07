@@ -79,6 +79,10 @@
   background-color: rgba(255, 255, 255, 0.92) !important;
 }
 
+.admin-v3-page .report-log-modal {
+  background-color: #ffffff !important;
+}
+
 .admin-v3-page .border-gray-200,
 .admin-v3-page .border-slate-200 {
   border-color: var(--v3-border) !important;

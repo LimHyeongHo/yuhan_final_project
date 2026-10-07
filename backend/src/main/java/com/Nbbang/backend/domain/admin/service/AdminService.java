@@ -10,6 +10,9 @@ import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
 import com.Nbbang.backend.domain.product.service.BlockchainService;
 import com.Nbbang.backend.domain.product.service.ProductHashService;
+import com.Nbbang.backend.domain.payment.repository.PaymentRepository;
+import com.Nbbang.backend.domain.review.entity.Sentiment;
+import com.Nbbang.backend.domain.review.repository.ReviewRepository;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +37,8 @@ public class AdminService {
     private final BlockchainService blockchainService;
     private final ProductHashService productHashService;
     private final SystemLogService systemLogService;
+    private final ReviewRepository reviewRepository;
+    private final PaymentRepository paymentRepository;
 
     @Autowired
     public AdminService(
@@ -42,13 +47,17 @@ public class AdminService {
             NotificationRepository notificationRepository,
             BlockchainService blockchainService,
             ProductHashService productHashService,
-            SystemLogService systemLogService) {
+            SystemLogService systemLogService,
+            ReviewRepository reviewRepository,
+            PaymentRepository paymentRepository) {
         this.userAccountRepository = userAccountRepository;
         this.productRepository = productRepository;
         this.notificationRepository = notificationRepository;
         this.blockchainService = blockchainService;
         this.productHashService = productHashService;
         this.systemLogService = systemLogService;
+        this.reviewRepository = reviewRepository;
+        this.paymentRepository = paymentRepository;
     }
 
     // 기존 단위 테스트와의 호환용 생성자. 운영 환경에서는 위의 전체 생성자를 사용한다.
@@ -59,7 +68,7 @@ public class AdminService {
             BlockchainService blockchainService,
             ProductHashService productHashService) {
         this(userAccountRepository, productRepository, notificationRepository,
-                blockchainService, productHashService, null);
+                blockchainService, productHashService, null, null, null);
     }
 
     @Transactional(readOnly = true)
@@ -208,12 +217,27 @@ public class AdminService {
                 // 판매자 상품들
                 List<Product> products = productRepository.findBySellerEmailOrderByCreatedAtDesc(seller.getEmail());
                 long productCount = products.size();
-                long totalRevenue = products.stream()
-                        .mapToLong(p -> p.getPrice().longValue() * p.getCurrentCount())
-                        .sum();
+                List<Long> productIds = products.stream()
+                        .filter(product -> "CLOSED_SUCCESS".equals(product.getStatus()))
+                        .map(Product::getProductId)
+                        .toList();
+                long totalRevenue = productIds.isEmpty()
+                        ? 0L
+                        : paymentRepository.findByProductIdInAndStatus(productIds, "DONE").stream()
+                                .mapToLong(payment -> payment.getAmount() == null ? 0L : payment.getAmount())
+                                .sum();
+
+                long likeCount = reviewRepository.countBySellerEmailAndSentiment(email, Sentiment.LIKE);
+                long sosoCount = reviewRepository.countBySellerEmailAndSentiment(email, Sentiment.SOSO);
+                long dislikeCount = reviewRepository.countBySellerEmailAndSentiment(email, Sentiment.DISLIKE);
+                long reviewCount = likeCount + sosoCount + dislikeCount;
+                double rating = reviewCount == 0
+                        ? 0
+                        : Math.round(((likeCount * 5.0 + sosoCount * 2.5) / reviewCount) * 10) / 10.0;
                         
                 map.put("productCount", productCount);
                 map.put("totalRevenue", totalRevenue);
+                map.put("rating", rating);
                 return map;
             })
             .collect(Collectors.toList());
