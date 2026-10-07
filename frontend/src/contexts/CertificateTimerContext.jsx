@@ -1,6 +1,7 @@
 // [신규 파일] CA 인증서 유효시간(기본 10분) 카운트다운 + 만료 시 자동 로그아웃을 앱 전역에서 공유하기 위한 Context
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSession } from './SessionContext';
 
 const API_BASE = 'http://localhost:8080';
 // 서버(만료시각의 기준)와 얼마 주기로 재동기화할지: 드리프트 보정 + 서버측 강제 폐기 감지용
@@ -10,6 +11,8 @@ const CertificateTimerContext = createContext(null);
 
 export const CertificateTimerProvider = ({ children }) => {
   const navigate = useNavigate();
+  // [fix/auth] 헤더는 SessionContext의 session으로 로그인 여부를 판단하므로 만료 시 이것도 함께 비워야 즉시 비로그인 UI로 돌아간다
+  const { refreshSession, clearSession } = useSession();
   // null = 인증서 타이머 세션이 없음(비로그인 또는 관리자 계정 등)
   const [remainingSeconds, setRemainingSeconds] = useState(null);
   const expiredHandledRef = useRef(false);
@@ -30,10 +33,12 @@ export const CertificateTimerProvider = ({ children }) => {
 
     localStorage.removeItem('user_nickname');
     localStorage.removeItem('user_role');
+    localStorage.removeItem('email');
+    clearSession();
     setRemainingSeconds(null);
     alert('인증서 시간이 만료되었습니다.');
     navigate('/');
-  }, [navigate]);
+  }, [navigate, clearSession]);
 
   // [신규] 서버 기준 남은 시간 재동기화. 새로고침 시에도 이 값을 기준으로 카운트다운을 이어간다.
   const syncStatus = useCallback(async () => {
@@ -51,6 +56,9 @@ export const CertificateTimerProvider = ({ children }) => {
         if (errorData?.code === 'AUTH_SESSION_EXPIRED') {
           // 인증서 세션 자체가 없는 계정(예: 관리자 로그인 화면의 테스트 계정)은 조용히 무시
           setRemainingSeconds(null);
+          // [fix/auth] 인증서 세션이 이미 폐기된 경우(다른 탭에서 만료 등)도 여기로 오므로,
+          // 서버 로그인 세션을 다시 확인해 끊겨 있으면 헤더도 비로그인 상태로 맞춘다
+          await refreshSession();
           return;
         }
         // 그 외 401(CertificateExpirationFilter가 진짜 만료로 판단해 막은 경우)만 강제 로그아웃
@@ -71,7 +79,7 @@ export const CertificateTimerProvider = ({ children }) => {
     } catch (e) {
       // 네트워크 오류는 다음 폴링에서 재시도
     }
-  }, [forceExpireLogout]);
+  }, [forceExpireLogout, refreshSession]);
 
   // [신규] +5분/-5분 조정: 화면 표시뿐 아니라 서버 DB의 만료시각(expiresAt)을 직접 갱신한다.
   const extend = useCallback(async (deltaMinutes) => {
