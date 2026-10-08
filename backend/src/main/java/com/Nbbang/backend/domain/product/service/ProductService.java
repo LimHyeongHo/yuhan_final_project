@@ -2,6 +2,7 @@ package com.Nbbang.backend.domain.product.service; // 🚨 본인 경로에 맞�
 
 import com.Nbbang.backend.domain.auth.entity.UserAccount;
 import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
+import com.Nbbang.backend.domain.admin.security.entity.SecuritySimulation;
 import com.Nbbang.backend.domain.admin.security.entity.SecuritySimulationStatus;
 import com.Nbbang.backend.domain.admin.security.repository.SecuritySimulationRepository;
 import com.Nbbang.backend.domain.log.repository.SystemLogRepository;
@@ -38,13 +39,22 @@ import java.util.Map;
 /// [+] 오브젝트 라이브러리 추가
 import java.util.Objects;
 import java.util.Locale;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 @Transactional(readOnly = true)
 public class ProductService {
+
+    private static final Pattern PRODUCT_ID_IN_TAMPER_LOG = Pattern.compile("productId=(\\d+)");
+    private static final List<SecuritySimulationStatus> TAMPERED_SIMULATION_STATUSES = List.of(
+            SecuritySimulationStatus.FORGED_DETECTED,
+            SecuritySimulationStatus.HASH_MISMATCH);
 
     private final ProductRepository productRepository;
     private final ParticipationRepository participationRepository;
@@ -136,10 +146,11 @@ public class ProductService {
 
     // 전체 상품 조회 로직
     public List<Product> getAllProducts() {
+        Set<Long> tamperedProductIds = getTamperedProductIds();
         return productRepository.findAll().stream()
                 .peek(product -> product.setIntegrityTampered(
                         "FORGED".equals(product.getIntegrityStatus())
-                                || hasDetectedTampering(product.getProductId())))
+                                || tamperedProductIds.contains(product.getProductId())))
                 .toList();
     }
 
@@ -170,11 +181,12 @@ public class ProductService {
 
     // [신규] 로그인 이메일 기준 상품 목록 조회 (sellerId는 항상 1로 고정되는 임시값이라 실사용 불가)
     public List<Product> getProductsBySellerEmail(String sellerEmail) {
+        Set<Long> tamperedProductIds = getTamperedProductIds();
         return productRepository.findBySellerEmailOrderByCreatedAtDesc(sellerEmail).stream()
                 .filter(product -> "BOOK".equals(product.getType()))
                 .peek(product -> product.setIntegrityTampered(
                         "FORGED".equals(product.getIntegrityStatus())
-                                || hasDetectedTampering(product.getProductId())))
+                                || tamperedProductIds.contains(product.getProductId())))
                 .toList();
     }
 
@@ -472,7 +484,7 @@ public class ProductService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getSellerOrders(String sellerEmail) {
         List<Participation> participations = participationRepository.findByProduct_SellerEmailOrderByJoinDateDesc(sellerEmail);
-        Map<Long, Boolean> integrityTamperedByProduct = new java.util.HashMap<>();
+        Set<Long> tamperedProductIds = getTamperedProductIds();
         return participations.stream().filter(p -> "BOOK".equals(p.getProduct().getType())).map(p -> {
             Map<String, Object> map = new java.util.HashMap<>();
             map.put("participationId", p.getId());
@@ -487,30 +499,29 @@ public class ProductService {
             map.put("productStatus", product.getStatus());
             map.put("blockchainStatus", product.getBlockchainStatus());
             boolean integrityTampered = "FORGED".equals(product.getIntegrityStatus())
-                    || integrityTamperedByProduct.computeIfAbsent(
-                    product.getProductId(),
-                    this::hasDetectedTampering);
+                    || tamperedProductIds.contains(product.getProductId());
             map.put("integrityTampered", integrityTampered);
             
             return map;
         }).collect(java.util.stream.Collectors.toList());
     }
 
-    private boolean hasDetectedTampering(Long productId) {
-        if (securitySimulationRepository.existsByProductIdAndStatusIn(
-                productId,
-                List.of(SecuritySimulationStatus.FORGED_DETECTED, SecuritySimulationStatus.HASH_MISMATCH))) {
-            return true;
-        }
+    public Set<Long> getTamperedProductIds() {
+        Set<Long> tamperedProductIds = securitySimulationRepository.findByStatusIn(TAMPERED_SIMULATION_STATUSES).stream()
+                .map(SecuritySimulation::getProductId)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(HashSet::new));
 
-        String productIdToken = "productId=" + productId;
-        return systemLogRepository.findByTypeAndStatus("SECURITY", "TAMPERED").stream()
+        systemLogRepository.findByTypeAndStatus("SECURITY", "TAMPERED").stream()
                 .map(log -> log.getDiff())
-                .filter(java.util.Objects::nonNull)
-                .anyMatch(diff -> {
-                    int tokenIndex = diff.indexOf(productIdToken);
-                    int nextIndex = tokenIndex + productIdToken.length();
-                    return tokenIndex >= 0 && (nextIndex == diff.length() || !Character.isDigit(diff.charAt(nextIndex)));
+                .filter(Objects::nonNull)
+                .forEach(diff -> {
+                    Matcher matcher = PRODUCT_ID_IN_TAMPER_LOG.matcher(diff);
+                    if (matcher.find()) {
+                        tamperedProductIds.add(Long.valueOf(matcher.group(1)));
+                    }
                 });
+
+        return tamperedProductIds;
     }
 }

@@ -91,16 +91,17 @@ public class VerificationService {
         // 3. 해시 비교 (FORGED 판별)
         if (!cleanCurrent.equals(cleanBc)) {
             result.put("status", "FORGED");
+            boolean newlyDetected = productRepository.updateIntegrityStatusIfDifferent(productId, "FORGED") > 0;
             product.setIntegrityStatus("FORGED");
-            productRepository.save(product);
             result.put("message", "데이터 위변조가 감지되었습니다. (DB: " + cleanCurrent.substring(0,6) + " != BC: " + cleanBc.substring(0, Math.min(6, cleanBc.length())) + ")");
             
             // 보안 로그 기록 (TAMPERED)
-            systemLogRepository.save(SystemLog.builder()
-                    .displayId("TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
-                    .type("SECURITY")
-                    .status("TAMPERED")
-                    .diff("Diff: DB Hash Mismatch / productId=" + productId)
+            if (newlyDetected) {
+                systemLogRepository.save(SystemLog.builder()
+                        .displayId("TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
+                        .type("SECURITY")
+                        .status("TAMPERED")
+                        .diff("Diff: DB Hash Mismatch / productId=" + productId)
                     .detail("위변조 추적 / 판매자 알림 대상")
                     .build());
 
@@ -111,14 +112,13 @@ public class VerificationService {
                     notificationRepository.save(new Notification(product.getSellerEmail(), sellerMessage));
                 }
             }
+            }
             
             return result;
         }
 
-        if (!"VALID".equals(product.getIntegrityStatus())) {
-            product.setIntegrityStatus("VALID");
-            productRepository.save(product);
-        }
+        boolean integrityStatusChanged = productRepository.updateIntegrityStatusIfDifferent(productId, "VALID") > 0;
+        product.setIntegrityStatus("VALID");
 
         // 4. 카카오 도서 API 정가와 비교 (ANCHORING_WARNING, GOOD_DEAL 판별)
         BigDecimal officialPrice = product.getOfficialPrice();
@@ -159,13 +159,15 @@ public class VerificationService {
         result.put("message", "정상적으로 검증되었습니다.");
         
         // 보안 로그 기록 (SUCCESS)
-        systemLogRepository.save(SystemLog.builder()
-                .displayId("TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
-                .type("SECURITY")
-                .status("SUCCESS")
-                .diff("0x0000...0000")
+        if (integrityStatusChanged) {
+            systemLogRepository.save(SystemLog.builder()
+                    .displayId("TX-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
+                    .type("SECURITY")
+                    .status("SUCCESS")
+                    .diff("0x0000...0000")
                 .detail("상세 정보")
                 .build());
+        }
                 
         return result;
     }

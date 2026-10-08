@@ -10,7 +10,10 @@ import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
 import com.Nbbang.backend.domain.product.service.BlockchainService;
 import com.Nbbang.backend.domain.product.service.ProductHashService;
+import com.Nbbang.backend.domain.product.service.ProductService;
 import com.Nbbang.backend.domain.payment.repository.PaymentRepository;
+import com.Nbbang.backend.domain.report.entity.UserReportCount;
+import com.Nbbang.backend.domain.report.repository.UserReportCountRepository;
 import com.Nbbang.backend.domain.review.entity.Sentiment;
 import com.Nbbang.backend.domain.review.repository.ReviewRepository;
 import com.Nbbang.backend.global.exception.CustomException;
@@ -25,6 +28,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -39,6 +43,8 @@ public class AdminService {
     private final SystemLogService systemLogService;
     private final ReviewRepository reviewRepository;
     private final PaymentRepository paymentRepository;
+    private final ProductService productService;
+    private final UserReportCountRepository userReportCountRepository;
 
     @Autowired
     public AdminService(
@@ -49,7 +55,9 @@ public class AdminService {
             ProductHashService productHashService,
             SystemLogService systemLogService,
             ReviewRepository reviewRepository,
-            PaymentRepository paymentRepository) {
+            PaymentRepository paymentRepository,
+            ProductService productService,
+            UserReportCountRepository userReportCountRepository) {
         this.userAccountRepository = userAccountRepository;
         this.productRepository = productRepository;
         this.notificationRepository = notificationRepository;
@@ -58,6 +66,8 @@ public class AdminService {
         this.systemLogService = systemLogService;
         this.reviewRepository = reviewRepository;
         this.paymentRepository = paymentRepository;
+        this.productService = productService;
+        this.userReportCountRepository = userReportCountRepository;
     }
 
     // 기존 단위 테스트와의 호환용 생성자. 운영 환경에서는 위의 전체 생성자를 사용한다.
@@ -68,7 +78,18 @@ public class AdminService {
             BlockchainService blockchainService,
             ProductHashService productHashService) {
         this(userAccountRepository, productRepository, notificationRepository,
-                blockchainService, productHashService, null, null, null);
+                blockchainService, productHashService, null, null, null, null, null);
+    }
+
+    AdminService(
+            UserAccountRepository userAccountRepository,
+            ProductRepository productRepository,
+            NotificationRepository notificationRepository,
+            BlockchainService blockchainService,
+            ProductHashService productHashService,
+            ProductService productService) {
+        this(userAccountRepository, productRepository, notificationRepository,
+                blockchainService, productHashService, null, null, null, productService, null);
     }
 
     @Transactional(readOnly = true)
@@ -139,6 +160,7 @@ public class AdminService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getRecentProducts() {
+        Set<Long> tamperedProductIds = productService.getTamperedProductIds();
         return productRepository.findTop5ByOrderByCreatedAtDesc().stream()
             .map(product -> {
                 Map<String, Object> map = new HashMap<>();
@@ -153,8 +175,9 @@ public class AdminService {
                         currentStatus = "CLOSED_SUCCESS";
                     }
                 }
-                boolean isSuspicious = product.getPrice() != null && product.getPrice().intValue() > 500000;
-                if (isSuspicious) {
+                boolean isTampered = "FORGED".equals(product.getIntegrityStatus())
+                        || tamperedProductIds.contains(product.getProductId());
+                if (isTampered) {
                     currentStatus = "TAMPERED";
                 }
                 map.put("status", currentStatus);
@@ -197,6 +220,10 @@ public class AdminService {
     // 판매자 통계 목록 조회
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getSellersStatsList() {
+        Map<String, UserReportCount> reportCountsByEmail = new HashMap<>();
+        userReportCountRepository.findAll().forEach(reportCount ->
+                reportCountsByEmail.put(reportCount.getMemberEmail(), reportCount));
+
         return userAccountRepository.findByRoleOrderByCreatedAtDesc("ROLE_SELLER").stream()
             .map(seller -> {
                 Map<String, Object> map = new HashMap<>();
@@ -234,10 +261,13 @@ public class AdminService {
                 double rating = reviewCount == 0
                         ? 0
                         : Math.round(((likeCount * 5.0 + sosoCount * 2.5) / reviewCount) * 10) / 10.0;
+                UserReportCount reportCount = reportCountsByEmail.get(email);
                         
                 map.put("productCount", productCount);
                 map.put("totalRevenue", totalRevenue);
                 map.put("rating", rating);
+                map.put("postReportCount", reportCount == null ? 0 : reportCount.getPostReportCount());
+                map.put("chatReportCount", reportCount == null ? 0 : reportCount.getChatReportCount());
                 return map;
             })
             .collect(Collectors.toList());
@@ -246,6 +276,7 @@ public class AdminService {
     // 어드민용 전체 상품 리스트 조회
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getAllProductsForAdmin() {
+        Set<Long> tamperedProductIds = productService.getTamperedProductIds();
         return productRepository.findAll().stream()
             .sorted(java.util.Comparator.comparing(Product::getCreatedAt).reversed())
             .map(product -> {
@@ -276,13 +307,15 @@ public class AdminService {
                 }
                 map.put("ratio", ratio);
                 
-                boolean isSuspicious = product.getPrice() != null && product.getPrice().intValue() > 500000;
-                if (isSuspicious) {
+                boolean isTampered = "FORGED".equals(product.getIntegrityStatus())
+                        || tamperedProductIds.contains(product.getProductId());
+                if (isTampered) {
                     currentStatus = "TAMPERED";
                 }
                 
                 map.put("status", currentStatus);
-                map.put("suspicious", isSuspicious);
+                map.put("suspicious", isTampered);
+                map.put("integrityTampered", isTampered);
                 
                 return map;
             })

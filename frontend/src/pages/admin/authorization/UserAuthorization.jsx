@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
@@ -16,7 +15,6 @@ import {
 import AdminHeader from '../../../components/admin/AdminHeader';
 
 const REPORTS_PER_PAGE = 10;
-const TEMP_REPORT_COUNTS = [4, 3, 2, 4];
 const TEMP_REPORT_REASONS = [
   '상품 정보가 실제 내용과 다릅니다.',
   '거래 관련 문의에 응답하지 않았습니다.',
@@ -24,11 +22,13 @@ const TEMP_REPORT_REASONS = [
   '판매 조건 안내가 충분하지 않습니다.',
 ];
 
-const getReportCount = (seller, index) => seller.reportCount ?? TEMP_REPORT_COUNTS[index % TEMP_REPORT_COUNTS.length];
+const getProductReportCount = (seller) => Number(seller.postReportCount || 0);
+const getChatReportCount = (seller) => Number(seller.chatReportCount || 0);
+const getReportCount = (seller) => getProductReportCount(seller) + getChatReportCount(seller);
 
-// TODO: 신고 API가 추가되면 이 함수와 TEMP_REPORT_* 상수를 API 응답으로 교체한다.
+// TODO: 상세 신고 API가 추가되면 임시 신고 로그 내용을 API 응답으로 교체한다.
 const buildTemporaryReportLogs = (sellers) => sellers.flatMap((seller, sellerIndex) => (
-  Array.from({ length: getReportCount(seller, sellerIndex) }, (_, reportIndex) => ({
+  Array.from({ length: getReportCount(seller) }, (_, reportIndex) => ({
     id: `temp-report-${sellerIndex}-${reportIndex}`,
     sellerIndex,
     sellerName: seller.nickname || '이름 없음',
@@ -172,25 +172,27 @@ const UserAuthorization = () => {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left">
+              <table className="w-full min-w-[900px] text-left">
                 <thead>
                   <tr className="border-y border-gray-200 bg-gray-50 text-sm text-gray-500">
                     <th className="px-5 py-4"><SortButton sortKey="name">판매자 이름</SortButton></th>
                     <th className="px-5 py-4 text-right"><SortButton sortKey="productCount" align="right">상품 개수</SortButton></th>
                     <th className="px-5 py-4 text-right"><SortButton sortKey="rating" align="right">평점</SortButton></th>
                     <th className="px-5 py-4 text-right"><SortButton sortKey="totalRevenue" align="right">수익</SortButton></th>
-                    <th className="px-5 py-4 text-right font-bold">신고 횟수</th>
+                    <th className="px-5 py-4 text-right font-bold text-red-600">상품 신고 횟수</th>
+                    <th className="px-5 py-4 text-right font-bold text-red-600">채팅 신고 횟수</th>
                   </tr>
                 </thead>
                 <tbody>
                   {isLoading ? (
-                    <tr><td colSpan="5" className="px-5 py-10 text-center font-medium text-gray-400">판매자 정보를 불러오는 중입니다.</td></tr>
+                    <tr><td colSpan="6" className="px-5 py-10 text-center font-medium text-gray-400">판매자 정보를 불러오는 중입니다.</td></tr>
                   ) : sellers.length === 0 ? (
-                    <tr><td colSpan="5" className="px-5 py-10 text-center font-medium text-gray-400">등록된 판매자가 없습니다.</td></tr>
+                    <tr><td colSpan="6" className="px-5 py-10 text-center font-medium text-gray-400">등록된 판매자가 없습니다.</td></tr>
                   ) : (
                     sortedSellers.map((seller) => {
                       const sourceIndex = sellers.indexOf(seller);
-                      const reportCount = getReportCount(seller, sourceIndex);
+                      const productReportCount = getProductReportCount(seller);
+                      const chatReportCount = getChatReportCount(seller);
                       return (
                         <tr key={`${seller.email}-${sourceIndex}`} className="border-b border-gray-100 hover:bg-gray-50/70">
                           <td className="px-5 py-4">
@@ -206,9 +208,18 @@ const UserAuthorization = () => {
                             <button
                               type="button"
                               onClick={() => openReportLog(seller)}
-                              className={`inline-flex items-center gap-1 font-bold underline-offset-4 hover:underline ${reportCount > 0 ? 'text-red-600' : 'text-gray-500'}`}
+                              className="inline-flex font-bold text-red-600 underline-offset-4 hover:underline"
                             >
-                              <AlertTriangle size={15} />{reportCount}건
+                              {productReportCount}건
+                            </button>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() => openReportLog(seller)}
+                              className="inline-flex font-bold text-red-600 underline-offset-4 hover:underline"
+                            >
+                              {chatReportCount}건
                             </button>
                           </td>
                         </tr>
