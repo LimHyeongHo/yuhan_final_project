@@ -664,7 +664,11 @@ const HomePageV3 = () => {
         if (isCancelled) return;
 
         const mappedProducts = data
-          .filter((item) => item.type === 'BOOK' && item.status === 'OPEN' && new Date(item.deadline) >= new Date())
+          .filter((item) => item.type === 'BOOK'
+            && item.status === 'OPEN'
+            && !item.integrityTampered
+            && item.integrityStatus !== 'FORGED'
+            && new Date(item.deadline) >= new Date())
           .map(mapProduct);
         setProducts(mappedProducts);
         setIsLoading(false);

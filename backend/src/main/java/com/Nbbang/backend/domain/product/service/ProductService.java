@@ -136,7 +136,11 @@ public class ProductService {
 
     // 전체 상품 조회 로직
     public List<Product> getAllProducts() {
-        return productRepository.findAll();
+        return productRepository.findAll().stream()
+                .peek(product -> product.setIntegrityTampered(
+                        "FORGED".equals(product.getIntegrityStatus())
+                                || hasDetectedTampering(product.getProductId())))
+                .toList();
     }
 
     // 개별 상품 상세 조회 로직

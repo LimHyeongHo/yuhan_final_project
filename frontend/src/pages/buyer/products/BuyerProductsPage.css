@@ -393,6 +393,10 @@
   color: #a04b3c;
 }
 
+.buyer-product-meta strong.is-tampered {
+  color: #c44732;
+}
+
 .buyer-product-copy {
   margin-top: 9px;
 }

@@ -21,7 +21,7 @@ import {
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import './BuyerProductsPage.css';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 12;
 
 const BuyerProductsPage = () => {
   const [searchParams] = useSearchParams();
@@ -67,7 +67,9 @@ const BuyerProductsPage = () => {
           current: item.currentCount,
           target: item.targetCount,
           price: item.price.toLocaleString() + '원',
-          status: item.status === 'OPEN' ? '모집 중' : '마감됨',
+          status: item.integrityTampered || item.integrityStatus === 'FORGED'
+            ? '위변조 위험'
+            : item.status === 'OPEN' ? '모집 중' : '마감됨',
           deadline: item.deadline ? item.deadline.split('T')[0] : '기한 없음',
           thumbnail: getDisplayProductImageUrl(item.imageUrl),
           description: item.description || '',
@@ -357,7 +359,7 @@ const BuyerProductsPage = () => {
                     <div className="buyer-product-info">
                       <div className="buyer-product-meta">
                         <span>{item.major}</span>
-                        <strong className={item.status === '모집 중' ? 'is-open' : 'is-closed'}>
+                        <strong className={item.status === '모집 중' ? 'is-open' : item.status === '위변조 위험' ? 'is-tampered' : 'is-closed'}>
                           {item.status}
                         </strong>
                       </div>
