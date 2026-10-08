@@ -9,10 +9,14 @@ import com.Nbbang.backend.domain.chat.service.ChatMessageService;
 import com.Nbbang.backend.domain.chat.service.ChatRoomService;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
+import com.Nbbang.backend.global.exception.ErrorResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
+import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
@@ -30,6 +34,7 @@ import java.util.List;
  * 구독:
  * stompClient.subscribe('/topic/chat/1', callback);
  */
+@Slf4j
 @Controller
 @RequiredArgsConstructor
 public class ChatController {
@@ -100,5 +105,20 @@ public class ChatController {
         if (!recipientLeft) {
             messagingTemplate.convertAndSend("/topic/chat/user/" + recipient, response);
         }
+    }
+
+    // [신규] 전송 검증 실패를 보낸 연결에만 알림 (@RestControllerAdvice는 HTTP 전용이라 STOMP 오류는 여기서 처리)
+    @MessageExceptionHandler(CustomException.class)
+    @SendToUser(destinations = "/queue/errors", broadcast = false)
+    public ErrorResponse handleSendError(CustomException e) {
+        return ErrorResponse.of(e.getErrorCode(), "/app/chat.message");
+    }
+
+    // [신규] 예상 못한 오류는 원문을 로그에만 남기고 고정 문구로 알림 (GlobalExceptionHandler와 같은 원칙)
+    @MessageExceptionHandler(Exception.class)
+    @SendToUser(destinations = "/queue/errors", broadcast = false)
+    public ErrorResponse handleUnexpectedSendError(Exception e) {
+        log.error("채팅 메시지 전송 처리 중 예외", e);
+        return ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR, "/app/chat.message");
     }
 }
