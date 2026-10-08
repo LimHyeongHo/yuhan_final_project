@@ -239,6 +239,7 @@ public class AdminService {
                 }
                 
                 map.put("email", maskedEmail);
+                map.put("sellerEmail", email);
                 map.put("nickname", seller.getNickname());
                 
                 // 판매자 상품들

@@ -33,6 +33,11 @@ const BuyerProductDetailPage = () => {
   const [seller, setSeller] = useState(null); // [신규] 판매자 프로필 요약 (닉네임/거래 만족도/후기 수)
   const [showSellerSatInfo, setShowSellerSatInfo] = useState(false); // [신규] 거래 만족도 설명 박스 토글
 
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDetail, setReportDetail] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
   useEffect(() => {
     fetch(`http://localhost:8080/api/products/${id}`)
       .then(res => {
@@ -234,6 +239,52 @@ const BuyerProductDetailPage = () => {
   };
 
   // [신규] 문의하기 버튼 클릭 핸들러 — 채팅방 생성 후 채팅방 목록으로 이동
+  const closeReportModal = () => {
+    if (isSubmittingReport) return;
+    setIsReportModalOpen(false);
+    setReportReason('');
+    setReportDetail('');
+  };
+
+  const handleProductReport = async () => {
+    if (!reportReason) {
+      alert('신고 사유를 선택해주세요.');
+      return;
+    }
+
+    setIsSubmittingReport(true);
+    try {
+      const response = await fetch(`http://localhost:8080/api/products/${product.id}/reports`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reportReason, detail: reportDetail }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          throw new Error('로그인이 필요합니다. 다시 로그인해주세요.');
+        }
+        if (response.status === 409) {
+          throw new Error('이미 이 상품을 신고했습니다.');
+        }
+        if (response.status === 403) {
+          throw new Error('본인 상품은 신고할 수 없습니다.');
+        }
+        throw new Error(error.message || error.error || '신고 처리에 실패했습니다.');
+      }
+
+      alert('신고가 접수되었습니다. 검토 후 조치하겠습니다.');
+      setIsReportModalOpen(false);
+      setReportReason('');
+      setReportDetail('');
+    } catch (error) {
+      alert(error.message || '신고 처리에 실패했습니다.');
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
   const handleChatInquiry = async () => {
     if (!localStorage.getItem('user_nickname')) {
       alert('로그인이 필요합니다');
@@ -371,6 +422,15 @@ const BuyerProductDetailPage = () => {
               className="p-2 text-gray-400 hover:text-gray-600 bg-white border border-gray-200 rounded-xl transition shadow-sm"
             >
               <Share2 size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsReportModalOpen(true)}
+              disabled={isOwnProduct}
+              title={isOwnProduct ? '본인 상품은 신고할 수 없습니다' : '상품 신고'}
+              className="p-2 text-gray-400 hover:text-red-600 bg-white border border-gray-200 rounded-xl transition shadow-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <AlertTriangle size={16} />
             </button>
           </div>
         </div>
@@ -683,6 +743,68 @@ const BuyerProductDetailPage = () => {
           onClose={() => setShowReceiptModal(false)}
         />
       )}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/45 p-4" role="dialog" aria-modal="true" aria-labelledby="product-report-title">
+          <section className="w-full max-w-md rounded-[24px] bg-white p-6 shadow-2xl">
+            <header className="flex items-center justify-between border-b border-gray-100 pb-4">
+              <h2 id="product-report-title" className="flex items-center gap-2 text-xl font-extrabold text-gray-900"><AlertTriangle size={21} className="text-red-600" />상품 신고</h2>
+              <button type="button" onClick={closeReportModal} disabled={isSubmittingReport} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed" aria-label="신고 팝업 닫기"><X size={20} /></button>
+            </header>
+
+            <div>
+              <div className="mt-5">
+                <p className="pl-1 text-sm font-extrabold text-gray-800">신고 대상 판매자</p>
+                <div className="mt-3 rounded-2xl border border-gray-200 bg-gray-100 px-4 py-3 text-sm font-bold text-gray-600">
+                  {seller?.nickname || product.sellerEmail || '판매자 정보 없음'}
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <p className="pl-1 text-sm font-extrabold text-gray-800">신고 상품</p>
+                <div className="mt-3 rounded-2xl border border-gray-200 bg-gray-100 px-4 py-3 text-sm font-bold text-gray-600">
+                  {product.title}
+                </div>
+              </div>
+              <div className="mt-5">
+                <p className="pl-1 text-sm font-extrabold text-gray-800">신고 사유</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {['상품 정보와 다름', '부적절한 상품 설명', '거래 조건 미고지', '기타'].map((reason) => (
+                    <button
+                      key={reason}
+                      type="button"
+                      onClick={() => setReportReason(reason)}
+                      disabled={isSubmittingReport}
+                      className={`rounded-full border px-3 py-1.5 text-sm font-bold transition ${reportReason === reason ? 'border-red-200 bg-red-50 text-red-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <label htmlFor="product-report-detail" className="pl-1 text-sm font-extrabold text-gray-800">상세 내용 <span className="font-medium text-gray-400">(선택)</span></label>
+              <textarea
+                id="product-report-detail"
+                value={reportDetail}
+                onChange={(event) => setReportDetail(event.target.value.slice(0, 1000))}
+                disabled={isSubmittingReport}
+                placeholder="신고 사유를 자세히 입력해주세요."
+                className="mt-3 min-h-32 w-full resize-none rounded-2xl border border-gray-200 p-3 text-sm text-gray-700 outline-none transition focus:border-red-300 focus:ring-2 focus:ring-red-100 disabled:bg-gray-50"
+              />
+              <p className="mt-1 text-right text-xs font-medium text-gray-400">{reportDetail.length}/1000</p>
+            </div>
+
+            <p className="mt-4 text-xs leading-relaxed text-gray-400">신고 내용은 관리자 검토를 위해 저장됩니다. <br />허위 신고를 반복하면 이용이 제한될 수 있습니다.</p>
+
+            <footer className="mt-5 flex gap-2">
+              <button type="button" onClick={closeReportModal} disabled={isSubmittingReport} className="flex-1 rounded-xl bg-gray-100 py-3 font-bold text-gray-600 transition hover:bg-gray-200 disabled:cursor-not-allowed">취소</button>
+              <button type="button" onClick={handleProductReport} disabled={!reportReason || isSubmittingReport} className="flex-1 rounded-xl bg-red-600 py-3 font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-200">{isSubmittingReport ? '신고 중...' : '신고하기'}</button>
+            </footer>
+          </section>
+        </div>
+      )}
     </div>
   );
 };
@@ -756,10 +878,10 @@ const SmartReceiptModal = ({ verification, onClose }) => {
       />
 
       {/* 모달 컨텐츠 (Glassmorphism 카드) */}
-      <div className="relative w-full max-w-md bg-white/90 backdrop-blur-md border border-white/40 shadow-[0_0_40px_rgba(59,130,246,0.15)] rounded-3xl overflow-hidden flex flex-col transform transition-all">
+      <div className="relative w-full max-w-md bg-white border border-gray-200 shadow-[0_0_40px_rgba(59,130,246,0.15)] rounded-3xl overflow-hidden flex flex-col transform transition-all">
 
         {/* 헤더 */}
-        <div className="px-6 py-5 border-b border-gray-200/60 flex justify-between items-center bg-white/50">
+        <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center bg-white">
           <div className="flex items-center gap-2">
             <div className={`p-1.5 rounded-full ${ui.bgHeader}`}>
               {ui.headerIcon}
