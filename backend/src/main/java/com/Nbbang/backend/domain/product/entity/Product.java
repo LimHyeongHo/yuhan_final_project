@@ -67,6 +67,12 @@ public class Product {
     @Column(name = "blockchain_updated_at")
     private LocalDateTime blockchainUpdatedAt;
 
+    @Column(name = "integrity_status", length = 30)
+    private String integrityStatus = "UNVERIFIED";
+
+    @Transient
+    private boolean integrityTampered;
+
     @Column(name = "original_price")
     private BigDecimal originalPrice; // 프론트에서 정가 정보가 넘어올 경우 대비, 기본은 price 와 같게 처리
 
@@ -120,6 +126,9 @@ public class Product {
         }
         if (this.blockchainUpdatedAt == null) {
             this.blockchainUpdatedAt = LocalDateTime.now();
+        }
+        if (this.integrityStatus == null) {
+            this.integrityStatus = "UNVERIFIED";
         }
     }
 

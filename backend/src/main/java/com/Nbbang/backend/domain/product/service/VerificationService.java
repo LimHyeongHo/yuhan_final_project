@@ -91,6 +91,8 @@ public class VerificationService {
         // 3. 해시 비교 (FORGED 판별)
         if (!cleanCurrent.equals(cleanBc)) {
             result.put("status", "FORGED");
+            product.setIntegrityStatus("FORGED");
+            productRepository.save(product);
             result.put("message", "데이터 위변조가 감지되었습니다. (DB: " + cleanCurrent.substring(0,6) + " != BC: " + cleanBc.substring(0, Math.min(6, cleanBc.length())) + ")");
             
             // 보안 로그 기록 (TAMPERED)
@@ -111,6 +113,11 @@ public class VerificationService {
             }
             
             return result;
+        }
+
+        if (!"VALID".equals(product.getIntegrityStatus())) {
+            product.setIntegrityStatus("VALID");
+            productRepository.save(product);
         }
 
         // 4. 카카오 도서 API 정가와 비교 (ANCHORING_WARNING, GOOD_DEAL 판별)

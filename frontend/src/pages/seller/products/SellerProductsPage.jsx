@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ImageOff, Package, Search, Filter, Edit2, Trash2, CheckCircle, Clock, ExternalLink } from 'lucide-react';
+import { ImageOff, Package, Search, Filter, Edit2, Trash2, CheckCircle, Clock, ExternalLink, AlertTriangle } from 'lucide-react';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
 
@@ -21,14 +21,17 @@ const SellerProductsPage = () => {
           price: item.price,
           currentCount: item.currentCount,
           targetCount: item.targetCount,
+          integrityTampered: Boolean(item.integrityTampered),
           // [fix/seller-page] 정원 달성 시 백엔드가 즉시 status를 CLOSED_SUCCESS로 전환하므로(ProductService.joinProduct),
           // 그 경우를 최우선으로 '목표달성'에 매핑한다. OPEN인데 이미 정원이 찬 경우(정상적으로는 발생하지 않아야 함)도
           // 방어적으로 같은 라벨을 유지해 라벨링과 아래 카운터가 항상 같은 기준을 쓰도록 통일한다.
-          status: item.status === 'CLOSED_SUCCESS'
-            ? '목표달성'
-            : item.status === 'OPEN'
-              ? (item.currentCount >= item.targetCount ? '목표달성' : '진행중')
-              : '마감됨',
+          status: item.integrityTampered
+            ? '위변조 위험'
+            : item.status === 'CLOSED_SUCCESS'
+              ? '목표달성'
+              : item.status === 'OPEN'
+                ? (item.currentCount >= item.targetCount ? '목표달성' : '진행중')
+                : '마감됨',
           date: item.createdAt ? item.createdAt.split('T')[0].replace(/-/g, '.') : '알 수 없음'
         }));
         setProducts(formattedData);
@@ -171,6 +174,7 @@ const SellerProductsPage = () => {
               {filteredProducts.map((item) => {
                 const ratio = Math.min(Math.round((item.currentCount / item.targetCount) * 100), 100);
                 const isCompleted = item.status === '목표달성';
+                const isTampered = item.status === '위변조 위험';
 
                 return (
                   <div key={item.id} className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm grid grid-cols-1 md:grid-cols-12 gap-6 items-center hover:shadow-md transition">
@@ -189,7 +193,7 @@ const SellerProductsPage = () => {
                       </div>
                       <div className="flex flex-col gap-1 w-full overflow-hidden">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase border ${isCompleted ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded uppercase border ${isTampered ? 'bg-red-50 text-red-600 border-red-100' : isCompleted ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
                             {item.status}
                           </span>
                           <span className="text-[10px] font-mono font-bold text-gray-400">#{item.id}</span>

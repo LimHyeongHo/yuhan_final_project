@@ -2,6 +2,9 @@ package com.Nbbang.backend.domain.product.service; // 🚨 본인 경로에 맞�
 
 import com.Nbbang.backend.domain.auth.entity.UserAccount;
 import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
+import com.Nbbang.backend.domain.admin.security.entity.SecuritySimulationStatus;
+import com.Nbbang.backend.domain.admin.security.repository.SecuritySimulationRepository;
+import com.Nbbang.backend.domain.log.repository.SystemLogRepository;
 import com.Nbbang.backend.domain.payment.repository.PaymentRepository;
 import com.Nbbang.backend.domain.product.entity.Participation;
 import com.Nbbang.backend.domain.product.entity.ProductPriceHistory;
@@ -53,6 +56,8 @@ public class ProductService {
     private final VerificationService verificationService;
     private final PaymentRepository paymentRepository;
     private final ProductPriceHistoryRepository productPriceHistoryRepository;
+    private final SecuritySimulationRepository securitySimulationRepository;
+    private final SystemLogRepository systemLogRepository;
 
     // 로컬 업로드 경로 설정 (프로젝트 실행 위치의 uploads 폴더)
     private final String uploadDir = System.getProperty("user.dir") + "/uploads/";
@@ -163,6 +168,9 @@ public class ProductService {
     public List<Product> getProductsBySellerEmail(String sellerEmail) {
         return productRepository.findBySellerEmailOrderByCreatedAtDesc(sellerEmail).stream()
                 .filter(product -> "BOOK".equals(product.getType()))
+                .peek(product -> product.setIntegrityTampered(
+                        "FORGED".equals(product.getIntegrityStatus())
+                                || hasDetectedTampering(product.getProductId())))
                 .toList();
     }
 
@@ -460,6 +468,7 @@ public class ProductService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getSellerOrders(String sellerEmail) {
         List<Participation> participations = participationRepository.findByProduct_SellerEmailOrderByJoinDateDesc(sellerEmail);
+        Map<Long, Boolean> integrityTamperedByProduct = new java.util.HashMap<>();
         return participations.stream().filter(p -> "BOOK".equals(p.getProduct().getType())).map(p -> {
             Map<String, Object> map = new java.util.HashMap<>();
             map.put("participationId", p.getId());
@@ -472,8 +481,32 @@ public class ProductService {
             map.put("productTitle", product.getTitle());
             map.put("productPrice", product.getPrice());
             map.put("productStatus", product.getStatus());
+            map.put("blockchainStatus", product.getBlockchainStatus());
+            boolean integrityTampered = "FORGED".equals(product.getIntegrityStatus())
+                    || integrityTamperedByProduct.computeIfAbsent(
+                    product.getProductId(),
+                    this::hasDetectedTampering);
+            map.put("integrityTampered", integrityTampered);
             
             return map;
         }).collect(java.util.stream.Collectors.toList());
+    }
+
+    private boolean hasDetectedTampering(Long productId) {
+        if (securitySimulationRepository.existsByProductIdAndStatusIn(
+                productId,
+                List.of(SecuritySimulationStatus.FORGED_DETECTED, SecuritySimulationStatus.HASH_MISMATCH))) {
+            return true;
+        }
+
+        String productIdToken = "productId=" + productId;
+        return systemLogRepository.findByTypeAndStatus("SECURITY", "TAMPERED").stream()
+                .map(log -> log.getDiff())
+                .filter(java.util.Objects::nonNull)
+                .anyMatch(diff -> {
+                    int tokenIndex = diff.indexOf(productIdToken);
+                    int nextIndex = tokenIndex + productIdToken.length();
+                    return tokenIndex >= 0 && (nextIndex == diff.length() || !Character.isDigit(diff.charAt(nextIndex)));
+                });
     }
 }
