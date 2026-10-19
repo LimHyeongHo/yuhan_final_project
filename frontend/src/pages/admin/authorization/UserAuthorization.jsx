@@ -411,30 +411,31 @@ const UserAuthorization = () => {
                   <thead className="text-gray-500" >
                     <tr className="border-b border-gray-200">
                       {/* 채팅 신고 — 구매자도 신고당하므로 "판매자" → "신고 대상자", 상품명 자리에 채팅은 메시지 내용 */}
-                      {!selectedTarget && <th className="py-3 pr-4 font-bold px-4">신고 대상자</th>}
-                      <th className="py-4 pr-3 px-4 font-bold">신고 대상</th>
-                      <th className="py-3 pr-4 px-4 font-bold">신고 사유</th>
-                      <th className="py-3 pr-4 px-4 font-bold">상세 내용</th>
-                      <th className="py-3 pr-4 px-4 text-center font-bold">신고 일자</th>
-                      <th className="py-3 px-4 text-center font-bold">상태</th>
+                      {/* 채팅 신고 — 열 제목·짧은 값은 줄바꿈 없이, 긴 글(신고 대상·상세 내용)은 한 줄 말줄임 + 마우스 올리면 전체 */}
+                      {!selectedTarget && <th className="whitespace-nowrap py-3 pr-4 font-bold px-4">신고 대상자</th>}
+                      <th className="whitespace-nowrap py-4 pr-3 px-4 font-bold">신고 대상</th>
+                      <th className="whitespace-nowrap py-3 pr-4 px-4 font-bold">신고 사유</th>
+                      <th className="whitespace-nowrap py-3 pr-4 px-4 font-bold">상세 내용</th>
+                      <th className="whitespace-nowrap py-3 pr-4 px-4 text-center font-bold">신고 일자</th>
+                      <th className="whitespace-nowrap py-3 px-4 text-center font-bold">상태</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pagedReportLogs.map((report) => (
                       <tr key={`${report.type}-${report.id}`} onClick={() => setSelectedReport(report)} className="cursor-pointer border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                        {!selectedTarget && <td className="py-4 pr-4 px-4 font-bold text-gray-800">{report.sellerName ?? report.reportedName}</td>}
+                        {!selectedTarget && <td className="whitespace-nowrap py-4 pr-4 px-4 font-bold text-gray-800">{report.sellerName ?? report.reportedName}</td>}
                         <td className="py-4 pr-4 px-4 font-bold text-gray-800">
                           <span className="flex items-center gap-2">
-                            <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700">
+                            <span className="shrink-0 whitespace-nowrap rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700">
                               {report.type === 'CHAT' ? '채팅' : '상품'}
                             </span>
-                            <span className="max-w-[220px] truncate">{report.type === 'CHAT' ? report.messageContent : report.productName}</span>
+                            <span className="block max-w-[200px] truncate" title={report.type === 'CHAT' ? report.messageContent : report.productName}>{report.type === 'CHAT' ? report.messageContent : report.productName}</span>
                           </span>
                         </td>
-                        <td className="py-4 pr-4 px-4 text-gray-600">{report.reason}</td>
-                        <td className="py-4 pr-4 px-4 text-gray-600">{report.detail || '-'}</td>
-                        <td className="py-4 pr-4 px-4 text-center text-gray-500">{report.reportedAt}</td>
-                        <td className="py-4 px-4 text-center"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${(REPORT_STATUS[report.statusCode] || REPORT_STATUS.PENDING).className}`}>{(REPORT_STATUS[report.statusCode] || REPORT_STATUS.PENDING).label}</span></td>
+                        <td className="whitespace-nowrap py-4 pr-4 px-4 text-gray-600">{report.reason}</td>
+                        <td className="py-4 pr-4 px-4 text-gray-600"><span className="block max-w-[200px] truncate" title={report.detail || ''}>{report.detail || '-'}</span></td>
+                        <td className="whitespace-nowrap py-4 pr-4 px-4 text-center text-gray-500">{report.reportedAt}</td>
+                        <td className="whitespace-nowrap py-4 px-4 text-center"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${(REPORT_STATUS[report.statusCode] || REPORT_STATUS.PENDING).className}`}>{(REPORT_STATUS[report.statusCode] || REPORT_STATUS.PENDING).label}</span></td>
                       </tr>
                     ))}
                   </tbody>
