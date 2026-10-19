@@ -7,6 +7,7 @@ import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.repository.ProductRepository;
 import com.Nbbang.backend.domain.product.service.BlockchainService;
 import com.Nbbang.backend.domain.product.service.ProductHashService;
+import com.Nbbang.backend.domain.product.service.ProductService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -28,6 +30,7 @@ class AdminServiceTest {
     private ProductRepository productRepository;
     private BlockchainService blockchainService;
     private ProductHashService productHashService;
+    private ProductService productService;
     private AdminService adminService;
 
     @BeforeEach
@@ -37,12 +40,15 @@ class AdminServiceTest {
         NotificationRepository notificationRepository = mock(NotificationRepository.class);
         blockchainService = mock(BlockchainService.class);
         productHashService = mock(ProductHashService.class);
+        productService = mock(ProductService.class);
+        when(productService.getTamperedProductIds()).thenReturn(Set.of());
         adminService = new AdminService(
                 userAccountRepository,
                 productRepository,
                 notificationRepository,
                 blockchainService,
-                productHashService);
+                productHashService,
+                productService);
     }
 
     @Test
@@ -141,6 +147,26 @@ class AdminServiceTest {
         assertThat(result).singleElement().satisfies(item -> {
             assertThat(item).containsEntry("type", "BOOK");
             assertThat(item).containsEntry("imageUrl", "https://example.com/cover.jpg");
+        });
+    }
+
+    @Test
+    void adminProductListMarksDetectedTamperingAsTampered() {
+        Product product = new Product();
+        product.setProductId(6L);
+        product.setPrice(BigDecimal.valueOf(20_000));
+        product.setCurrentCount(0);
+        product.setTargetCount(5);
+        product.setStatus("OPEN");
+        product.setCreatedAt(LocalDateTime.of(2026, 9, 28, 12, 0));
+        when(productRepository.findAll()).thenReturn(List.of(product));
+        when(productService.getTamperedProductIds()).thenReturn(Set.of(6L));
+
+        List<Map<String, Object>> result = adminService.getAllProductsForAdmin();
+
+        assertThat(result).singleElement().satisfies(item -> {
+            assertThat(item).containsEntry("status", "TAMPERED");
+            assertThat(item).containsEntry("suspicious", true);
         });
     }
 

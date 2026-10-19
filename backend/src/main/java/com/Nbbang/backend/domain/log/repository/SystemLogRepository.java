@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface SystemLogRepository extends JpaRepository<SystemLog, Long> {
     List<SystemLog> findByTypeOrderByTimestampDesc(String type);
+
+    List<SystemLog> findByTypeAndStatus(String type, String status);
 }

@@ -19,6 +19,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class VerificationServiceTest {
@@ -111,5 +112,37 @@ class VerificationServiceTest {
                 .containsEntry("officialPrice", new BigDecimal("10000"));
         assertThat(product.getOfficialPrice()).isEqualByComparingTo("10000");
         verify(productRepository).save(product);
+    }
+
+    @Test
+    void repeatedForgedVerificationCreatesOneSecurityLog() {
+        product.setPrice(new BigDecimal("20000"));
+        when(blockchainService.readHash(1L))
+                .thenReturn(BlockchainService.BlockchainReadResult.success("0xabcdef"));
+        when(productHashService.buildDataString(product)).thenReturn("1||20000");
+        when(productHashService.calculateHash(product)).thenReturn("0x123456");
+        when(productRepository.updateIntegrityStatusIfDifferent(1L, "FORGED"))
+                .thenReturn(1, 0);
+
+        verificationService.verifyProduct(1L);
+        verificationService.verifyProduct(1L);
+
+        verify(systemLogRepository, times(1)).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void repeatedValidVerificationCreatesOneSecurityLog() {
+        product.setPrice(new BigDecimal("20000"));
+        when(blockchainService.readHash(1L))
+                .thenReturn(BlockchainService.BlockchainReadResult.success("0xabcdef"));
+        when(productHashService.buildDataString(product)).thenReturn("1||20000");
+        when(productHashService.calculateHash(product)).thenReturn("0xabcdef");
+        when(productRepository.updateIntegrityStatusIfDifferent(1L, "VALID"))
+                .thenReturn(1, 0);
+
+        verificationService.verifyProduct(1L);
+        verificationService.verifyProduct(1L);
+
+        verify(systemLogRepository, times(1)).save(org.mockito.ArgumentMatchers.any());
     }
 }

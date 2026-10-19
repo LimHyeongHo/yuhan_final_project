@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Package, Users, Calendar, User, ShoppingCart, Loader } from 'lucide-react';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 
+const hasBlockchainError = (status) => status === 'FAILED_RETRYABLE' || status === 'FAILED_FINAL';
+const isTamperedTransaction = (order) => Boolean(order.integrityTampered) || hasBlockchainError(order.blockchainStatus);
+
 const SellerOrdersPage = () => {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,11 +90,11 @@ const SellerOrdersPage = () => {
                         <span className="font-bold text-gray-900">{order.productPrice?.toLocaleString()}원</span>
                       </td>
                       <td className="px-6 py-5">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${order.productStatus === 'CLOSED_SUCCESS' ? 'bg-green-100 text-green-700' :
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${isTamperedTransaction(order) ? 'bg-red-100 text-red-700' : order.productStatus === 'CLOSED_SUCCESS' ? 'bg-green-100 text-green-700' :
                           order.productStatus === 'CLOSED_FAIL' ? 'bg-red-100 text-red-700' :
                             'bg-blue-100 text-blue-700'
                           }`}>
-                          {order.productStatus === 'OPEN' ? '진행중' : order.productStatus === 'CLOSED_SUCCESS' ? '성사완료' : '실패(환불)'}
+                          {isTamperedTransaction(order) ? '위변조 위험' : order.productStatus === 'OPEN' ? '진행중' : order.productStatus === 'CLOSED_SUCCESS' ? '성사완료' : '실패(환불)'}
                         </span>
                       </td>
                       <td className="px-6 py-5">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BookOpen, ImageOff, Layers, AlertTriangle, CheckCircle, Clock, Trash2, ShieldAlert } from 'lucide-react';
 import AdminHeader from '../../../components/admin/AdminHeader';
 import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
@@ -8,7 +8,16 @@ const GroupManagementPage = () => {
   const [activeTab, setActiveTab] = useState('전체 거래');
   const [syncLogs, setSyncLogs] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const productListRef = useRef(null);
   const itemsPerPage = 10;
+
+  const goToNextPage = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, Math.ceil(filteredProducts.length / itemsPerPage)));
+    if (productListRef.current) {
+      const top = productListRef.current.getBoundingClientRect().top + window.scrollY - 110;
+      window.scrollTo({ top: Math.max(top, 0), behavior: 'smooth' });
+    }
+  };
 
   const filteredProducts = products.filter(item => {
     if (activeTab === '승인 대기' && item.status !== '승인 대기') return false;
@@ -163,7 +172,7 @@ const GroupManagementPage = () => {
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* 좌측 패널: 공동구매 서적 제어 관리 현황 (2/3 영역) */}
-          <div className="lg:col-span-2 flex flex-col gap-4">
+          <div ref={productListRef} className="lg:col-span-2 flex flex-col gap-4">
             
             {/* 필터 세션 탭 라인 */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border border-gray-200 shadow-sm mb-2">
@@ -276,7 +285,7 @@ const GroupManagementPage = () => {
                     {currentPage} / {Math.ceil(filteredProducts.length / itemsPerPage)}
                   </span>
                   <button 
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredProducts.length / itemsPerPage)))}
+                    onClick={goToNextPage}
                     disabled={currentPage === Math.ceil(filteredProducts.length / itemsPerPage)}
                     className="px-3 py-1 border border-gray-200 rounded-md text-sm disabled:opacity-50 hover:bg-gray-50 bg-white"
                   >

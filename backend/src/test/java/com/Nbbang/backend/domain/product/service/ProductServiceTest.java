@@ -1,6 +1,8 @@
 package com.Nbbang.backend.domain.product.service;
 
 import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
+import com.Nbbang.backend.domain.admin.security.repository.SecuritySimulationRepository;
+import com.Nbbang.backend.domain.log.repository.SystemLogRepository;
 import com.Nbbang.backend.domain.payment.repository.PaymentRepository;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.entity.ProductPriceHistory;
@@ -54,7 +56,9 @@ class ProductServiceTest {
                 blockchainService,
                 mock(VerificationService.class),
                 paymentRepository,
-                productPriceHistoryRepository);
+                productPriceHistoryRepository,
+                mock(SecuritySimulationRepository.class),
+                mock(SystemLogRepository.class));
     }
 
     @Test
