@@ -60,6 +60,11 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     private void handleSubscribe(StompHeaderAccessor accessor) {
         String destination = accessor.getDestination();
 
+        // [신규] 사용자 전용 큐는 /user/queue/... 로만 구독 (서버가 본인 연결로 변환). 변환된 내부 주소 직접 구독은 차단
+        if (destination != null && destination.startsWith("/queue/")) {
+            throw new CustomException(ErrorCode.CHAT_ACCESS_DENIED);
+        }
+
         // 전역 알림용 개인 토픽 "/topic/chat/user/{email}" — 본인 것만 구독 허용
         String userTopicEmail = extractUserTopicEmail(destination);
         if (userTopicEmail != null) {

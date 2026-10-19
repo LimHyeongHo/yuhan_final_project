@@ -67,6 +67,8 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   const [message, setMessage] = useState('');
   // [신규] 방별 입력 임시저장 { roomId: 쓰던 글 } — 채팅 페이지를 벗어나면 초기화
   const draftsRef = useRef({});
+  // [신규] 마지막으로 보낸 텍스트 — 서버가 전송을 거부하면 입력창에 되돌려 놓기 위함
+  const lastSentRef = useRef(null);
   const [connected, setConnected] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -148,9 +150,31 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
 
     const client = new Client({
       webSocketFactory: () => new SockJS(WS_URL),
-      connectHeaders: { 'X-User-Email': currentEmail },
-      onConnect: () => setConnected(true),
+      reconnectDelay: 5000,
+      // [수정] 재연결 시 끊긴 동안 놓친 목록 변경 반영 (열린 방 메시지는 connected 변화로 재조회됨)
+      onConnect: () => {
+        setConnected(true);
+        loadRooms();
+        // [신규] 서버가 전송을 거부하면 이 연결에만 오는 에러 → 안내 모달 + 보내려던 글 복원
+        client.subscribe('/user/queue/errors', (frame) => {
+          let err;
+          try { err = JSON.parse(frame.body); } catch (e) { err = null; }
+          const last = lastSentRef.current;
+          lastSentRef.current = null;
+          if (last && activeRoomRef.current?.roomId === last.roomId) {
+            setMessage(prev => prev || last.text);
+            draftsRef.current[last.roomId] = draftsRef.current[last.roomId] || last.text;
+          }
+          setDialog({
+            message: `메시지를 보내지 못했어요.\n${err?.message || '잠시 후 다시 시도해주세요.'}`,
+            confirm: false,
+            resolve: () => {},
+          });
+        });
+      },
       onDisconnect: () => setConnected(false),
+      // [수정] 서버 종료·네트워크 끊김은 onDisconnect가 아니라 여기로 옴 → 입력 잠금 + 재연결 후 재구독되도록
+      onWebSocketClose: () => setConnected(false),
     });
 
     client.activate();
@@ -160,7 +184,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       client.deactivate();
       setConnected(false);
     };
-  }, [currentEmail]);
+  }, [currentEmail, loadRooms]);
 
   // activeRoom 변경 시 ref 동기화 (스테일 클로저 방지)
   useEffect(() => {
@@ -180,12 +204,19 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
 
   // ── 전체 방 구독 (연결되면 모든 방을 한 번에 구독) ──────────────
   const roomsKey = rooms.map(r => r.roomId).join(',');
+  // [수정] 연결이 이미 끊긴 뒤 unsubscribe하면 stompjs가 에러를 던지므로 무시 (끊긴 연결의 구독은 서버에서 이미 사라짐)
+  const clearAllSubscriptions = () => {
+    Object.values(allSubscriptionsRef.current).forEach(sub => {
+      try { sub.unsubscribe(); } catch (e) { /* 연결 끊김 */ }
+    });
+    allSubscriptionsRef.current = {};
+  };
+
   useEffect(() => {
     if (!connected || rooms.length === 0) return;
 
     // 기존 구독 해제
-    Object.values(allSubscriptionsRef.current).forEach(sub => sub.unsubscribe());
-    allSubscriptionsRef.current = {};
+    clearAllSubscriptions();
 
     rooms.forEach(room => {
       allSubscriptionsRef.current[room.roomId] = stompClientRef.current.subscribe(
@@ -224,6 +255,15 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
 
           // [CHAT-RQ-001] JOIN/LEAVE 시스템 메시지: 가운데 안내로만 추가, 안읽음은 올리지 않음
           if (msg.type === 'JOIN' || msg.type === 'LEAVE') {
+            // [수정] 다른 탭·기기에서 내가 나가거나 재입장한 경우 이 탭도 같은 탭에서 한 것처럼 동기화
+            // (열린 방 상태만 바꾸면 판매자 자동 재입장 로직이 돌아 다른 탭의 나가기를 되돌리므로 방을 닫음)
+            if (msg.senderEmail === currentEmail) {
+              if (msg.type === 'LEAVE' && isThisRoomActive) setActiveRoom(null);
+              else if (isThisRoomActive) setMessages(prev => [...prev, msg]);
+              loadRooms();
+              window.dispatchEvent(new CustomEvent('chat-rooms-changed'));
+              return;
+            }
             if (isThisRoomActive) {
               setMessages(prev => [...prev, msg]);
             }
@@ -260,10 +300,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       );
     });
 
-    return () => {
-      Object.values(allSubscriptionsRef.current).forEach(sub => sub.unsubscribe());
-      allSubscriptionsRef.current = {};
-    };
+    return clearAllSubscriptions;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, roomsKey]);
 
@@ -403,6 +440,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       destination: '/app/chat.message',
       body: JSON.stringify({ roomId: activeRoom.roomId, content: message.trim() }),
     });
+    lastSentRef.current = { roomId: activeRoom.roomId, text: message.trim() };
     setMessage('');
     delete draftsRef.current[activeRoom.roomId];
   };
@@ -512,6 +550,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
         destination: '/app/chat.message',
         body: JSON.stringify({ roomId: activeRoom.roomId, content: url, type: 'IMAGE' }),
       });
+      lastSentRef.current = null; // 이미지 전송 실패 시엔 입력창에 URL을 되돌리지 않음
     } catch (err) {
       console.error('이미지 전송 실패', err);
       showDialog('이미지 전송에 실패했습니다.');

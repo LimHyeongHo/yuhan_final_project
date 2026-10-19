@@ -92,7 +92,6 @@ export const ChatNotificationProvider = ({ children }) => {
 
     const client = new Client({
       webSocketFactory: () => new SockJS(WS_URL),
-      connectHeaders: { 'X-User-Email': email },
       reconnectDelay: 5000,
       onConnect: () => {
         client.subscribe(`/topic/chat/user/${email}`, (frame) => {
@@ -111,6 +110,8 @@ export const ChatNotificationProvider = ({ children }) => {
           // 새 메시지 / 읽음 / 전송취소 무엇이든 배지·미리보기는 서버 기준으로 재조회
           scheduleReload();
         });
+        // [수정] 재연결 시 끊겨 있던 동안 놓친 알림 반영
+        scheduleReload();
       },
     });
 
