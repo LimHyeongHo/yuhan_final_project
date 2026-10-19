@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Store, Send, Image as ImageIcon, MoreVertical, Search, User, Calendar, X, LogOut, Trash2, ChevronRight, ChevronLeft, ShieldCheck, Star, MessageCircle, TriangleAlert } from 'lucide-react';
+import { Store, Send, Image as ImageIcon, MoreVertical, Search, User, Calendar, X, LogOut, Trash2, ChevronRight, ChevronLeft, ShieldCheck, Star, MessageCircle, TriangleAlert, Flag, Check } from 'lucide-react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import './SharedChatPage.css';
+// 채팅 신고
+import ChatReportModal from './ChatReportModal';
 
 // [수정] localhost 고정 → 접속 호스트 기준 동적화
 const API_BASE = `http://${window.location.hostname}:8080/api`;
@@ -75,6 +77,10 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   const [lightboxImage, setLightboxImage] = useState(null);
   // [CHAT-RQ-001] 대화창 헤더 "더보기" 메뉴(나가기) 열림 상태
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
+  // 채팅 신고 — 선택 모드 여부 / 선택한 상대 메시지 id(1개) / 신고 작성 모달
+  const [reportMode, setReportMode] = useState(false);
+  const [reportSelectedId, setReportSelectedId] = useState(null);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
   // 구매자 화면에서 상단에 보여줄 판매자 프로필 요약 (만족도/거래횟수/후기)
   const [sellerProfile, setSellerProfile] = useState(null);
   // [신규] 정산 완료(CLOSED_SUCCESS)된 방에서 후기 작성 유도 배너를 띄우기 위한 자격 조회 결과
@@ -326,7 +332,21 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   // [수정] 방 전환 시 그 방의 임시저장 글로 교체 (이전 방 글이 다른 방으로 전송되는 것 방지)
   useEffect(() => {
     setMessage(draftsRef.current[activeRoomId] ?? '');
+    // 채팅 신고 — 방을 옮기면 신고 선택 해제
+    setReportMode(false);
+    setReportSelectedId(null);
+    setReportModalOpen(false);
   }, [activeRoomId]);
+
+  // 채팅 신고 — 고른 메시지를 상대가 그사이 삭제하면 선택·모달 해제 (삭제된 메시지 신고 방지)
+  useEffect(() => {
+    if (reportSelectedId == null) return;
+    const selected = messages.find(m => m.id === reportSelectedId);
+    if (!selected || selected.deleted) {
+      setReportSelectedId(null);
+      setReportModalOpen(false);
+    }
+  }, [messages, reportSelectedId]);
 
   // 구매자 화면: 방을 열면 상대(판매자) 프로필 요약을 불러와 상단 카드에 표시
   useEffect(() => {
@@ -497,6 +517,38 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       console.error('메시지 삭제 실패', e);
       showDialog('메시지 삭제에 실패했습니다.\n잠시 후 다시 시도해주세요.');
     }
+  };
+
+  // ── 채팅 신고 ──────────
+  // 상대가 보낸 글·사진 메시지만 신고 가능 (내 메시지/삭제된 메시지/입장·퇴장 안내 제외 — 서버 검사와 같은 기준)
+  const isReportable = (msg) =>
+    msg.senderEmail !== currentEmail && !msg.deleted && msg.id
+    && (msg.type === 'CHAT' || msg.type === 'IMAGE');
+
+  const handleStartReport = () => {
+    setRoomMenuOpen(false);
+    if (!messages.some(isReportable)) {
+      showDialog('신고할 상대 메시지가 없어요.');
+      return;
+    }
+    setReportSelectedId(null);
+    setReportMode(true);
+  };
+
+  // 채팅 신고 — 1개만 선택: 다른 메시지를 누르면 선택이 옮겨가고, 같은 메시지를 다시 누르면 해제
+  const toggleReportSelect = (id) => {
+    setReportSelectedId(current => (current === id ? null : id));
+  };
+
+  const cancelReport = () => {
+    setReportMode(false);
+    setReportSelectedId(null);
+  };
+
+  const handleReportSubmitted = () => {
+    setReportModalOpen(false);
+    cancelReport();
+    showDialog('신고가 접수되었어요.\n운영진이 확인 후 조치할게요.');
   };
 
   // ── [CHAT-RQ-003] 채팅 상단 상품명 → 상품 상세로 이동 ──
@@ -790,6 +842,13 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setRoomMenuOpen(false)} />
                       <div className="absolute right-0 mt-1 z-20 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-1">
+                        {/* 채팅 신고 — 상대 메시지 선택 모드로 전환 */}
+                        <button
+                          onClick={handleStartReport}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 transition"
+                        >
+                          <Flag size={16} /> 신고하기
+                        </button>
                         <button
                           onClick={handleLeaveRoom}
                           className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 transition"
@@ -900,8 +959,27 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                           </div>
                         )}
                         <div
-                          className={`group flex max-w-[75%] ${isMe ? 'self-end flex-row-reverse' : 'self-start'}`}
+                          className={`group flex max-w-[75%] ${isMe ? 'self-end flex-row-reverse' : 'self-start'} ${
+                            reportMode && isReportable(msg) ? 'cursor-pointer' : ''
+                          }`}
+                          // 채팅 신고 — 선택 모드에선 말풍선 어디를 눌러도 선택 (사진 확대보다 우선)
+                          onClickCapture={reportMode && isReportable(msg) ? (e) => {
+                            e.stopPropagation();
+                            toggleReportSelect(msg.id);
+                          } : undefined}
                         >
+                          {/* 채팅 신고 — 선택 동그라미, 상대 메시지에만 */}
+                          {reportMode && isReportable(msg) && (
+                            <span
+                              className={`w-5 h-5 mr-2 mt-1.5 rounded-full border-2 flex items-center justify-center shrink-0 transition ${
+                                reportSelectedId === msg.id
+                                  ? 'bg-red-600 border-[#a04b3c] text-white'
+                                  : 'bg-white border-gray-300'
+                              }`}
+                            >
+                              {reportSelectedId === msg.id && <Check size={12} strokeWidth={3} />}
+                            </span>
+                          )}
                           {!isMe && (
                             <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 shrink-0 mr-2">
                               <User size={16} />
@@ -973,8 +1051,31 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* 메시지 입력창 */}
+              {/* 메시지 입력창 — 채팅 신고 선택 모드에선 선택 안내 바로 교체 */}
               <div className="p-4 bg-white border-t border-gray-100 shrink-0">
+                {reportMode ? (
+                  <div className="flex items-center gap-2 bg-red-50 p-2 pl-4 rounded-2xl border border-[#a04b3c]/15">
+                    <Flag size={16} className="text-red-500 shrink-0" />
+                    <span className="flex-grow text-sm font-bold text-red-600">
+                      {reportSelectedId ? '메시지를 선택했어요' : '신고할 메시지를 1개 선택해주세요'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={cancelReport}
+                      className="px-4 py-2.5 rounded-xl text-sm font-bold text-gray-500 bg-white hover:bg-gray-100 transition shrink-0"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReportModalOpen(true)}
+                      disabled={!reportSelectedId}
+                      className="px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition shrink-0 disabled:opacity-40"
+                    >
+                      다음
+                    </button>
+                  </div>
+                ) : (
                 <form
                   onSubmit={handleSendMessage}
                   className="flex items-end gap-2 bg-gray-50 p-2 rounded-2xl border border-gray-200 focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-100 transition"
@@ -1027,6 +1128,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                     <Send size={18} />
                   </button>
                 </form>
+                )}
               </div>
             </>
           )}
@@ -1104,8 +1206,8 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                 </p>
                 <p className="text-sm text-gray-500 leading-relaxed">
                   모든 판매자는 <b className="font-bold text-gray-700">운영진 승인</b>을 거쳐 등록돼요.
-                  {/* [수정] 신고 경로를 문의사항으로 안내 */}
-                  의심되는 요청을 받았다면 <b className="font-bold text-gray-700">문의사항</b>으로 신고할 수 있어요.
+                  {/* 채팅 신고 — 신고 경로를 문의사항 → 채팅방 신고하기로 변경 */}
+                  의심되는 요청을 받았다면 채팅방 <b className="font-bold text-gray-700">더보기 → 신고하기</b>로 알려주세요.
                   운영진이 직접 확인·조치해요.
                 </p>
               </>
@@ -1119,10 +1221,20 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
               {/* [수정] 역할별 하단 안내 — 판매자는 개인 거래 유도 경고, 구매자는 신고·허위 신고 안내 */}
               {userRole === 'SELLER'
                 ? '계좌번호·외부 링크 등으로 개인 거래 유도를 반복하면 이용이 제한될 수 있어요.'
-                : '판매자가 계좌번호·외부 링크 등으로 결제를 유도하면 응하지 말고 문의사항으로 알려주세요. 단, 반복된 허위 신고는 이용이 제한될 수 있어요.'}
+                : '판매자가 계좌번호·외부 링크 등으로 결제를 유도하면 응하지 말고 더보기 → 신고하기로 알려주세요. 단, 반복된 허위 신고는 이용이 제한될 수 있어요.'}
             </div>
           </div>
         </div>
+      )}
+      {/* 채팅 신고 — 신고 작성 모달 (선택한 메시지가 사라졌으면 띄우지 않음) */}
+      {reportModalOpen && activeRoom && messages.some(m => m.id === reportSelectedId) && (
+        <ChatReportModal
+          roomId={activeRoom.roomId}
+          targetName={activeRoom.targetWithdrawn ? withdrawnLabel : activeRoom.targetName}
+          message={messages.find(m => m.id === reportSelectedId)}
+          onClose={() => setReportModalOpen(false)}
+          onSubmitted={handleReportSubmitted}
+        />
       )}
       {/* [신규] alert/confirm 대체 모달 — PrivateRoute 로그인 안내 모달과 같은 디자인 */}
       {dialog && (() => {
