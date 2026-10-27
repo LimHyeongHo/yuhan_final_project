@@ -14,6 +14,7 @@ build/
 # DB 비밀번호, API 키 등이 들어가는 파일들
 application.yml
 application.properties
+!backend/src/main/resources/application.properties
 *.key
 *.p12
 *.pem
@@ -92,3 +93,5 @@ dist/
 .env.development
 .env.test
 .env.production
+!.env.example
+!backend/.env.example

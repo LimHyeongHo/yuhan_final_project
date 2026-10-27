@@ -1,3 +1,4 @@
+import { API_BASE, WS_URL } from '../../../config/api';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Store, Send, Image as ImageIcon, MoreVertical, Search, User, Calendar, X, LogOut, Trash2, ChevronRight, ChevronLeft, ShieldCheck, Star, MessageCircle, TriangleAlert, Flag, Check } from 'lucide-react';
 import { Client } from '@stomp/stompjs';
@@ -9,8 +10,6 @@ import './SharedChatPage.css';
 import ChatReportModal from './ChatReportModal';
 
 // [수정] localhost 고정 → 접속 호스트 기준 동적화
-const API_BASE = `http://${window.location.hostname}:8080/api`;
-const WS_URL = `http://${window.location.hostname}:8080/ws`;
 const FETCH_OPTIONS = { credentials: 'include' };
 
 const formatTime = (dateTimeStr) => {

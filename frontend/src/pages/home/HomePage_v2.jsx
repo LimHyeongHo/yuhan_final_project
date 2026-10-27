@@ -1,3 +1,4 @@
+import { API_BASE } from '../../config/api';
 // [UI-RQ-004][feature/ui-fixes] 메인 검색창 → 공구 찾기 목록으로 검색어 전달 (Enter/버튼 동일 동작)
 import React, { useState, useEffect } from 'react';
 import { Search, Flame, TrendingUp, Clock, Users } from 'lucide-react';
@@ -20,7 +21,7 @@ const HomePage = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch('http://localhost:8080/api/products');
+        const response = await fetch(`${API_BASE}/products`);
         if (!response.ok) {
           throw new Error('Failed to fetch products');
         }

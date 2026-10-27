@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, BookOpen, Package, DollarSign, Users, FileText, Upload, AlertCircle, X, Search } from 'lucide-react';
@@ -59,7 +60,7 @@ const ProductRegisterPage = () => {
 
     if (productType === 'BOOK' && data.isbn) {
       const params = new URLSearchParams({ isbn: data.isbn });
-      fetch(`http://localhost:8080/api/search/book-metadata?${params}`, {
+      fetch(`${API_BASE}/search/book-metadata?${params}`, {
         credentials: 'include',
       })
         .then(response => response.ok ? response.json() : null)
@@ -93,7 +94,7 @@ const ProductRegisterPage = () => {
     setIsSearching(true);
     try {
       const searchParams = new URLSearchParams({ query: trimmedQuery, type: productType });
-      const response = await fetch(`http://localhost:8080/api/search/product?${searchParams}`, {
+      const response = await fetch(`${API_BASE}/search/product?${searchParams}`, {
         credentials: 'include',
       });
       if (response.ok) {
@@ -214,7 +215,7 @@ const ProductRegisterPage = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:8080/api/products', {
+      const response = await fetch(`${API_BASE}/products`, {
         method: 'POST',
         credentials: 'include', // [수정] 로그인 세션 쿠키 포함
         headers: {

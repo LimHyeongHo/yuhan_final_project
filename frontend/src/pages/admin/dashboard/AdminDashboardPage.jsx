@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Activity, BarChart3, ShieldAlert, ArrowUpRight, Clock, LayoutDashboard } from 'lucide-react';
@@ -19,17 +20,17 @@ const AdminDashboardPage = () => {
   const [recentProducts, setRecentProducts] = useState([]);
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/admin/statistics', { credentials: 'include' })
+    fetch(`${API_BASE}/admin/statistics`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => setStats(data))
       .catch(err => console.error("통계 데이터 로드 실패:", err));
 
-    fetch('http://localhost:8080/api/admin/weekly-stats', { credentials: 'include' })
+    fetch(`${API_BASE}/admin/weekly-stats`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => setWeeklyStats(data))
       .catch(err => console.error("주간 통계 데이터 로드 실패:", err));
 
-    fetch('http://localhost:8080/api/admin/products/recent', { credentials: 'include' })
+    fetch(`${API_BASE}/admin/products/recent`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => setRecentProducts(data))
       .catch(err => console.error("최근 상품 로드 실패:", err));

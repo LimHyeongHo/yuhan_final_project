@@ -1,6 +1,6 @@
+import { API_BASE } from '../config/api';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
-const API_BASE = `http://${window.location.hostname}:8080`;
 const SessionContext = createContext(null);
 
 export const SessionProvider = ({ children }) => {
@@ -9,7 +9,7 @@ export const SessionProvider = ({ children }) => {
 
   const refreshSession = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/member/session`, {
+      const response = await fetch(`${API_BASE}/member/session`, {
         credentials: 'include',
       });
       if (!response.ok) {

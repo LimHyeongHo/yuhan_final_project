@@ -1,12 +1,13 @@
+import { API_ORIGIN } from '../../config/api';
 import React from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { CreditCard, Image as ImageIcon, Users } from 'lucide-react';
 import V3SiteHeader from '../../components/layout/V3SiteHeader';
 
 //클라이언트키 추가
-const TOSS_CLIENT_KEY = 'test_ck_6BYq7GWPVvvpYXJq0dbaVNE5vbo1';
+const TOSS_CLIENT_KEY = process.env.REACT_APP_TOSS_CLIENT_KEY;
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+const API_BASE_URL = API_ORIGIN;
 
 const PaymentPage = () => {
   const location = useLocation();

@@ -23,7 +23,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class ProductController {
 
     private static final long REGISTRATION_KEY_TTL_MILLIS = 5 * 60 * 1000L;

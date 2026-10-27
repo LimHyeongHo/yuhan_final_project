@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Edit2, BookOpen, Package, DollarSign, Users, FileText, Upload, AlertCircle, X, Search } from 'lucide-react';
@@ -45,7 +46,7 @@ const ProductsEditPage = () => {
       setIsSearching(true);
       try {
         const searchParams = new URLSearchParams({ query: barcode.trim(), type: productType });
-        const response = await fetch(`http://localhost:8080/api/search/product?${searchParams}`, {
+        const response = await fetch(`${API_BASE}/search/product?${searchParams}`, {
           credentials: 'include',
         });
         if (response.ok) {
@@ -96,7 +97,7 @@ const ProductsEditPage = () => {
 
   // 기존 데이터 불러오기
   useEffect(() => {
-    fetch(`http://localhost:8080/api/products/${id}`)
+    fetch(`${API_BASE}/products/${id}`)
       .then(res => res.json())
       .then(data => {
         if (data.type !== 'BOOK') {
@@ -181,7 +182,7 @@ const ProductsEditPage = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/products/${id}`, {
+      const response = await fetch(`${API_BASE}/products/${id}`, {
         method: 'PUT',
         credentials: 'include', // [수정] 로그인 세션 쿠키 포함 (소유자 확인용)
         body: submitData, // FormData 전송 시 Content-Type은 브라우저가 자동으로 multipart/form-data로 설정함

@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useEffect, useState } from 'react';
 import { User, ShieldCheck, Store, Edit3, KeyRound, RefreshCw, Clock, Eye, EyeOff, Info, X, Building2, BadgeCheck, ShieldAlert } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -157,7 +158,7 @@ const MyPageOverview = ({ userRole = 'BUYER' }) => {
 
   const fetchInfo = async () => {
     try {
-      const res = await fetch('http://localhost:8080/api/member/info', {
+      const res = await fetch(`${API_BASE}/member/info`, {
         credentials: 'include',
       });
       const data = await res.json();
@@ -232,7 +233,7 @@ const MyPageOverview = ({ userRole = 'BUYER' }) => {
       const pubKey = await exportPublicKey(keyPair.publicKey);
       const deviceId = getDeviceId();
 
-      const res = await fetch('http://localhost:8080/api/member/certificate/reissue', {
+      const res = await fetch(`${API_BASE}/member/certificate/reissue`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -260,7 +261,7 @@ const MyPageOverview = ({ userRole = 'BUYER' }) => {
 
     setIsWithdrawing(true);
     try {
-      const res = await fetch('http://localhost:8080/api/member/withdraw', {
+      const res = await fetch(`${API_BASE}/member/withdraw`, {
         method: 'DELETE',
         credentials: 'include',
       });

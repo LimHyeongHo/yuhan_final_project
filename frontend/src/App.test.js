@@ -22,10 +22,10 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-test('renders the home-v3 YU-BOOK home page', async () => {
+test('renders the N-BBANG home page', async () => {
   render(<App />);
 
-  expect(screen.getByRole('link', { name: 'YU-BOOK' })).toBeInTheDocument();
+  expect(screen.getAllByRole('link', { name: 'N-BBANG 홈' }).length).toBeGreaterThan(0);
   expect(screen.getByRole('button', { name: '검색' })).toBeInTheDocument();
   expect(await screen.findByText('현재 모집 중인 공동구매가 없습니다.')).toBeInTheDocument();
   expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/products');

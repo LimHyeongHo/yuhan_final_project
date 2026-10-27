@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useState, useEffect, useRef } from 'react';
 import { BookOpen, ImageOff, Layers, AlertTriangle, CheckCircle, Clock, Trash2, ShieldAlert } from 'lucide-react';
 import AdminHeader from '../../../components/admin/AdminHeader';
@@ -36,7 +37,7 @@ const GroupManagementPage = () => {
   });
 
   const fetchProductsAndLogs = () => {
-    fetch('http://localhost:8080/api/admin/products', { credentials: 'include' })
+    fetch(`${API_BASE}/admin/products`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => setProducts(data.map(item => ({
         ...item,
@@ -44,7 +45,7 @@ const GroupManagementPage = () => {
       }))))
       .catch(err => console.error("상품 데이터 로드 실패:", err));
 
-    fetch('http://localhost:8080/api/admin/logs?type=SECURITY', { credentials: 'include' })
+    fetch(`${API_BASE}/admin/logs?type=SECURITY`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -86,7 +87,7 @@ const GroupManagementPage = () => {
       return;
     }
     
-    fetch(`http://localhost:8080/api/admin/products/${rejectingProductId}/reject`, { 
+    fetch(`${API_BASE}/admin/products/${rejectingProductId}/reject`, {
       method: 'POST', 
       headers: {
         'Content-Type': 'application/json'

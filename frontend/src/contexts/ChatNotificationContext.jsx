@@ -1,3 +1,4 @@
+import { API_BASE, WS_URL } from '../config/api';
 // [신규 파일][feature/chat-fixes] 채팅 안읽음 배지 전역 공유 Context
 // Header/SellerDashboardPage의 20초 폴링을 개인 토픽(/topic/chat/user/{email}) WebSocket 구독으로 대체.
 // 이벤트가 오면 서버 목록 재조회로 배지·미리보기 갱신, 새 메시지는 우하단 토스트.
@@ -7,8 +8,6 @@ import { X } from 'lucide-react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
-const API_BASE = `http://${window.location.hostname}:8080/api`;
-const WS_URL = `http://${window.location.hostname}:8080/ws`;
 
 const ChatNotificationContext = createContext(null);
 

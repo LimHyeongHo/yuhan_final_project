@@ -1,3 +1,4 @@
+import { API_BASE } from '../../config/api';
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import HeaderLogo from './HeaderLogo';
@@ -54,7 +55,7 @@ const Header = () => {
     const loadNotifications = () => {
       // [신규] 참여 알림 및 시스템 알림은 판매자 계정에만 의미 있는 이벤트라 seller일 때만 조회
       if (userRole === 'ROLE_SELLER') {
-        fetch(`http://${window.location.hostname}:8080/api/products/seller/me/participations`, { credentials: 'include' })
+        fetch(`${API_BASE}/products/seller/me/participations`, { credentials: 'include' })
           .then(res => {
             if (!res.ok) throw new Error('Failed to fetch participations');
             return res.json();
@@ -62,7 +63,7 @@ const Header = () => {
           .then(setParticipationAlerts)
           .catch(err => console.error('헤더 참여 알림 로드 실패', err));
 
-        fetch(`http://${window.location.hostname}:8080/api/seller/notifications`, { credentials: 'include' })
+        fetch(`${API_BASE}/seller/notifications`, { credentials: 'include' })
           .then(res => {
             if (!res.ok) throw new Error('Failed to fetch system notifications');
             return res.json();
@@ -85,7 +86,7 @@ const Header = () => {
     // 인증서 폐기는 탈퇴/타이머 만료 때만 해야 하므로 여기서는 로그아웃 API만 호출한다.
     let serverLogoutOk = false;
     try {
-      const res = await fetch(`http://${window.location.hostname}:8080/api/pki/logout`, {
+      const res = await fetch(`${API_BASE}/pki/logout`, {
         method: 'POST',
         credentials: 'include',
       });

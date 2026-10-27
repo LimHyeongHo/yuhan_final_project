@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, CheckCircle, AlertTriangle, Clock, RefreshCw, BellRing } from 'lucide-react';
@@ -13,7 +14,7 @@ const SecurityLogPage = () => {
   const prevLogsRef = useRef([]);
 
   const fetchLogs = () => {
-    fetch('http://localhost:8080/api/admin/logs?type=SECURITY', { credentials: 'include' })
+    fetch(`${API_BASE}/admin/logs?type=SECURITY`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         const newLogs = Array.isArray(data) ? data : [];

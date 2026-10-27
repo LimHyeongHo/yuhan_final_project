@@ -1,3 +1,4 @@
+import { API_BASE } from '../../config/api';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
@@ -46,7 +47,7 @@ const fetchGoogleBookMetadata = async (isbn) => {
 
   try {
     const params = new URLSearchParams({ isbn });
-    const response = await fetch(`http://localhost:8080/api/search/book-metadata?${params}`, {
+    const response = await fetch(`${API_BASE}/search/book-metadata?${params}`, {
       credentials: 'include',
     });
     if (!response.ok) return null;
@@ -258,7 +259,7 @@ export const IntegratedHeader = () => {
     }
 
     let active = true;
-    const apiBase = `http://${window.location.hostname}:8080/api`;
+    const apiBase = `${API_BASE}`;
 
     const loadNotifications = async () => {
       try {
@@ -383,7 +384,7 @@ export const IntegratedHeader = () => {
 
   const handleLogout = async () => {
     try {
-      await fetch(`http://${window.location.hostname}:8080/api/pki/logout`, {
+      await fetch(`${API_BASE}/pki/logout`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -657,7 +658,7 @@ const HomePageV3 = () => {
 
     const fetchProducts = async () => {
       try {
-        const response = await fetch('http://localhost:8080/api/products');
+        const response = await fetch(`${API_BASE}/products`);
         if (!response.ok) throw new Error('Failed to fetch products');
 
         const data = await response.json();
