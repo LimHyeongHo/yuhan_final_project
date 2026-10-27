@@ -62,6 +62,7 @@ import MyPageSettlement from './pages/shared/mypage/MyPageSettlement';
 // [UI-RQ-003][feature/ui-fixes] 판매자 "내가 받은 후기" 진입점
 import MyPageMyReviews from './pages/shared/mypage/MyPageMyReviews';
 import InquiryPage from './pages/shared/inquiry/InquiryPage';
+import BookReportPage from './pages/bookReport/BookReportPage';
 
 
 
@@ -111,6 +112,14 @@ function App() {
             element={(
               <PrivateRoute allowedRoles={['ROLE_ADMIN', 'ROLE_SELLER', 'ROLE_BUYER', 'ROLE_SELLER_PENDING']}>
                 <InquiryPage />
+              </PrivateRoute>
+            )}
+          />
+          <Route
+            path="/book-reports"
+            element={(
+              <PrivateRoute allowedRoles={['ROLE_ADMIN', 'ROLE_SELLER', 'ROLE_BUYER', 'ROLE_SELLER_PENDING']}>
+                <BookReportPage />
               </PrivateRoute>
             )}
           />

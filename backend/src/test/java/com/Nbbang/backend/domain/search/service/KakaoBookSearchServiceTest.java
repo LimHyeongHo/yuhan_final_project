@@ -1,5 +1,6 @@
 package com.Nbbang.backend.domain.search.service;
 
+import com.Nbbang.backend.domain.search.dto.KakaoBookSnapshot;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -175,6 +176,67 @@ class KakaoBookSearchServiceTest {
         assertThatThrownBy(() -> service.searchBook("운영체제"))
                 .isInstanceOfSatisfying(CustomException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOOK_SEARCH_QUOTA_EXCEEDED));
+        server.verify();
+    }
+
+    @Test
+    void searchesLatestBooksWithReportFields() {
+        server.expect(request -> {
+                    Map<String, String> params = UriComponentsBuilder.fromUri(request.getURI())
+                            .build()
+                            .getQueryParams()
+                            .toSingleValueMap();
+                    assertThat(UriUtils.decode(params.get("query"), StandardCharsets.UTF_8))
+                            .isEqualTo("프로그래밍");
+                    assertThat(params).doesNotContainKey("target");
+                    assertThat(params.get("sort")).isEqualTo("latest");
+                    assertThat(params.get("page")).isEqualTo("1");
+                    assertThat(params.get("size")).isEqualTo("50");
+                })
+                .andRespond(withSuccess("""
+                        {
+                          "documents": [{
+                            "title": "자바 프로그래밍",
+                            "authors": ["홍길동"],
+                            "publisher": "유한출판",
+                            "isbn": "123456789X 9781234567897",
+                            "price": 30000,
+                            "sale_price": 27000,
+                            "contents": "프로그래밍 입문서",
+                            "url": "https://search.daum.net/search?w=bookpage&bookId=1",
+                            "datetime": "2026-10-20T00:00:00.000+09:00",
+                            "status": "정상판매"
+                          }]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<KakaoBookSnapshot> results = service.searchLatestBooks(" 프로그래밍 ", 1, 50);
+
+        assertThat(results).singleElement().satisfies(book -> {
+            assertThat(book.title()).isEqualTo("자바 프로그래밍");
+            assertThat(book.isbn13()).isEqualTo("9781234567897");
+            assertThat(book.isbn10()).isEqualTo("123456789X");
+            assertThat(book.publishedAt()).isEqualTo("2026-10-20");
+            assertThat(book.price()).isEqualByComparingTo("30000");
+            assertThat(book.salePrice()).isEqualByComparingTo("27000");
+        });
+        server.verify();
+    }
+
+    @Test
+    void mapsMissingLatestBookFieldsWithoutFailing() {
+        server.expect(request -> assertThat(request.getURI().getQuery()).contains("sort=latest"))
+                .andRespond(withSuccess("""
+                        {"documents":[{"title":"제목만 있는 책","authors":null}]}
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThat(service.searchLatestBooks("테스트", 1, 50)).singleElement().satisfies(book -> {
+            assertThat(book.title()).isEqualTo("제목만 있는 책");
+            assertThat(book.authors()).isEmpty();
+            assertThat(book.publishedAt()).isNull();
+            assertThat(book.price()).isNull();
+            assertThat(book.salePrice()).isNull();
+        });
         server.verify();
     }
 

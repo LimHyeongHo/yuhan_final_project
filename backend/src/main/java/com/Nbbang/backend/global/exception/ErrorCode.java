@@ -99,6 +99,8 @@ public enum ErrorCode {
     BOOK_SEARCH_QUOTA_EXCEEDED(429, "도서 검색 요청이 많아 일시적으로 제한되었습니다. 잠시 후 다시 시도해 주세요."),
     BOOK_SEARCH_UPSTREAM_ERROR(502, "도서 검색 서비스에 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."),
     BOOK_SEARCH_TIMEOUT(504, "도서 검색 서비스 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요."),
+    BOOK_REPORT_INVALID_CATEGORY(400, "지원하지 않는 학과입니다."),
+    BOOK_REPORT_NOT_FOUND(404, "생성된 도서 리포트가 없습니다."),
 
     // ========== 판매자 (SELLER) ==========
     SELLER_STATISTICS_LOAD_FAILED(500, "통계 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),

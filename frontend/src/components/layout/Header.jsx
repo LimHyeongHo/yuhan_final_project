@@ -242,6 +242,7 @@ const Header = () => {
           )}
 
           {/* [UI-RQ-006][feature/ui-fixes] 이용 가이드 — 로그인 여부/역할 무관하게 항상 노출 */}
+          {isLoggedIn && <Link to="/book-reports" className="hover:text-blue-600 transition">도서 리포트</Link>}
           <Link to="/guide" className="hover:text-gray-950 transition">이용 가이드</Link>
         </nav>
 
@@ -432,6 +433,7 @@ const Header = () => {
             )}
 
             {/* [UI-RQ-006][feature/ui-fixes] 이용 가이드 (모바일) — 로그인 여부/역할 무관하게 항상 노출 */}
+            {isLoggedIn && <Link to="/book-reports" onClick={() => setIsMobileMenuOpen(false)}>도서 리포트</Link>}
             <Link to="/guide" onClick={() => setIsMobileMenuOpen(false)}>이용 가이드</Link>
           </nav>
         </div>
