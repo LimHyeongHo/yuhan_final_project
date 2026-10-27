@@ -18,30 +18,25 @@ public class Payment {
     private Long id;
 
     @Column(name = "order_id", nullable = false, unique = true)
-    private String orderId; // Toss 결제 건을 식별하는 키 (prepare 단계에서 발급)
+    private String orderId;
 
-    // [PAY-RQ-001 §3.1] 같은 Toss paymentKey가 여러 결제 row에 중복 기록되는 것 방지 (승인 전 null 다수는 Postgres에서 허용)
     @Column(name = "payment_key", unique = true)
-    private String paymentKey; // Toss가 결제 승인 시 내려주는 키 (승인 전엔 null)
+    private String paymentKey;
 
     @Column(name = "product_id", nullable = false)
     private Long productId;
 
-    // 실제 결제자 계정과의 연관관계. nullable인 이유는 Participation.member와 동일
-    // (기존 row와의 마이그레이션 호환성 때문에 NOT NULL로 걸 수 없음).
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_email")
     private UserAccount member;
 
     @Column(name = "buyer_name", nullable = false)
-    private String buyerName; // 결제 시점 member 닉네임 스냅샷 (화면 표시용)
+    private String buyerName;
 
     @Column(nullable = false)
-    private Long amount; // 서버가 상품 가격 기준으로 계산한 금액 (클라이언트 값 신뢰하지 않음)
+    private Long amount;
 
-    // 생명주기: PENDING -(Toss 인출)-> APPROVED -(참여확정)-> DONE
-    //          참여확정 실패 시: APPROVED -> CANCEL_REQUESTED -> CANCELED / REFUND_FAILED
-    // [PAY-RQ-001] APPROVED = 승인은 끝났으나 참여 확정 대기. DONE은 참여까지 확정된 뒤에만 기록.
+    // PENDING → APPROVED → DONE / 환불: CANCEL_REQUESTED → CANCELED 또는 REFUND_FAILED
     @Column(nullable = false, length = 20)
     private String status = "PENDING";
 
@@ -49,18 +44,16 @@ public class Payment {
     private LocalDateTime createdAt;
 
     @Column(name = "approved_at")
-    private LocalDateTime approvedAt; // Toss 승인 확정 시각
+    private LocalDateTime approvedAt;
 
     @Column(name = "cancel_reason")
-    private String cancelReason; // 취소/환불 사유
+    private String cancelReason;
 
-    // [PAY-RQ-001] CANCEL_REQUESTED로 넘어간 시각. 이 값이 오래됐으면(=워커가 죽어 환불이 멈춘 것으로 보고)
-    // 재시도 요청이 Toss 실제 상태를 대조해 환불을 재개할 수 있게 한다.
     @Column(name = "cancel_requested_at")
     private LocalDateTime cancelRequestedAt;
 
     @Column(name = "canceled_at")
-    private LocalDateTime canceledAt; // Toss 취소 확정 시각
+    private LocalDateTime canceledAt;
 
     @PrePersist
     protected void onCreate() {

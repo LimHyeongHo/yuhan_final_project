@@ -9,8 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-// 출금 승인 관리 API. 경로가 /api/admin/** 이라 WebMvcConfig에 이미 등록된 AdminAuthInterceptor가
-// 그대로 적용됨 (세션 role=ROLE_ADMIN 아니면 403) - AdminController/AdminService는 건드리지 않음.
+// 관리자 출금 승인/거절 API (AdminAuthInterceptor 적용) → SettlementService
 @RestController
 @RequestMapping("/api/admin/settlements")
 @RequiredArgsConstructor

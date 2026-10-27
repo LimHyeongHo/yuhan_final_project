@@ -23,11 +23,11 @@ public class WithdrawalRequest {
     @Column(nullable = false)
     private Long amount;
 
-    // REQUESTED -> COMPLETED 또는 REJECTED (관리자 수동 승인/거절, 실제 송금 자동화는 없음)
+    // REQUESTED → COMPLETED / REJECTED
     @Column(nullable = false, length = 20)
     private String status = "REQUESTED";
 
-    // 신청 시점의 정산 계좌 스냅샷 (이후 계좌를 바꿔도 이 신청 건의 입금 정보는 안 바뀌어야 함)
+    // 신청 시점 계좌 정보
     @Column(name = "bank_name", nullable = false)
     private String bankName;
 

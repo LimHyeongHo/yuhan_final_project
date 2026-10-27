@@ -3,7 +3,6 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { CreditCard, Image as ImageIcon, Users } from 'lucide-react';
 import V3SiteHeader from '../../components/layout/V3SiteHeader';
 
-//클라이언트키 추가
 const TOSS_CLIENT_KEY = 'test_ck_6BYq7GWPVvvpYXJq0dbaVNE5vbo1';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
@@ -29,7 +28,7 @@ const PaymentPage = () => {
 
   const handlePayment = async () => {
     try {
-      // 결제창을 열기 전에 서버가 실제 가격을 확인하고 PENDING 기록을 남긴다.
+      // 결제창 열기 전 PaymentController.preparePayment() 호출 (가격 검증, PENDING 생성)
       const prepareRes = await fetch(`${API_BASE_URL}/api/payment/prepare`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -77,7 +76,6 @@ const PaymentPage = () => {
 
         <div className="w-full max-w-xl bg-white rounded-[32px] border border-gray-200 shadow-sm overflow-hidden">
 
-          {/* 썸네일 */}
           <div className="w-full h-56 bg-gray-100 relative overflow-hidden flex items-center justify-center">
             {product.thumbnail ? (
               <img
@@ -93,7 +91,6 @@ const PaymentPage = () => {
             )}
           </div>
 
-          {/* 상품 정보 */}
           <div className="p-8 flex flex-col gap-6">
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-widest">{product.major}</span>
@@ -102,7 +99,6 @@ const PaymentPage = () => {
             </div>
 
             <div className="flex flex-col gap-4 pt-4 border-t border-gray-100">
-              {/* 가격 */}
               <div className="flex items-end justify-between">
                 <div className="flex flex-col">
                   {product.originalPrice && (
@@ -115,7 +111,6 @@ const PaymentPage = () => {
                 )}
               </div>
 
-              {/* 인원 현황 */}
               {product.current != null && product.target != null && (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
