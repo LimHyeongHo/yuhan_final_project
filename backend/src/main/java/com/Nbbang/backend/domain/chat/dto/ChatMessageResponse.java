@@ -7,10 +7,7 @@ import lombok.Getter;
 
 import java.time.LocalDateTime;
 
-/**
- * 서버 → 프론트로 전달되는 메시지 응답 형식
- * WebSocket 브로드캐스트와 REST 메시지 내역 조회 모두에 사용
- */
+/// 웹소켓 전달과 내역 조회에 같이 쓰는 메시지 응답 형식
 @Getter
 public class ChatMessageResponse {
 
@@ -23,10 +20,8 @@ public class ChatMessageResponse {
     private final LocalDateTime sentAt;
     @JsonProperty("isRead")
     private final boolean isRead;
-    // [CHAT-RQ-002] 전송 취소된 메시지 여부 — true면 content는 비워서 보낸다
     private final boolean deleted;
-    // [CHAT-RQ-002] DELETE 이벤트 전용 — 이번 취소로 채팅방 목록 미리보기가 바뀌었는지
-    // (취소한 메시지가 방의 진짜 마지막 이벤트가 아니었으면 false → 프론트는 목록 미리보기를 건드리면 안 된다)
+    /// 삭제 때문에 목록 미리보기 문구가 바뀌었는지 여부
     private final boolean previewChanged;
 
     public ChatMessageResponse(Long id, Long roomId, String senderEmail, String senderNickname,
@@ -51,7 +46,7 @@ public class ChatMessageResponse {
                 message.getRoomId(),
                 message.getSenderEmail(),
                 nickname,
-                // [CHAT-RQ-002] 취소된 메시지는 원문을 내려주지 않는다 (프론트에서 표식으로 대체)
+                /// 삭제된 메시지는 원문을 보내지 않음
                 deleted ? "" : message.getContent(),
                 message.getType(),
                 message.getSentAt(),
@@ -61,20 +56,13 @@ public class ChatMessageResponse {
         );
     }
 
-    /**
-     * READ 이벤트 전용 — 누가 읽었는지(readerEmail)를 senderEmail 자리에 실어 보낸다.
-     * 프론트는 "readerEmail != 내 이메일"일 때만 내 말풍선의 1을 지운다 (내가 읽음 처리한 이벤트는 무시).
-     */
+    /// 읽음 이벤트 (읽은 사람 이메일을 senderEmail 자리에 담음)
     public static ChatMessageResponse readEvent(Long roomId, String readerEmail) {
         return new ChatMessageResponse(
                 null, roomId, readerEmail, null, null, MessageType.READ, LocalDateTime.now(), true, false, false);
     }
 
-    /**
-     * [CHAT-RQ-002] 메시지 전송 취소 이벤트 전용
-     * previewChanged=true일 때만 content에 채팅방 목록 미리보기 갱신용 문구를 담아 보낸다.
-     * (취소한 메시지가 방의 마지막 이벤트가 아니었다면 previewChanged=false, content=null — 목록 미리보기 유지)
-     */
+    /// 메시지 삭제를 상대 화면에도 바로 알리는 이벤트
     public static ChatMessageResponse deleteEvent(Long roomId, Long messageId, boolean previewChanged, String lastMessagePreview) {
         return new ChatMessageResponse(
                 messageId, roomId, null, null, lastMessagePreview, MessageType.DELETE, LocalDateTime.now(), true, true,

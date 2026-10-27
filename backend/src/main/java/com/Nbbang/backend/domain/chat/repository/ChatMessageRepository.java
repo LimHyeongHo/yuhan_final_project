@@ -11,14 +11,15 @@ import java.util.List;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
-    // 채팅방 메시지 내역 (최근 50개) — CHAT, IMAGE 등 화면에 표시되는 타입만 (JOIN/LEAVE/READ 이벤트는 제외)
-    // [수정] Asc는 가장 오래된 50개를 가져와서 Desc로 변경 — 화면 순서는 서비스에서 다시 오래된 순으로 뒤집음
+    /// 최신 메시지 50개를 최신순으로 가져오고
+    /// 화면에는 서비스에서 오래된 순으로 뒤집어 보여줌
     List<ChatMessage> findTop50ByRoomIdAndTypeInOrderBySentAtDesc(Long roomId, List<MessageType> types);
 
-    // [CHAT-RQ-002] 마지막 메시지 취소 시 채팅방 미리보기 재계산용 — 취소되지 않은 가장 최근 메시지
+    /// 삭제 안 된 가장 최근 메시지를 조회
     java.util.Optional<ChatMessage> findTopByRoomIdAndTypeInAndDeletedFalseOrderBySentAtDesc(Long roomId, List<MessageType> types);
 
-    // 안읽은 메시지 일괄 읽음 처리
+    /// 방에 들어오면 상대가 보낸 안 읽은 메시지를 한 번에 읽음 처리
+    /// (본인이 보낸 메시지는 제외됨)
     @Modifying
     @Query("UPDATE ChatMessage m SET m.isRead = true WHERE m.roomId = :roomId AND m.senderEmail != :readerEmail AND m.isRead = false")
     void markAsRead(@Param("roomId") Long roomId, @Param("readerEmail") String readerEmail);

@@ -28,12 +28,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-// 채팅 신고 — 상품 신고(ProductReportService)와 같은 흐름: 신고 저장 → 신고당한 사람 user_report_counts +1
+/// 채팅 신고 처리
+/// 신고를 저장하고 신고당한 사람의 누적 신고 수를 1 올림
 @Service
 @RequiredArgsConstructor
 public class ChatReportService {
 
-    // 채팅 신고 — 프론트 ChatReportModal의 REPORT_REASONS와 같은 목록
+    /// 고를 수 있는 신고 사유 (프론트 신고 창과 같은 목록)
     private static final Set<String> ALLOWED_REASONS = Set.of(
             "개인 거래 유도",
             "선입금 요청",
@@ -42,9 +43,10 @@ public class ChatReportService {
 
     private static final int MAX_DETAIL_LENGTH = 1000;
 
-    // 채팅 신고 — 사람이 보낸 글·사진만 신고 가능 (입장·퇴장·읽음 같은 시스템 메시지 제외)
+    /// 사람이 보낸 글, 사진만 신고 가능 (입장, 퇴장 안내는 제외)
     private static final Set<MessageType> REPORTABLE_TYPES = Set.of(MessageType.CHAT, MessageType.IMAGE);
 
+    /// 관리자가 바꿀 수 있는 상태 (접수, 반려)
     private static final Set<String> MANAGEABLE_STATUSES = Set.of("RECEIVED", "REJECTED");
 
     private final ChatRoomRepository chatRoomRepository;
@@ -55,9 +57,11 @@ public class ChatReportService {
     private final ParticipationRepository participationRepository;
     private final NotificationRepository notificationRepository;
 
+    /// 신고 접수: 아래 순서로 검사한 뒤 저장
+    /// (사유 → 내 채팅방 → 이 방 메시지 → 상대 메시지 → 글이나 사진 → 중복 신고)
     @Transactional
     public void createReport(Long roomId, String reporterEmail, ChatReportCreateRequest request) {
-        // 채팅 신고 2단계 — 사유는 정해진 목록, 상세는 1000자 이하, 기타면 상세 필수 (로그인 확인은 컨트롤러)
+        /// 사유는 정해진 목록만, 상세는 1000자 이하 (기타는 상세 필수)
         if (request == null || request.messageId() == null) {
             throw new CustomException(ErrorCode.VALIDATION_FAILED);
         }
@@ -70,14 +74,14 @@ public class ChatReportService {
             throw new CustomException(ErrorCode.VALIDATION_FAILED);
         }
 
-        // 채팅 신고 3단계 — 방이 있고, 내가 그 방 구매자·판매자인지
+        /// 내가 참여한 채팅방인지 확인
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CHAT_ROOM_NOT_FOUND));
         if (!reporterEmail.equals(room.getBuyerEmail()) && !reporterEmail.equals(room.getSellerEmail())) {
             throw new CustomException(ErrorCode.CHAT_ACCESS_DENIED);
         }
 
-        // 채팅 신고 4~6단계 — 이 방의 메시지 / 상대가 보낸 메시지 / 글·사진 메시지
+        /// 이 방의 메시지인지, 상대가 보낸 건지, 글이나 사진인지 확인
         ChatMessage message = chatMessageRepository.findById(request.messageId())
                 .orElseThrow(() -> new CustomException(ErrorCode.CHAT_MESSAGE_NOT_FOUND));
         if (!roomId.equals(message.getRoomId())
@@ -86,14 +90,14 @@ public class ChatReportService {
             throw new CustomException(ErrorCode.CHAT_REPORT_INVALID_MESSAGE);
         }
 
-        // 채팅 신고 7단계 — 같은 메시지 중복 신고
+        /// 같은 메시지를 이미 신고했으면 거절
         if (chatReportRepository.existsByReporter_EmailAndMessage_Id(reporterEmail, message.getId())) {
             throw new CustomException(ErrorCode.CHAT_REPORT_DUPLICATE);
         }
 
         UserAccount reporter = userAccountRepository.findById(reporterEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
-        // 채팅 신고 — 신고당한 사람은 클라이언트 값이 아니라 DB의 메시지 보낸 사람
+        /// 신고당한 사람은 프론트가 보낸 값이 아니라 DB의 메시지 보낸 사람으로 정함 (조작 방지)
         UserAccount reported = userAccountRepository.findById(message.getSenderEmail())
                 .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
@@ -104,12 +108,13 @@ public class ChatReportService {
         report.setReason(reason);
         report.setDetail(detail == null || detail.isBlank() ? null : detail);
         try {
-            // 채팅 신고 — 동시에 두 번 눌러 위 중복 검사를 같이 통과해도 DB 유니크 제약에서 막히면 409로 응답
+            /// 동시에 두 번 눌러도 DB의 중복 금지 규칙 때문에 한 번만 저장됨
             chatReportRepository.saveAndFlush(report);
         } catch (DataIntegrityViolationException e) {
             throw new CustomException(ErrorCode.CHAT_REPORT_DUPLICATE);
         }
 
+        /// 신고당한 사람의 누적 채팅 신고 수 +1 (user_report_counts 테이블)
         UserReportCount reportCount = userReportCountRepository.findById(reported.getEmail())
                 .orElseGet(() -> {
                     UserReportCount newReportCount = new UserReportCount();
@@ -119,14 +124,14 @@ public class ChatReportService {
         reportCount.setChatReportCount(reportCount.getChatReportCount() + 1);
         userReportCountRepository.save(reportCount);
 
-        // 채팅 신고 — 새 신고가 들어오면 관리자 전원에게 알림 (회원 관리 화면에 들어가지 않아도 바로 알 수 있게)
+        /// 새 신고가 들어오면 관리자에게 알림
         userAccountRepository.findByRoleOrderByCreatedAtDesc("ROLE_ADMIN")
                 .forEach(admin -> notificationRepository.save(new Notification(
                         admin.getEmail(),
                         "새 채팅 신고가 들어왔습니다. 신고 대상: " + reported.getNickname() + ", 사유: " + reason)));
     }
 
-    // 채팅 신고 — 관리자 처리. 상품 신고와 같게 PENDING일 때만 접수/반려 가능
+    /// 관리자 처리 (검토 대기 상태일 때만 접수나 반려 가능)
     @Transactional
     public void updateReportStatus(Long reportId, String status) {
         if (status == null || !MANAGEABLE_STATUSES.contains(status)) {
@@ -140,7 +145,7 @@ public class ChatReportService {
         }
         report.setStatus(status);
 
-        // 채팅 신고 — 상품 신고와 같게 접수 시 신고당한 사람 + 관리자 전원에게 알림 (반려는 알림 없음)
+        /// 접수하면 신고당한 사람에게 경고 알림, 관리자에게도 알림 (반려는 알림 없음)
         if ("RECEIVED".equals(status)) {
             UserAccount reported = report.getReported();
             notificationRepository.save(new Notification(
@@ -155,7 +160,7 @@ public class ChatReportService {
         }
     }
 
-    // 채팅 신고 — 관리자 신고 로그. 상품 신고 목록과 같은 필드명 + type:"CHAT" (프론트에서 두 목록을 합쳐서 보여줌)
+    /// 관리자 신고 기록 (상품 신고와 같은 형식이라 화면에서 함께 보여줌)
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getAllReports() {
         return chatReportRepository.findAllByOrderByCreatedAtDesc().stream()
@@ -169,7 +174,7 @@ public class ChatReportService {
                     result.put("reportedEmail", report.getReported().getEmail());
                     result.put("reportedName", report.getReported().getNickname());
                     result.put("roomId", message.getRoomId());
-                    // 채팅 신고 — 보낸 사람이 지운 메시지도 원문을 보여줌 (소프트 삭제라 DB에 남아 있음)
+                    /// 보낸 사람이 지운 메시지도 원문을 보여줌 (DB에 남아 있음)
                     result.put("messageContent", message.getType() == MessageType.IMAGE ? "[사진] " + message.getContent() : message.getContent());
                     result.put("messageDeleted", message.isDeleted());
                     result.put("messageSentAt", message.getSentAt() == null ? null : message.getSentAt().toString());
@@ -183,8 +188,8 @@ public class ChatReportService {
                 .toList();
     }
 
-    // 채팅 신고 — 신고된 구매자 목록: 채팅 신고 1건 이상인 구매자 + 참여 공동구매 수 + 미처리 신고 수
-    // 현재 참여 = 모집 중(OPEN) 공동구매, 누적 참여 = 남아 있는 참여 기록 전체 (구매 취소 시 참여 기록이 지워져서 취소는 자동 제외)
+    /// 채팅 신고를 1건 이상 받은 구매자 목록
+    /// 현재 참여는 모집 중인 공동구매, 누적 참여는 지금까지 참여한 전체 (취소한 건 제외)
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getReportedBuyers() {
         return userReportCountRepository.findAll().stream()
@@ -199,7 +204,7 @@ public class ChatReportService {
                                     .count();
 
                             Map<String, Object> result = new LinkedHashMap<>();
-                            // 채팅 신고 — 판매자 목록(sellers/stats-list)과 같게 화면용은 가린 이메일, 조회용은 원래 이메일
+                            /// 화면에는 이메일 일부를 가려서 보여줌
                             result.put("email", maskEmail(buyer.getEmail()));
                             result.put("buyerEmail", buyer.getEmail());
                             result.put("nickname", buyer.getNickname());
@@ -214,7 +219,7 @@ public class ChatReportService {
                 .toList();
     }
 
-    // 채팅 신고 — AdminService.getSellersStatsList의 이메일 가리기와 같은 규칙
+    /// 이메일 앞 4글자만 보이게 가리기 (판매자 목록과 같은 방식)
     private String maskEmail(String email) {
         int atIndex = email.indexOf("@");
         if (atIndex > 4) return email.substring(0, 4) + "***" + email.substring(atIndex);

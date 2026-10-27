@@ -17,7 +17,7 @@ public class ChatCorsConfig {
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public CorsFilter chatCorsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        // [수정] localhost:3000 고정 → 사설망 호스트 + 모든 포트 허용
+        /// 채팅 API는 로컬, 사설망 주소에서만 호출 허용 (localhost, 192.168.x.x 등)
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:*",
                 "http://127.0.0.1:*",

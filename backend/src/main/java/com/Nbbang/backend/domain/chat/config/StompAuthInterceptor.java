@@ -19,13 +19,8 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 
-/**
- * WebSocket CONNECT 시 HTTP 세션에서 userId를 읽어 Principal로 설정합니다.
- * PKI 로그인 성공 시 session.setAttribute("userId", email) 저장이 전제됩니다.
- *
- * [수정] CONNECT 시 userId 없으면 연결 자체를 거부하고,
- * SUBSCRIBE 시 해당 roomId의 buyer/seller인지 확인해 아무나 남의 채팅방을 구독하지 못하게 함.
- */
+/// 웹소켓 연결, 구독 보안 검사
+/// 연결할 때 로그인 확인, 구독할 때 내 채팅방인지 확인
 @Component
 @RequiredArgsConstructor
 public class StompAuthInterceptor implements ChannelInterceptor {
@@ -49,10 +44,12 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     private void handleConnect(StompHeaderAccessor accessor) {
         Map<String, Object> sessionAttrs = accessor.getSessionAttributes();
         String userId = sessionAttrs != null ? (String) sessionAttrs.get("userId") : null;
+        /// 로그인 안 했으면 웹소켓 연결을 거부함
         if (userId == null) {
             throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
         }
         String role = (String) sessionAttrs.getOrDefault("role", "ROLE_USER");
+        /// 세션의 이메일과 권한으로 웹소켓 사용자를 등록해 누가 보낸 메시지인지 구분
         accessor.setUser(new UsernamePasswordAuthenticationToken(
                 userId, null, List.of(new SimpleGrantedAuthority(role))));
     }
@@ -60,12 +57,12 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     private void handleSubscribe(StompHeaderAccessor accessor) {
         String destination = accessor.getDestination();
 
-        // [신규] 사용자 전용 큐는 /user/queue/... 로만 구독 (서버가 본인 연결로 변환). 변환된 내부 주소 직접 구독은 차단
+        /// 전송 실패 알림은 본인에게만 오도록 /user/queue/errors 로만 구독 가능
         if (destination != null && destination.startsWith("/queue/")) {
             throw new CustomException(ErrorCode.CHAT_ACCESS_DENIED);
         }
 
-        // 전역 알림용 개인 토픽 "/topic/chat/user/{email}" — 본인 것만 구독 허용
+        /// 본인 계정으로 온 채팅 알림은 본인만 구독 가능 (/topic/chat/user/{이메일})
         String userTopicEmail = extractUserTopicEmail(destination);
         if (userTopicEmail != null) {
             Principal principal = accessor.getUser();
@@ -79,7 +76,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
         }
 
         Long roomId = extractRoomId(destination);
-        if (roomId == null) return; // 채팅방 토픽이 아니면 통과 (다른 브로드캐스트 용도 대비)
+        if (roomId == null) return;
 
         Principal principal = accessor.getUser();
         if (principal == null) {
@@ -88,12 +85,12 @@ public class StompAuthInterceptor implements ChannelInterceptor {
 
         String myEmail = principal.getName();
         ChatRoom room = chatRoomService.getRoom(roomId);
+        /// 채팅방 구매자, 판매자만 구독 가능 (chat_room 테이블 확인)
         if (!myEmail.equals(room.getBuyerEmail()) && !myEmail.equals(room.getSellerEmail())) {
             throw new CustomException(ErrorCode.CHAT_ACCESS_DENIED);
         }
     }
 
-    /** "/topic/chat/user/{email}" 형태에서 email 추출, 아니면 null */
     private String extractUserTopicEmail(String destination) {
         String prefix = "/topic/chat/user/";
         if (destination == null || !destination.startsWith(prefix)) return null;
@@ -101,7 +98,6 @@ public class StompAuthInterceptor implements ChannelInterceptor {
         return email.isBlank() ? null : email;
     }
 
-    /** "/topic/chat/{roomId}" 형태에서 roomId 추출, 형식 안 맞으면 null */
     private Long extractRoomId(String destination) {
         if (destination == null || !destination.startsWith("/topic/chat/")) return null;
         String idPart = destination.substring("/topic/chat/".length());

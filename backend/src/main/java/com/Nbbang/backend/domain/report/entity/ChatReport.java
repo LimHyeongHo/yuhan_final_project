@@ -20,7 +20,7 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-// 채팅 신고 — 신고 1건 = 상대 메시지 1개 = 사유 1개. 같은 사람이 같은 메시지를 두 번 신고할 수 없음
+/// 채팅 신고 (같은 사람이 같은 메시지를 두 번 신고할 수 없음)
 @Entity
 @Table(
         name = "chat_reports",
@@ -36,7 +36,7 @@ public class ChatReport {
     @Column(name = "chat_report_id")
     private Long chatReportId;
 
-    // 채팅 신고 — 메시지는 소프트 삭제라 보낸 사람이 지워도 원문을 message_id로 확인할 수 있어 원문은 따로 저장 안 함
+    /// 신고한 메시지 (보낸 사람이 지워도 원문이 남아 있어 따로 복사해 두지 않음)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
             name = "message_id",
@@ -51,7 +51,7 @@ public class ChatReport {
             foreignKey = @ForeignKey(name = "fk_chat_reports_reporter"))
     private UserAccount reporter;
 
-    // 채팅 신고 — 메시지 보낸 사람과 같은 값이지만, 관리자가 "이 사람이 받은 신고"를 바로 조회하려고 둠 (서버가 채움)
+    /// 신고당한 사람 (서버가 메시지 보낸 사람으로 채움)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
             name = "reported_email",
@@ -65,6 +65,7 @@ public class ChatReport {
     @Column(columnDefinition = "TEXT")
     private String detail;
 
+    /// 처리 상태 (검토 대기 → 접수 또는 반려)
     @Column(nullable = false, length = 20)
     private String status = "PENDING";
 

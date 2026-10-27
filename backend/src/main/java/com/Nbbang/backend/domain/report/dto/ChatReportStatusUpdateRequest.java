@@ -1,5 +1,5 @@
 package com.Nbbang.backend.domain.report.dto;
 
-// 채팅 신고 — 관리자 처리 상태 (RECEIVED / REJECTED)
+/// 관리자가 정하는 처리 상태 (접수 또는 반려)
 public record ChatReportStatusUpdateRequest(String status) {
 }
