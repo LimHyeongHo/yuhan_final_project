@@ -138,15 +138,15 @@ sequenceDiagram
     participant S as Product Service
 
     B->>F: 결제 요청
-    F->>P: POST /api/payments/prepare
-    P->>S: 상품 상태·가격 검증
+    F->>P: POST /api/payment/prepare
+    P->>D: 상품 락(FOR UPDATE) + 정원·마감·중복 참여 검증
     P->>D: PAYMENT(PENDING) 생성
     P-->>F: orderId·서버 계산 금액
     F->>T: 결제창 요청
-    T-->>P: /api/payments/success 리다이렉트
+    T-->>P: GET /api/payment/success 리다이렉트
     P->>T: 결제 승인 API
     P->>D: APPROVED
-    P->>S: 비관적 락으로 참여 확정
+    P->>S: 상품 해시 검증 + 비관적 락으로 참여 확정
     alt 참여 확정 성공
         P->>D: DONE
         P-->>F: /payment/success
@@ -158,7 +158,12 @@ sequenceDiagram
     end
 ```
 
-응답 유실·중복 요청에 대비해 Toss의 실제 주문 상태를 재조회한다. 오래 멈춘 `CANCEL_REQUESTED`는 스케줄러가 재처리한다.
+응답 유실·중복 요청에 대비해 Toss의 실제 주문 상태를 재조회한다. 성공 콜백이 다시 호출되면 저장된 결제 상태부터 이어서 처리한다.
+
+- Toss 호출 타임아웃: 연결 3초, 응답 10초
+- 구매자 참여 취소: 상품 락 안에서 `CANCEL_REQUESTED`를 선점하고, 락 밖에서 Toss 환불 후 참여·인원을 정리한다.
+- 종료 공구 자동 환불: `PaymentRefundScheduler`가 1분마다 상품 삭제·모집 실패(`CLOSED_FAIL`)·판매자 탈퇴(`SELLER_WITHDRAWN`) 공구의 미환불 결제(`DONE`, 10분 이상 지난 `APPROVED`·`CANCEL_REQUESTED`)를 환불한다.
+- 모집 중 상품에서 멈춘 `CANCEL_REQUESTED`와 `REFUND_FAILED`는 스케줄러가 처리하지 않으며, 구매자 재취소 또는 콜백 재호출로 재시도한다.
 
 ## 6. 블록체인 무결성 아키텍처
 
