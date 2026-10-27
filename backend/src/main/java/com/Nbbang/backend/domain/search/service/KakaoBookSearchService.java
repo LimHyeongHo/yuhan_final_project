@@ -1,7 +1,9 @@
 package com.Nbbang.backend.domain.search.service;
 
+import com.Nbbang.backend.domain.search.dto.KakaoBookSnapshot;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +26,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.SocketTimeoutException;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,7 +66,8 @@ public class KakaoBookSearchService {
         }
 
         try {
-            KakaoBookResponse response = requestBooks(new SearchRequest(normalizedIsbn, "isbn"));
+            KakaoBookResponse response = requestBooks(new SearchRequest(
+                    normalizedIsbn, "isbn", null, null, RESULT_SIZE));
             if (response == null || response.documents() == null) {
                 return null;
             }
@@ -80,16 +86,35 @@ public class KakaoBookSearchService {
         return null;
     }
 
+    public List<KakaoBookSnapshot> searchLatestBooks(String query, int page, int size) {
+        if (query == null || query.trim().isEmpty()) {
+            throw new CustomException(ErrorCode.BOOK_SEARCH_INVALID_QUERY);
+        }
+        if (page < 1 || page > 50 || size < 1 || size > 50) {
+            throw new CustomException(ErrorCode.BOOK_SEARCH_INVALID_QUERY);
+        }
+
+        KakaoBookResponse response = requestBooks(new SearchRequest(
+                query.trim(), null, "latest", page, size));
+        return mapLatestDocuments(response);
+    }
+
     private KakaoBookResponse requestBooks(SearchRequest searchRequest) {
         validateApiKey();
 
-        URI uri = UriComponentsBuilder.fromUriString(BOOK_SEARCH_URL)
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(BOOK_SEARCH_URL)
                 .queryParam("query", searchRequest.query())
-                .queryParam("target", searchRequest.target())
-                .queryParam("size", RESULT_SIZE)
-                .build()
-                .encode()
-                .toUri();
+                .queryParam("size", searchRequest.size());
+        if (searchRequest.target() != null) {
+            uriBuilder.queryParam("target", searchRequest.target());
+        }
+        if (searchRequest.sort() != null) {
+            uriBuilder.queryParam("sort", searchRequest.sort());
+        }
+        if (searchRequest.page() != null) {
+            uriBuilder.queryParam("page", searchRequest.page());
+        }
+        URI uri = uriBuilder.build().encode().toUri();
 
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.AUTHORIZATION, "KakaoAK " + restApiKey);
@@ -136,9 +161,33 @@ public class KakaoBookSearchService {
         String trimmedQuery = query.trim();
         String compactQuery = trimmedQuery.replaceAll("[\\s-]", "");
         if (compactQuery.matches("[0-9]{13}") || compactQuery.matches("[0-9]{10}")) {
-            return new SearchRequest(compactQuery, "isbn");
+            return new SearchRequest(compactQuery, "isbn", null, null, RESULT_SIZE);
         }
-        return new SearchRequest(trimmedQuery, "title");
+        return new SearchRequest(trimmedQuery, "title", null, null, RESULT_SIZE);
+    }
+
+    private List<KakaoBookSnapshot> mapLatestDocuments(KakaoBookResponse responseBody) {
+        if (responseBody == null || responseBody.documents() == null) {
+            return List.of();
+        }
+
+        List<KakaoBookSnapshot> results = new ArrayList<>();
+        for (KakaoBookDocument document : responseBody.documents()) {
+            results.add(new KakaoBookSnapshot(
+                    cleanText(document.title()),
+                    cleanAuthors(document.authors()),
+                    cleanText(document.publisher()),
+                    findIsbn(document.isbn(), 13),
+                    findIsbn(document.isbn(), 10),
+                    cleanText(document.contents()),
+                    cleanText(document.url()),
+                    parsePublishedDate(document.datetime()),
+                    toPrice(document.price()),
+                    toPrice(document.salePrice()),
+                    cleanText(document.status())
+            ));
+        }
+        return results;
     }
 
     private List<Map<String, String>> mapDocuments(KakaoBookResponse responseBody) {
@@ -165,8 +214,12 @@ public class KakaoBookSearchService {
     }
 
     private String joinAuthors(List<String> authors) {
+        return String.join(", ", cleanAuthors(authors));
+    }
+
+    private static List<String> cleanAuthors(List<String> authors) {
         if (authors == null) {
-            return "";
+            return List.of();
         }
 
         List<String> authorNames = new ArrayList<>();
@@ -176,7 +229,7 @@ public class KakaoBookSearchService {
                 authorNames.add(name);
             }
         }
-        return String.join(", ", authorNames);
+        return List.copyOf(authorNames);
     }
 
     static String normalizeIsbn(String rawIsbn) {
@@ -247,6 +300,35 @@ public class KakaoBookSearchService {
         return new CustomException(ErrorCode.BOOK_SEARCH_UPSTREAM_ERROR);
     }
 
+    private static String findIsbn(String rawIsbn, int length) {
+        if (rawIsbn == null || rawIsbn.isBlank()) {
+            return "";
+        }
+        String pattern = length == 13 ? "[0-9]{13}" : "[0-9]{9}[0-9Xx]";
+        for (String token : rawIsbn.trim().split("\\s+")) {
+            String normalized = token.replaceAll("-", "");
+            if (normalized.matches(pattern)) {
+                return normalized.toUpperCase();
+            }
+        }
+        return "";
+    }
+
+    private static LocalDate parsePublishedDate(String datetime) {
+        if (datetime == null || datetime.isBlank()) {
+            return null;
+        }
+        try {
+            return OffsetDateTime.parse(datetime).toLocalDate();
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
+    }
+
+    private static BigDecimal toPrice(Integer price) {
+        return price == null || price < 0 ? null : BigDecimal.valueOf(price);
+    }
+
     private boolean causedByTimeout(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
@@ -265,7 +347,7 @@ public class KakaoBookSearchService {
         return new RestTemplate(requestFactory);
     }
 
-    private record SearchRequest(String query, String target) {
+    private record SearchRequest(String query, String target, String sort, Integer page, int size) {
     }
 
     private record KakaoBookResponse(List<KakaoBookDocument> documents) {
@@ -277,8 +359,12 @@ public class KakaoBookSearchService {
             String publisher,
             String isbn,
             Integer price,
+            @JsonProperty("sale_price") Integer salePrice,
             String contents,
-            String thumbnail
+            String thumbnail,
+            String url,
+            String datetime,
+            String status
     ) {
     }
 }
