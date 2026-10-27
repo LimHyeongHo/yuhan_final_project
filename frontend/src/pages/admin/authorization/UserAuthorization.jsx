@@ -31,10 +31,54 @@ const UserAuthorization = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [sort, setSort] = useState({ key: null, direction: null });
   const [isReportLogOpen, setIsReportLogOpen] = useState(false);
-  const [selectedSeller, setSelectedSeller] = useState(null);
+  // 채팅 신고 — 판매자만이 아니라 구매자 신고 로그도 열기 위해 { name, email, roleLabel, type } 로 일반화
+  const [selectedTarget, setSelectedTarget] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
   const [isUpdatingReport, setIsUpdatingReport] = useState(false);
   const [reportPage, setReportPage] = useState(1);
+  // 채팅 신고
+  const [reportedBuyers, setReportedBuyers] = useState([]);
+  const [isBuyersLoading, setIsBuyersLoading] = useState(true);
+  const [chatReportLogs, setChatReportLogs] = useState([]);
+
+  // 채팅 신고 — 판매자 목록과 따로 불러와서, 이 API가 실패해도 판매자 목록·상품 신고는 그대로 뜨게 함
+  useEffect(() => {
+    fetch('http://localhost:8080/api/admin/chat-reports/reported-buyers', { credentials: 'include' })
+      .then((response) => {
+        if (!response.ok) throw new Error('신고된 구매자 목록을 불러오지 못했습니다.');
+        return response.json();
+      })
+      .then((data) => setReportedBuyers(Array.isArray(data) ? data : []))
+      .catch((error) => console.error(error))
+      .finally(() => setIsBuyersLoading(false));
+
+    fetch('http://localhost:8080/api/admin/chat-reports', { credentials: 'include' })
+      .then((response) => {
+        if (!response.ok) throw new Error('채팅 신고 로그를 불러오지 못했습니다.');
+        return response.json();
+      })
+      .then((data) => setChatReportLogs(Array.isArray(data) ? data : []))
+      .catch((error) => console.error(error));
+  }, []);
+
+  // 채팅 신고 — 상품 신고와 채팅 신고를 한 목록으로 합쳐 최신순 (id가 종류별로 1부터라 type으로 구분)
+  const allReportLogs = useMemo(() => (
+    [
+      ...reportLogs.map((report) => ({ ...report, type: 'PRODUCT' })),
+      ...chatReportLogs.map((report) => ({ ...report, type: 'CHAT' })),
+    ].sort((a, b) => String(b.reportedAt || '').localeCompare(String(a.reportedAt || '')))
+  ), [reportLogs, chatReportLogs]);
+
+  // 채팅 신고 — 신고 1건 이상만, 미처리 있는 사람 먼저 → 신고 많은 순
+  const sortedReportedBuyers = useMemo(() => (
+    reportedBuyers
+      .filter((buyer) => Number(buyer.chatReportCount || 0) > 0)
+      .sort((a, b) => {
+        const pendingDiff = (Number(b.pendingChatReportCount || 0) > 0) - (Number(a.pendingChatReportCount || 0) > 0);
+        if (pendingDiff !== 0) return pendingDiff;
+        return Number(b.chatReportCount || 0) - Number(a.chatReportCount || 0);
+      })
+  ), [reportedBuyers]);
 
   useEffect(() => {
     Promise.all([
@@ -73,11 +117,15 @@ const UserAuthorization = () => {
     });
   }, [sellers, sort]);
 
+  // 채팅 신고 — 신고당한 사람: 상품 신고는 sellerEmail, 채팅 신고는 reportedEmail
   const visibleReportLogs = useMemo(() => (
-    selectedSeller
-      ? reportLogs.filter((report) => report.sellerEmail === selectedSeller.sellerEmail)
-      : reportLogs
-  ), [reportLogs, selectedSeller]);
+    selectedTarget
+      ? allReportLogs.filter((report) => (
+        (report.sellerEmail ?? report.reportedEmail) === selectedTarget.email
+        && (!selectedTarget.type || report.type === selectedTarget.type)
+      ))
+      : allReportLogs
+  ), [allReportLogs, selectedTarget]);
   const totalReportPages = Math.max(1, Math.ceil(visibleReportLogs.length / REPORTS_PER_PAGE));
   const pagedReportLogs = visibleReportLogs.slice((reportPage - 1) * REPORTS_PER_PAGE, reportPage * REPORTS_PER_PAGE);
 
@@ -89,24 +137,31 @@ const UserAuthorization = () => {
     });
   };
 
-  const openReportLog = (seller = null) => {
-    setSelectedSeller(seller);
+  // 채팅 신고 — target: { name, email, roleLabel, type } (type 없으면 상품·채팅 신고 모두)
+  const openReportLog = (target = null) => {
+    setSelectedTarget(target);
     setReportPage(1);
     setIsReportLogOpen(true);
   };
 
   const closeReportLog = () => {
     setIsReportLogOpen(false);
-    setSelectedSeller(null);
+    setSelectedTarget(null);
     setSelectedReport(null);
   };
 
   const updateReportStatus = async (report, status) => {
     if (!window.confirm(`이 신고를 ${REPORT_STATUS[status].label}(으)로 처리하시겠습니까?`)) return;
 
+    // 채팅 신고 — 신고 종류별로 상태 변경 API가 다름
+    const isChat = report.type === 'CHAT';
+    const statusUrl = isChat
+      ? `http://localhost:8080/api/admin/chat-reports/${report.id}/status`
+      : `http://localhost:8080/api/admin/product-reports/${report.id}/status`;
+
     setIsUpdatingReport(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/admin/product-reports/${report.id}/status`, {
+      const response = await fetch(statusUrl, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -114,13 +169,24 @@ const UserAuthorization = () => {
       });
       if (!response.ok) throw new Error('신고 처리에 실패했습니다.');
 
-      setReportLogs((current) => current.map((item) => (
+      const applyStatus = (current) => current.map((item) => (
         item.id === report.id
           ? { ...item, statusCode: status, status: REPORT_STATUS[status].label }
           : item
-      )));
+      ));
+      if (isChat) {
+        setChatReportLogs(applyStatus);
+        // 채팅 신고 — 처리한 만큼 신고된 구매자 목록의 미처리 뱃지도 바로 줄임
+        setReportedBuyers((current) => current.map((buyer) => (
+          buyer.buyerEmail === report.reportedEmail
+            ? { ...buyer, pendingChatReportCount: Math.max(0, Number(buyer.pendingChatReportCount || 0) - 1) }
+            : buyer
+        )));
+      } else {
+        setReportLogs(applyStatus);
+      }
       setSelectedReport((current) => (
-        current?.id === report.id
+        current?.id === report.id && current?.type === report.type
           ? { ...current, statusCode: status, status: REPORT_STATUS[status].label }
           : current
       ));
@@ -188,7 +254,7 @@ const UserAuthorization = () => {
               className="rounded-[24px] border border-red-200 bg-red-50 px-6 py-4 font-bold text-red-700 transition-colors hover:bg-red-100 active:scale-[0.98] md:self-stretch"
             >
               <span className="flex items-center justify-center gap-2"><ClipboardList size={19} />신고 로그</span>
-              <span className="mt-1 block text-sm font-medium text-red-500">{reportLogs.length}건 전체 보기</span>
+              <span className="mt-1 block text-sm font-medium text-red-500">{allReportLogs.length}건 전체 보기</span>
             </button>
           </section>
 
@@ -234,7 +300,8 @@ const UserAuthorization = () => {
                           <td className="px-5 py-4 text-right">
                             <button
                               type="button"
-                              onClick={() => openReportLog(seller)}
+                              // 채팅 신고 — 횟수별로 해당 종류 신고만 열리게 type 지정
+                              onClick={() => openReportLog({ name: seller.nickname, email: seller.sellerEmail, roleLabel: '판매자', type: 'PRODUCT' })}
                               className="inline-flex font-bold text-red-600 underline-offset-4 hover:underline"
                             >
                               {productReportCount}건
@@ -243,11 +310,71 @@ const UserAuthorization = () => {
                           <td className="px-5 py-4 text-right">
                             <button
                               type="button"
-                              onClick={() => openReportLog(seller)}
+                              onClick={() => openReportLog({ name: seller.nickname, email: seller.sellerEmail, roleLabel: '판매자', type: 'CHAT' })}
                               className="inline-flex font-bold text-red-600 underline-offset-4 hover:underline"
                             >
                               {chatReportCount}건
                             </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* 채팅 신고 — 판매자가 구매자를 신고하면 보일 곳이 없어서 판매자 목록 아래에 같은 모양으로 추가 */}
+          <section className="mt-6 bg-white rounded-[28px] p-6 md:p-8 border border-gray-200 shadow-sm">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-xl font-extrabold tracking-tight">신고된 구매자 목록</h2>
+              <span className="text-xs font-medium text-gray-400">미처리 신고가 있는 구매자가 위에 표시됩니다.</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left">
+                <thead>
+                  <tr className="border-y border-gray-200 bg-gray-50 text-sm text-gray-500">
+                    <th className="px-5 py-4 font-bold">구매자 이름</th>
+                    <th className="px-5 py-4 text-right font-bold">현재 참여 공동구매</th>
+                    <th className="px-5 py-4 text-right font-bold">누적 참여 공동구매</th>
+                    <th className="px-5 py-4 text-right font-bold text-red-600">채팅 신고 횟수</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isBuyersLoading ? (
+                    <tr><td colSpan="4" className="px-5 py-10 text-center font-medium text-gray-400">구매자 정보를 불러오는 중입니다.</td></tr>
+                  ) : sortedReportedBuyers.length === 0 ? (
+                    <tr><td colSpan="4" className="px-5 py-10 text-center font-medium text-gray-400">신고된 구매자가 없습니다.</td></tr>
+                  ) : (
+                    sortedReportedBuyers.map((buyer) => {
+                      const chatReportCount = Number(buyer.chatReportCount || 0);
+                      const pendingCount = Number(buyer.pendingChatReportCount || 0);
+                      return (
+                        <tr key={buyer.buyerEmail || buyer.email} className="border-b border-gray-100 hover:bg-gray-50/70">
+                          <td className="px-5 py-4">
+                            <p className="font-bold text-gray-900">{buyer.nickname || '이름 없음'}</p>
+                            <p className="mt-0.5 text-xs text-gray-400">{buyer.email}</p>
+                          </td>
+                          <td className="px-5 py-4 text-right font-bold text-gray-700">{Number(buyer.currentParticipationCount || 0)}건</td>
+                          <td className="px-5 py-4 text-right font-bold text-gray-700">{Number(buyer.totalParticipationCount || 0)}건</td>
+                          <td className="px-5 py-4 text-right">
+                            <span className="inline-flex items-center gap-2">
+                              {/* 채팅 신고 — 판매자 목록처럼 횟수를 누르면 이 구매자의 채팅 신고 로그 */}
+                              <button
+                                type="button"
+                                onClick={() => openReportLog({ name: buyer.nickname, email: buyer.buyerEmail, roleLabel: '구매자', type: 'CHAT' })}
+                                className="inline-flex font-bold text-red-600 underline-offset-4 hover:underline"
+                              >
+                                {chatReportCount}건
+                              </button>
+                              {pendingCount > 0 ? (
+                                <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold text-red-600">미처리 {pendingCount}</span>
+                              ) : (
+                                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-500">처리 완료</span>
+                              )}
+                            </span>
                           </td>
                         </tr>
                       );
@@ -266,7 +393,12 @@ const UserAuthorization = () => {
             <header className="flex items-start justify-between border-b border-gray-200 px-6 py-5">
               <div>
                 <h2 id="report-log-title" className="pl-1 flex items-center gap-2 text-xl font-extrabold text-gray-900"><ClipboardList size={22} className="text-red-600" />신고 로그</h2>
-                <p className="pl-1 mt-1 text-sm text-gray-500">{selectedSeller ? `${selectedSeller.nickname || '이름 없음'} 판매자의 신고 내역` : '전체 판매자 신고 내역'}</p>
+                {/* 채팅 신고 — 판매자·구매자, 상품·채팅 신고 구분해서 제목 표시 */}
+                <p className="pl-1 mt-1 text-sm text-gray-500">
+                  {selectedTarget
+                    ? `${selectedTarget.name || '이름 없음'} ${selectedTarget.roleLabel}의 ${selectedTarget.type === 'CHAT' ? '채팅 ' : selectedTarget.type === 'PRODUCT' ? '상품 ' : ''}신고 내역`
+                    : '전체 신고 내역 (상품·채팅)'}
+                </p>
               </div>
               <button type="button" onClick={closeReportLog} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800" aria-label="신고 로그 닫기"><X size={20} /></button>
             </header>
@@ -278,23 +410,32 @@ const UserAuthorization = () => {
                 <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="text-gray-500" >
                     <tr className="border-b border-gray-200">
-                      {!selectedSeller && <th className="py-3 pr-4 font-bold px-4">판매자</th>}
-                      <th className="py-4 pr-3 px-4 font-bold">신고 대상 상품</th>
-                      <th className="py-3 pr-4 px-4 font-bold">신고 사유</th>
-                      <th className="py-3 pr-4 px-4 font-bold">상세 내용</th>
-                      <th className="py-3 pr-4 px-4 text-center font-bold">신고 일자</th>
-                      <th className="py-3 px-4 text-center font-bold">상태</th>
+                      {/* 채팅 신고 — 구매자도 신고당하므로 "판매자" → "신고 대상자", 상품명 자리에 채팅은 메시지 내용 */}
+                      {/* 채팅 신고 — 열 제목·짧은 값은 줄바꿈 없이, 긴 글(신고 대상·상세 내용)은 한 줄 말줄임 + 마우스 올리면 전체 */}
+                      {!selectedTarget && <th className="whitespace-nowrap py-3 pr-4 font-bold px-4">신고 대상자</th>}
+                      <th className="whitespace-nowrap py-4 pr-3 px-4 font-bold">신고 대상</th>
+                      <th className="whitespace-nowrap py-3 pr-4 px-4 font-bold">신고 사유</th>
+                      <th className="whitespace-nowrap py-3 pr-4 px-4 font-bold">상세 내용</th>
+                      <th className="whitespace-nowrap py-3 pr-4 px-4 text-center font-bold">신고 일자</th>
+                      <th className="whitespace-nowrap py-3 px-4 text-center font-bold">상태</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pagedReportLogs.map((report) => (
-                      <tr key={report.id} onClick={() => setSelectedReport(report)} className="cursor-pointer border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                        {!selectedSeller && <td className="py-4 pr-4 px-4 font-bold text-gray-800">{report.sellerName}</td>}
-                        <td className="py-4 pr-4 px-4 font-bold text-gray-800">{report.productName}</td>
-                        <td className="py-4 pr-4 px-4 text-gray-600">{report.reason}</td>
-                        <td className="py-4 pr-4 px-4 text-gray-600">{report.detail || '-'}</td>
-                        <td className="py-4 pr-4 px-4 text-center text-gray-500">{report.reportedAt}</td>
-                        <td className="py-4 px-4 text-center"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${(REPORT_STATUS[report.statusCode] || REPORT_STATUS.PENDING).className}`}>{(REPORT_STATUS[report.statusCode] || REPORT_STATUS.PENDING).label}</span></td>
+                      <tr key={`${report.type}-${report.id}`} onClick={() => setSelectedReport(report)} className="cursor-pointer border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                        {!selectedTarget && <td className="whitespace-nowrap py-4 pr-4 px-4 font-bold text-gray-800">{report.sellerName ?? report.reportedName}</td>}
+                        <td className="py-4 pr-4 px-4 font-bold text-gray-800">
+                          <span className="flex items-center gap-2">
+                            <span className="shrink-0 whitespace-nowrap rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700">
+                              {report.type === 'CHAT' ? '채팅' : '상품'}
+                            </span>
+                            <span className="block max-w-[200px] truncate" title={report.type === 'CHAT' ? report.messageContent : report.productName}>{report.type === 'CHAT' ? report.messageContent : report.productName}</span>
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap py-4 pr-4 px-4 text-gray-600">{report.reason}</td>
+                        <td className="py-4 pr-4 px-4 text-gray-600"><span className="block max-w-[200px] truncate" title={report.detail || ''}>{report.detail || '-'}</span></td>
+                        <td className="whitespace-nowrap py-4 pr-4 px-4 text-center text-gray-500">{report.reportedAt}</td>
+                        <td className="whitespace-nowrap py-4 px-4 text-center"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${(REPORT_STATUS[report.statusCode] || REPORT_STATUS.PENDING).className}`}>{(REPORT_STATUS[report.statusCode] || REPORT_STATUS.PENDING).label}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -327,12 +468,13 @@ const UserAuthorization = () => {
             <div className="space-y-5 px-6 py-5">
               <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="rounded-xl bg-gray-50 p-4">
-                  <dt className="text-xs font-bold text-gray-400">신고당한 판매자</dt>
-                  <dd className="mt-1 font-extrabold text-gray-900">{selectedReport.sellerName}</dd>
+                  {/* 채팅 신고 — 종류별 라벨: 채팅은 신고당한 사람(판매자·구매자)과 신고한 사람 */}
+                  <dt className="text-xs font-bold text-gray-400">{selectedReport.type === 'CHAT' ? '신고당한 사람' : '신고당한 판매자'}</dt>
+                  <dd className="mt-1 font-extrabold text-gray-900">{selectedReport.sellerName ?? selectedReport.reportedName}</dd>
                 </div>
                 <div className="rounded-xl bg-gray-50 p-4">
-                  <dt className="text-xs font-bold text-gray-400">신고 상품</dt>
-                  <dd className="mt-1 font-extrabold text-gray-900">{selectedReport.productName}</dd>
+                  <dt className="text-xs font-bold text-gray-400">{selectedReport.type === 'CHAT' ? '신고한 사람' : '신고 상품'}</dt>
+                  <dd className="mt-1 font-extrabold text-gray-900">{selectedReport.type === 'CHAT' ? selectedReport.reporterName : selectedReport.productName}</dd>
                 </div>
                 <div className="rounded-xl bg-gray-50 p-4">
                   <dt className="text-xs font-bold text-gray-400">신고 사유</dt>
@@ -343,6 +485,20 @@ const UserAuthorization = () => {
                   <dd className="mt-2"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${(REPORT_STATUS[selectedReport.statusCode] || REPORT_STATUS.PENDING).className}`}>{(REPORT_STATUS[selectedReport.statusCode] || REPORT_STATUS.PENDING).label}</span></dd>
                 </div>
               </dl>
+
+              {/* 채팅 신고 — 신고된 메시지 원문 (보낸 사람이 삭제했어도 DB 원문 표시) */}
+              {selectedReport.type === 'CHAT' && (
+                <div>
+                  <p className="flex items-center gap-2 text-sm font-extrabold text-gray-800">
+                    신고된 메시지
+                    <span className="text-xs font-medium text-gray-400">채팅방 #{selectedReport.roomId}</span>
+                    {selectedReport.messageDeleted && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-500">보낸 사람이 삭제함</span>}
+                  </p>
+                  <div className="mt-2 whitespace-pre-wrap break-all rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm leading-6 text-gray-700">
+                    {selectedReport.messageContent}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <p className="text-sm font-extrabold text-gray-800">상세 내용</p>
