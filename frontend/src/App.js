@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 
 /// [신규] 인증서 만료 타이머(헤더 +5분/-5분, 00:00 만료 로그아웃) 전역 상태 Provider
 import { CertificateTimerProvider } from './contexts/CertificateTimerContext';
-// [feature/chat-fixes] 채팅 안읽음 배지 전역 실시간 공유 Provider (Header/Dashboard 20초 폴링 대체)
 import { ChatNotificationProvider } from './contexts/ChatNotificationContext';
 import { SessionProvider } from './contexts/SessionContext';
 /// [신규] 비로그인 시 URL 직접 접근 막는 라우트 가드
@@ -88,7 +87,7 @@ function App() {
       <SessionProvider>
       {/* [신규] 인증서 타이머 Provider로 전체 라우트를 감싸 어느 페이지에서도 남은 시간을 공유 */}
       <CertificateTimerProvider>
-       {/* [feature/chat-fixes] 채팅 안읽음 배지를 어느 페이지에서도 실시간으로 공유 */}
+       {/* 어느 페이지에 있든 새 채팅 알림을 받도록 전체를 감쌈 */}
        <ChatNotificationProvider>
         <div className="global-v3-theme">
         <Routes>

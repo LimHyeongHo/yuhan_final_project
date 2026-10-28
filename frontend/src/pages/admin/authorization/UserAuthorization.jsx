@@ -31,17 +31,16 @@ const UserAuthorization = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [sort, setSort] = useState({ key: null, direction: null });
   const [isReportLogOpen, setIsReportLogOpen] = useState(false);
-  // 채팅 신고 — 판매자만이 아니라 구매자 신고 로그도 열기 위해 { name, email, roleLabel, type } 로 일반화
+  // 신고 로그를 열 대상 (판매자, 구매자 모두)
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
   const [isUpdatingReport, setIsUpdatingReport] = useState(false);
   const [reportPage, setReportPage] = useState(1);
-  // 채팅 신고
   const [reportedBuyers, setReportedBuyers] = useState([]);
   const [isBuyersLoading, setIsBuyersLoading] = useState(true);
   const [chatReportLogs, setChatReportLogs] = useState([]);
 
-  // 채팅 신고 — 판매자 목록과 따로 불러와서, 이 API가 실패해도 판매자 목록·상품 신고는 그대로 뜨게 함
+  // 신고된 구매자는 따로 불러옴 (실패해도 판매자 목록, 상품 신고는 그대로 보임)
   useEffect(() => {
     fetch('http://localhost:8080/api/admin/chat-reports/reported-buyers', { credentials: 'include' })
       .then((response) => {
@@ -61,7 +60,7 @@ const UserAuthorization = () => {
       .catch((error) => console.error(error));
   }, []);
 
-  // 채팅 신고 — 상품 신고와 채팅 신고를 한 목록으로 합쳐 최신순 (id가 종류별로 1부터라 type으로 구분)
+  // 상품 신고와 채팅 신고를 한 목록으로 합쳐 최신순 정렬 (번호가 겹쳐서 종류로 구분)
   const allReportLogs = useMemo(() => (
     [
       ...reportLogs.map((report) => ({ ...report, type: 'PRODUCT' })),
@@ -69,7 +68,7 @@ const UserAuthorization = () => {
     ].sort((a, b) => String(b.reportedAt || '').localeCompare(String(a.reportedAt || '')))
   ), [reportLogs, chatReportLogs]);
 
-  // 채팅 신고 — 신고 1건 이상만, 미처리 있는 사람 먼저 → 신고 많은 순
+  // 신고 1건 이상인 구매자만, 미처리 있는 사람 먼저, 그다음 신고 많은 순
   const sortedReportedBuyers = useMemo(() => (
     reportedBuyers
       .filter((buyer) => Number(buyer.chatReportCount || 0) > 0)
@@ -117,7 +116,7 @@ const UserAuthorization = () => {
     });
   }, [sellers, sort]);
 
-  // 채팅 신고 — 신고당한 사람: 상품 신고는 sellerEmail, 채팅 신고는 reportedEmail
+  // 선택한 사람이 신고당한 기록만 보여줌
   const visibleReportLogs = useMemo(() => (
     selectedTarget
       ? allReportLogs.filter((report) => (
@@ -137,7 +136,7 @@ const UserAuthorization = () => {
     });
   };
 
-  // 채팅 신고 — target: { name, email, roleLabel, type } (type 없으면 상품·채팅 신고 모두)
+  // 신고 로그 열기 (종류를 안 정하면 상품, 채팅 신고 모두)
   const openReportLog = (target = null) => {
     setSelectedTarget(target);
     setReportPage(1);
@@ -153,7 +152,7 @@ const UserAuthorization = () => {
   const updateReportStatus = async (report, status) => {
     if (!window.confirm(`이 신고를 ${REPORT_STATUS[status].label}(으)로 처리하시겠습니까?`)) return;
 
-    // 채팅 신고 — 신고 종류별로 상태 변경 API가 다름
+    // 상품 신고와 채팅 신고는 처리 API가 다름
     const isChat = report.type === 'CHAT';
     const statusUrl = isChat
       ? `http://localhost:8080/api/admin/chat-reports/${report.id}/status`
@@ -176,7 +175,7 @@ const UserAuthorization = () => {
       ));
       if (isChat) {
         setChatReportLogs(applyStatus);
-        // 채팅 신고 — 처리한 만큼 신고된 구매자 목록의 미처리 뱃지도 바로 줄임
+        // 처리한 만큼 신고된 구매자 목록의 미처리 개수도 바로 줄임
         setReportedBuyers((current) => current.map((buyer) => (
           buyer.buyerEmail === report.reportedEmail
             ? { ...buyer, pendingChatReportCount: Math.max(0, Number(buyer.pendingChatReportCount || 0) - 1) }
@@ -300,7 +299,7 @@ const UserAuthorization = () => {
                           <td className="px-5 py-4 text-right">
                             <button
                               type="button"
-                              // 채팅 신고 — 횟수별로 해당 종류 신고만 열리게 type 지정
+                              // 판매자 신고 횟수를 누르면 상품 신고만 열림
                               onClick={() => openReportLog({ name: seller.nickname, email: seller.sellerEmail, roleLabel: '판매자', type: 'PRODUCT' })}
                               className="inline-flex font-bold text-red-600 underline-offset-4 hover:underline"
                             >
@@ -325,7 +324,7 @@ const UserAuthorization = () => {
             </div>
           </section>
 
-          {/* 채팅 신고 — 판매자가 구매자를 신고하면 보일 곳이 없어서 판매자 목록 아래에 같은 모양으로 추가 */}
+          {/* 채팅에서 신고당한 구매자 목록 (판매자 목록과 같은 모양) */}
           <section className="mt-6 bg-white rounded-[28px] p-6 md:p-8 border border-gray-200 shadow-sm">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-extrabold tracking-tight">신고된 구매자 목록</h2>
@@ -361,7 +360,7 @@ const UserAuthorization = () => {
                           <td className="px-5 py-4 text-right font-bold text-gray-700">{Number(buyer.totalParticipationCount || 0)}건</td>
                           <td className="px-5 py-4 text-right">
                             <span className="inline-flex items-center gap-2">
-                              {/* 채팅 신고 — 판매자 목록처럼 횟수를 누르면 이 구매자의 채팅 신고 로그 */}
+                              {/* 신고 횟수를 누르면 이 구매자의 채팅 신고 로그가 열림 */}
                               <button
                                 type="button"
                                 onClick={() => openReportLog({ name: buyer.nickname, email: buyer.buyerEmail, roleLabel: '구매자', type: 'CHAT' })}
@@ -393,7 +392,7 @@ const UserAuthorization = () => {
             <header className="flex items-start justify-between border-b border-gray-200 px-6 py-5">
               <div>
                 <h2 id="report-log-title" className="pl-1 flex items-center gap-2 text-xl font-extrabold text-gray-900"><ClipboardList size={22} className="text-red-600" />신고 로그</h2>
-                {/* 채팅 신고 — 판매자·구매자, 상품·채팅 신고 구분해서 제목 표시 */}
+                {/* 누구의 어떤 신고 로그인지 제목에 표시 */}
                 <p className="pl-1 mt-1 text-sm text-gray-500">
                   {selectedTarget
                     ? `${selectedTarget.name || '이름 없음'} ${selectedTarget.roleLabel}의 ${selectedTarget.type === 'CHAT' ? '채팅 ' : selectedTarget.type === 'PRODUCT' ? '상품 ' : ''}신고 내역`
@@ -410,8 +409,7 @@ const UserAuthorization = () => {
                 <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="text-gray-500" >
                     <tr className="border-b border-gray-200">
-                      {/* 채팅 신고 — 구매자도 신고당하므로 "판매자" → "신고 대상자", 상품명 자리에 채팅은 메시지 내용 */}
-                      {/* 채팅 신고 — 열 제목·짧은 값은 줄바꿈 없이, 긴 글(신고 대상·상세 내용)은 한 줄 말줄임 + 마우스 올리면 전체 */}
+                      {/* 긴 글은 한 줄로 줄이고 마우스를 올리면 전체 표시 */}
                       {!selectedTarget && <th className="whitespace-nowrap py-3 pr-4 font-bold px-4">신고 대상자</th>}
                       <th className="whitespace-nowrap py-4 pr-3 px-4 font-bold">신고 대상</th>
                       <th className="whitespace-nowrap py-3 pr-4 px-4 font-bold">신고 사유</th>
@@ -468,7 +466,6 @@ const UserAuthorization = () => {
             <div className="space-y-5 px-6 py-5">
               <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="rounded-xl bg-gray-50 p-4">
-                  {/* 채팅 신고 — 종류별 라벨: 채팅은 신고당한 사람(판매자·구매자)과 신고한 사람 */}
                   <dt className="text-xs font-bold text-gray-400">{selectedReport.type === 'CHAT' ? '신고당한 사람' : '신고당한 판매자'}</dt>
                   <dd className="mt-1 font-extrabold text-gray-900">{selectedReport.sellerName ?? selectedReport.reportedName}</dd>
                 </div>
@@ -486,7 +483,7 @@ const UserAuthorization = () => {
                 </div>
               </dl>
 
-              {/* 채팅 신고 — 신고된 메시지 원문 (보낸 사람이 삭제했어도 DB 원문 표시) */}
+              {/* 신고된 메시지 원문 (보낸 사람이 삭제했어도 DB에 남은 원문을 보여줌) */}
               {selectedReport.type === 'CHAT' && (
                 <div>
                   <p className="flex items-center gap-2 text-sm font-extrabold text-gray-800">
