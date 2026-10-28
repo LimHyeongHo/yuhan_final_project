@@ -31,11 +31,11 @@ public class ChatMessage {
     @Column(nullable = false)
     private MessageType type;
 
-    /// 상대가 읽었는지 (화면의 '1' 표시)
+    // 상대가 읽었는지 (화면의 '1' 표시)
     @Column(nullable = false)
     private boolean isRead = false;
 
-    /// 삭제해도 원문은 DB에 남기고 표시만 바꿈 (소프트 삭제)
+    // 삭제해도 원문은 DB에 남기고 표시만 바꿈 (소프트 삭제)
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean deleted = false;
 

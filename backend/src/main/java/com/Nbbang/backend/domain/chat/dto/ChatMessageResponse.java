@@ -7,7 +7,7 @@ import lombok.Getter;
 
 import java.time.LocalDateTime;
 
-/// 웹소켓 전달과 내역 조회에 같이 쓰는 메시지 응답 형식
+// 웹소켓 전달과 내역 조회에 같이 쓰는 메시지 응답 형식
 @Getter
 public class ChatMessageResponse {
 
@@ -21,7 +21,7 @@ public class ChatMessageResponse {
     @JsonProperty("isRead")
     private final boolean isRead;
     private final boolean deleted;
-    /// 삭제 때문에 목록 미리보기 문구가 바뀌었는지 여부
+    // 삭제 때문에 목록 미리보기 문구가 바뀌었는지 여부
     private final boolean previewChanged;
 
     public ChatMessageResponse(Long id, Long roomId, String senderEmail, String senderNickname,
@@ -46,7 +46,7 @@ public class ChatMessageResponse {
                 message.getRoomId(),
                 message.getSenderEmail(),
                 nickname,
-                /// 삭제된 메시지는 원문을 보내지 않음
+                // 삭제된 메시지는 원문을 보내지 않음
                 deleted ? "" : message.getContent(),
                 message.getType(),
                 message.getSentAt(),
@@ -56,13 +56,13 @@ public class ChatMessageResponse {
         );
     }
 
-    /// 읽음 이벤트 (읽은 사람 이메일을 senderEmail 자리에 담음)
+    // 읽음 이벤트 (읽은 사람 이메일을 senderEmail 자리에 담음)
     public static ChatMessageResponse readEvent(Long roomId, String readerEmail) {
         return new ChatMessageResponse(
                 null, roomId, readerEmail, null, null, MessageType.READ, LocalDateTime.now(), true, false, false);
     }
 
-    /// 메시지 삭제를 상대 화면에도 바로 알리는 이벤트
+    // 메시지 삭제를 상대 화면에도 바로 알리는 이벤트
     public static ChatMessageResponse deleteEvent(Long roomId, Long messageId, boolean previewChanged, String lastMessagePreview) {
         return new ChatMessageResponse(
                 messageId, roomId, null, null, lastMessagePreview, MessageType.DELETE, LocalDateTime.now(), true, true,

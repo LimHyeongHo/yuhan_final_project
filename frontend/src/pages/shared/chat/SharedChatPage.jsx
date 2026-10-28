@@ -7,7 +7,7 @@ import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import './SharedChatPage.css';
 import ChatReportModal from './ChatReportModal';
 
-/// 접속한 주소 기준으로 서버 주소를 정함 (다른 기기에서 접속해도 동작)
+// 접속한 주소 기준으로 서버 주소를 정함 (다른 기기에서 접속해도 동작)
 const API_BASE = `http://${window.location.hostname}:8080/api`;
 const WS_URL = `http://${window.location.hostname}:8080/ws`;
 const FETCH_OPTIONS = { credentials: 'include' };
@@ -28,7 +28,7 @@ const formatTime = (dateTimeStr) => {
   }
 };
 
-/// 말풍선 옆 시간 (오전/오후 h:mm)
+// 말풍선 옆 시간 (오전/오후 h:mm)
 const formatMessageClock = (dateTimeStr) => {
   if (!dateTimeStr) return '';
   return new Date(dateTimeStr).toLocaleTimeString('ko-KR', {
@@ -38,7 +38,7 @@ const formatMessageClock = (dateTimeStr) => {
   });
 };
 
-/// 날짜 구분선 (yyyy년 m월 d일 요일)
+// 날짜 구분선 (yyyy년 m월 d일 요일)
 const formatDateSeparator = (dateTimeStr) => {
   if (!dateTimeStr) return '';
   return new Date(dateTimeStr).toLocaleDateString('ko-KR', {
@@ -55,38 +55,38 @@ const isSameDay = (a, b) => {
 };
 
 const SharedChatPage = ({ userRole = 'SELLER' }) => {
-  /// 상품 상세에서 넘어오면 그 상품 채팅만 표시 (?productId=)
+  // 상품 상세에서 넘어오면 그 상품 채팅만 표시 (?productId=)
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const filterProductId = searchParams.get('productId');
-  /// 알림을 눌러 들어오면 그 채팅방을 바로 열기 (?roomId=)
+  // 알림을 눌러 들어오면 그 채팅방을 바로 열기 (?roomId=)
   const initialRoomId = searchParams.get('roomId');
 
   const [rooms, setRooms] = useState([]);
   const [activeRoom, setActiveRoom] = useState(null);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
-  /// 방마다 쓰던 글 임시 저장 (페이지를 벗어나면 사라짐)
+  // 방마다 쓰던 글 임시 저장 (페이지를 벗어나면 사라짐)
   const draftsRef = useRef({});
-  /// 마지막으로 보낸 글 (전송 실패 시 입력창에 되돌리기용)
+  // 마지막으로 보낸 글 (전송 실패 시 입력창에 되돌리기용)
   const lastSentRef = useRef(null);
   const [connected, setConnected] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
-  /// 더보기 메뉴(신고하기, 나가기) 열림 여부
+  // 더보기 메뉴(신고하기, 나가기) 열림 여부
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
-  /// 신고 모드 여부, 고른 메시지, 신고 창 열림 여부
+  // 신고 모드 여부, 고른 메시지, 신고 창 열림 여부
   const [reportMode, setReportMode] = useState(false);
   const [reportSelectedId, setReportSelectedId] = useState(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
-  /// 구매자 화면 상단의 판매자 정보 (만족도, 거래 횟수, 후기)
+  // 구매자 화면 상단의 판매자 정보 (만족도, 거래 횟수, 후기)
   const [sellerProfile, setSellerProfile] = useState(null);
-  /// 후기 작성 배너를 띄울지 판단하는 정보 (정산 완료된 방)
+  // 후기 작성 배너를 띄울지 판단하는 정보 (정산 완료된 방)
   const [reviewEligibility, setReviewEligibility] = useState(null);
-  /// 안전거래 안내 창
+  // 안전거래 안내 창
   const [safetyOpen, setSafetyOpen] = useState(false);
-  /// 브라우저 기본 alert 대신 쓰는 안내 창
+  // 브라우저 기본 alert 대신 쓰는 안내 창
   const [dialog, setDialog] = useState(null);
   const showDialog = (message, { confirm = false } = {}) =>
     new Promise((resolve) => setDialog({ message, confirm, resolve }));
@@ -94,20 +94,20 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     dialog?.resolve(result);
     setDialog(null);
   };
-  /// 왼쪽 채팅방 목록 폭 (구분선을 드래그할 때만 바뀜)
+  // 왼쪽 채팅방 목록 폭 (구분선을 드래그할 때만 바뀜)
   const [listWidth, setListWidth] = useState(300);
 
   const fileInputRef = useRef(null);
   const stompClientRef = useRef(null);
-  const allSubscriptionsRef = useRef({});  /// 방 번호별 구독 정보
-  const activeRoomRef = useRef(null);      /// 웹소켓 콜백에서도 지금 열린 방을 정확히 알기 위한 참조
+  const allSubscriptionsRef = useRef({});  // 방 번호별 구독 정보
+  const activeRoomRef = useRef(null);      // 웹소켓 콜백에서도 지금 열린 방을 정확히 알기 위한 참조
   const messagesEndRef = useRef(null);
   const asideRef = useRef(null);
   const isResizingRef = useRef(false);
 
   const currentEmail = localStorage.getItem('email');
 
-  /// 채팅방 목록 불러오기
+  // 채팅방 목록 불러오기
   const loadRooms = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/chat/rooms`, FETCH_OPTIONS);
@@ -119,7 +119,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     }
   }, []);
 
-  /// 메시지 내역 불러오기
+  // 메시지 내역 불러오기
   const loadMessages = useCallback(async (roomId) => {
     try {
       const res = await fetch(`${API_BASE}/chat/rooms/${roomId}/messages`, FETCH_OPTIONS);
@@ -130,13 +130,13 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     }
   }, []);
 
-  /// 읽음 처리
+  // 읽음 처리
   const markAsRead = useCallback(async (roomId) => {
-    /// 서버 응답을 기다리지 않고 화면의 숫자부터 지움 (빠르게 보이도록)
+    // 서버 응답을 기다리지 않고 화면의 숫자부터 지움 (빠르게 보이도록)
     setRooms(prev =>
       prev.map(r => r.roomId === roomId ? { ...r, unreadCount: 0 } : r)
     );
-    /// 헤더 종 아이콘과 채팅 메뉴 표시에도 읽었다고 알림
+    // 헤더 종 아이콘과 채팅 메뉴 표시에도 읽었다고 알림
     window.dispatchEvent(new CustomEvent('chat-read', { detail: { roomId } }));
 
     try {
@@ -149,19 +149,19 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     }
   }, []);
 
-  /// 웹소켓 연결 (/ws, 끊기면 5초마다 재연결)
+  // 웹소켓 연결 (/ws, 끊기면 5초마다 재연결)
   useEffect(() => {
     if (!currentEmail) return;
 
     const client = new Client({
       webSocketFactory: () => new SockJS(WS_URL),
       reconnectDelay: 5000,
-      /// 다시 연결되면 끊긴 동안 바뀐 채팅방 목록을 다시 불러옴
+      // 다시 연결되면 끊긴 동안 바뀐 채팅방 목록을 다시 불러옴
       onConnect: () => {
         setConnected(true);
         loadRooms();
-        /// 서버가 메시지 전송을 거부하면 나에게만 에러가 옴 (/user/queue/errors)
-        /// 안내 창을 띄우고 보내려던 글을 입력창에 되돌림
+        // 서버가 메시지 전송을 거부하면 나에게만 에러가 옴 (/user/queue/errors)
+        // 안내 창을 띄우고 보내려던 글을 입력창에 되돌림
         client.subscribe('/user/queue/errors', (frame) => {
           let err;
           try { err = JSON.parse(frame.body); } catch (e) { err = null; }
@@ -179,7 +179,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
         });
       },
       onDisconnect: () => setConnected(false),
-      /// 서버가 꺼지거나 네트워크가 끊기면 입력을 막음
+      // 서버가 꺼지거나 네트워크가 끊기면 입력을 막음
       onWebSocketClose: () => setConnected(false),
     });
 
@@ -192,12 +192,12 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     };
   }, [currentEmail, loadRooms]);
 
-  /// 웹소켓 콜백에서 쓸 수 있게 지금 열린 방을 참조에 저장
+  // 웹소켓 콜백에서 쓸 수 있게 지금 열린 방을 참조에 저장
   useEffect(() => {
     activeRoomRef.current = activeRoom;
   }, [activeRoom]);
 
-  /// 다른 탭에 갔다가 돌아오면 열린 방 읽음 처리
+  // 다른 탭에 갔다가 돌아오면 열린 방 읽음 처리
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && activeRoomRef.current) {
@@ -208,9 +208,9 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [markAsRead]);
 
-  /// 내 채팅방 전체를 한 번에 구독 (목록 미리보기와 안 읽은 수 실시간 갱신)
+  // 내 채팅방 전체를 한 번에 구독 (목록 미리보기와 안 읽은 수 실시간 갱신)
   const roomsKey = rooms.map(r => r.roomId).join(',');
-  /// 이미 끊긴 연결의 구독 해제 에러는 무시
+  // 이미 끊긴 연결의 구독 해제 에러는 무시
   const clearAllSubscriptions = () => {
     Object.values(allSubscriptionsRef.current).forEach(sub => {
       try { sub.unsubscribe(); } catch (e) { }
@@ -230,7 +230,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
           const msg = JSON.parse(frame.body);
           const isThisRoomActive = activeRoomRef.current?.roomId === room.roomId;
 
-          /// 상대가 읽었다는 이벤트가 오면 내 말풍선의 '1'을 지움 (내가 읽은 건 무시)
+          // 상대가 읽었다는 이벤트가 오면 내 말풍선의 '1'을 지움 (내가 읽은 건 무시)
           if (msg.type === 'READ') {
             if (isThisRoomActive && msg.senderEmail && msg.senderEmail !== currentEmail) {
               setMessages(prev =>
@@ -240,8 +240,8 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
             return;
           }
 
-          /// 삭제 이벤트: 그 메시지를 '삭제된 메시지'로 바꿈
-          /// 마지막 메시지가 삭제된 경우에만 목록 미리보기도 바꿈
+          // 삭제 이벤트: 그 메시지를 '삭제된 메시지'로 바꿈
+          // 마지막 메시지가 삭제된 경우에만 목록 미리보기도 바꿈
           if (msg.type === 'DELETE') {
             if (isThisRoomActive) {
               setMessages(prev =>
@@ -258,9 +258,9 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
             return;
           }
 
-          /// 입장, 퇴장 안내는 가운데 안내로만 표시 (안 읽은 수는 안 올림)
+          // 입장, 퇴장 안내는 가운데 안내로만 표시 (안 읽은 수는 안 올림)
           if (msg.type === 'JOIN' || msg.type === 'LEAVE') {
-            /// 다른 탭이나 기기에서 내가 나가거나 다시 들어오면 이 탭도 맞춰서 동기화
+            // 다른 탭이나 기기에서 내가 나가거나 다시 들어오면 이 탭도 맞춰서 동기화
             if (msg.senderEmail === currentEmail) {
               if (msg.type === 'LEAVE' && isThisRoomActive) setActiveRoom(null);
               else if (isThisRoomActive) setMessages(prev => [...prev, msg]);
@@ -277,8 +277,8 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
             return;
           }
 
-          /// 새 메시지가 오면 목록 미리보기와 안 읽은 수를 바꾸고 그 방을 맨 위로 올림
-          /// (지금 열어 둔 방이면 안 읽은 수는 0)
+          // 새 메시지가 오면 목록 미리보기와 안 읽은 수를 바꾸고 그 방을 맨 위로 올림
+          // (지금 열어 둔 방이면 안 읽은 수는 0)
           const isMine = msg.senderEmail === currentEmail;
           setRooms(prev => {
             const idx = prev.findIndex(r => r.roomId === room.roomId);
@@ -292,7 +292,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
             return [updated, ...rest];
           });
 
-          /// 열어 둔 방이면 메시지를 화면에 추가하고 바로 읽음 처리
+          // 열어 둔 방이면 메시지를 화면에 추가하고 바로 읽음 처리
           if (isThisRoomActive) {
             setMessages(prev => [...prev, msg]);
             if (!isMine) {
@@ -307,18 +307,18 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, roomsKey]);
 
-  /// 방을 열면 메시지 불러오기, 읽음 처리, 나갔던 판매자는 재입장
+  // 방을 열면 메시지 불러오기, 읽음 처리, 나갔던 판매자는 재입장
   const activeRoomId = activeRoom?.roomId;
   const activeRoomLeft = activeRoom?.iLeft;
 
   useEffect(() => {
     setRoomMenuOpen(false);
     if (!activeRoomId) return;
-    /// 메시지 불러오기와 읽음 처리는 REST라 웹소켓 연결과 상관없이 실행
+    // 메시지 불러오기와 읽음 처리는 REST라 웹소켓 연결과 상관없이 실행
     loadMessages(activeRoomId);
     markAsRead(activeRoomId);
 
-    /// 나갔던 판매자가 방을 다시 열면 자동 재입장
+    // 나갔던 판매자가 방을 다시 열면 자동 재입장
     if (activeRoomLeft) {
       fetch(`${API_BASE}/chat/rooms/${activeRoomId}/rejoin`, { method: 'POST', ...FETCH_OPTIONS })
         .then(() => { loadRooms(); loadMessages(activeRoomId); })
@@ -326,16 +326,16 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     }
   }, [activeRoomId, activeRoomLeft, connected, loadMessages, loadRooms, markAsRead]);
 
-  /// 방을 바꾸면 그 방에서 쓰던 글로 입력창 교체 (다른 방으로 잘못 보내는 것 방지)
+  // 방을 바꾸면 그 방에서 쓰던 글로 입력창 교체 (다른 방으로 잘못 보내는 것 방지)
   useEffect(() => {
     setMessage(draftsRef.current[activeRoomId] ?? '');
-    /// 방을 옮기면 신고 선택 해제
+    // 방을 옮기면 신고 선택 해제
     setReportMode(false);
     setReportSelectedId(null);
     setReportModalOpen(false);
   }, [activeRoomId]);
 
-  /// 고른 메시지를 상대가 그사이 지우면 신고 선택 해제
+  // 고른 메시지를 상대가 그사이 지우면 신고 선택 해제
   useEffect(() => {
     if (reportSelectedId == null) return;
     const selected = messages.find(m => m.id === reportSelectedId);
@@ -345,7 +345,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     }
   }, [messages, reportSelectedId]);
 
-  /// 구매자 화면: 방을 열면 판매자 정보를 불러와 상단에 표시
+  // 구매자 화면: 방을 열면 판매자 정보를 불러와 상단에 표시
   useEffect(() => {
     setSellerProfile(null);
     if (userRole !== 'BUYER' || !activeRoom?.targetEmail) return;
@@ -355,7 +355,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       .catch(() => {});
   }, [activeRoom?.roomId, activeRoom?.targetEmail, userRole]);
 
-  /// 정산 완료된 상품의 방이면 후기 작성 자격을 확인해 배너 표시 여부 결정
+  // 정산 완료된 상품의 방이면 후기 작성 자격을 확인해 배너 표시 여부 결정
   useEffect(() => {
     setReviewEligibility(null);
     if (userRole !== 'BUYER' || !activeRoom?.productId || activeRoom.productStatus !== 'CLOSED_SUCCESS') return;
@@ -365,7 +365,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       .catch(() => {});
   }, [activeRoom?.roomId, activeRoom?.productId, activeRoom?.productStatus, userRole]);
 
-  /// 새 메시지가 오면 대화 목록만 맨 아래로 스크롤 (페이지는 그대로)
+  // 새 메시지가 오면 대화 목록만 맨 아래로 스크롤 (페이지는 그대로)
   const scrollToBottom = useCallback(() => {
     const messageList = messagesEndRef.current?.parentElement;
     messageList?.scrollTo({ top: messageList.scrollHeight, behavior: 'smooth' });
@@ -375,7 +375,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  /// 사진이 늦게 로드돼도 맨 아래를 보고 있을 때만 다시 스크롤 (이전 대화를 볼 땐 그대로)
+  // 사진이 늦게 로드돼도 맨 아래를 보고 있을 때만 다시 스크롤 (이전 대화를 볼 땐 그대로)
   const handleImageLoad = useCallback(() => {
     const messageList = messagesEndRef.current?.parentElement;
     if (!messageList) return;
@@ -383,7 +383,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     if (distanceFromBottom < 300) scrollToBottom();
   }, [scrollToBottom]);
 
-  /// 열어 둔 방에 상대 메시지가 오면 바로 읽음 처리 (내가 보낸 메시지는 제외)
+  // 열어 둔 방에 상대 메시지가 오면 바로 읽음 처리 (내가 보낸 메시지는 제외)
   const lastMessageSenderEmail = messages[messages.length - 1]?.senderEmail;
 
   useEffect(() => {
@@ -393,13 +393,13 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     }
   }, [activeRoomId, messages.length, lastMessageSenderEmail, currentEmail, markAsRead]);
 
-  /// 지금 열어 둔 방을 채팅 알림 기능에 알려 줌 (그 방 메시지는 알림 창 생략)
+  // 지금 열어 둔 방을 채팅 알림 기능에 알려 줌 (그 방 메시지는 알림 창 생략)
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('chat-active-room', { detail: { roomId: activeRoom?.roomId ?? null } }));
     return () => window.dispatchEvent(new CustomEvent('chat-active-room', { detail: { roomId: null } }));
   }, [activeRoom?.roomId]);
 
-  /// 왼쪽 목록 폭 드래그로 조절
+  // 왼쪽 목록 폭 드래그로 조절
   const handleResizeMouseDown = (e) => {
     e.preventDefault();
     isResizingRef.current = true;
@@ -428,10 +428,10 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     };
   }, []);
 
-  /// 처음 들어오면 채팅방 목록 불러오기
+  // 처음 들어오면 채팅방 목록 불러오기
   useEffect(() => { loadRooms(); }, [loadRooms]);
 
-  /// 알림을 눌러 ?roomId=로 들어오면 그 방을 열고, 주소에서 roomId는 지움
+  // 알림을 눌러 ?roomId=로 들어오면 그 방을 열고, 주소에서 roomId는 지움
   useEffect(() => {
     if (!initialRoomId) return;
     const target = rooms.find(r => String(r.roomId) === initialRoomId);
@@ -444,7 +444,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     }, { replace: true });
   }, [initialRoomId, rooms, setSearchParams]);
 
-  /// 메시지 전송 (웹소켓으로 /app/chat.message에 보냄)
+  // 메시지 전송 (웹소켓으로 /app/chat.message에 보냄)
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!message.trim() || !activeRoom || !connected || activeRoom.targetWithdrawn) return;
@@ -458,9 +458,9 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     delete draftsRef.current[activeRoom.roomId];
   };
 
-  /// 채팅방 나가기 (구매자는 이전 대화 복구 불가, 판매자는 다시 열면 재입장)
+  // 채팅방 나가기 (구매자는 이전 대화 복구 불가, 판매자는 다시 열면 재입장)
   const isSeller = userRole === 'SELLER';
-  /// 탈퇴한 상대 표시 문구 (판매자 화면은 '탈퇴한 구매자', 구매자 화면은 '탈퇴한 판매자')
+  // 탈퇴한 상대 표시 문구 (판매자 화면은 '탈퇴한 구매자', 구매자 화면은 '탈퇴한 판매자')
   const withdrawnLabel = isSeller ? '탈퇴한 구매자' : '탈퇴한 판매자';
   const handleLeaveRoom = async () => {
     if (!activeRoom) return;
@@ -479,13 +479,13 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
       if (!res.ok) throw new Error('채팅방 나가기에 실패했습니다.');
       setActiveRoom(null);
       if (isSeller) {
-        /// 판매자는 방이 목록에 남음
+        // 판매자는 방이 목록에 남음
         loadRooms();
       } else {
-        /// 구매자는 목록에서도 사라짐
+        // 구매자는 목록에서도 사라짐
         setRooms(prev => prev.filter(r => r.roomId !== leavingRoomId));
       }
-      /// 헤더 종 아이콘과 채팅 메뉴 표시도 다시 불러오도록 알림
+      // 헤더 종 아이콘과 채팅 메뉴 표시도 다시 불러오도록 알림
       window.dispatchEvent(new CustomEvent('chat-rooms-changed'));
     } catch (e) {
       console.error('채팅방 나가기 실패', e);
@@ -493,7 +493,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     }
   };
 
-  /// 메시지 삭제 (본인 메시지만, 양쪽 화면에서 '삭제된 메시지'로 바뀜)
+  // 메시지 삭제 (본인 메시지만, 양쪽 화면에서 '삭제된 메시지'로 바뀜)
   const handleDeleteMessage = async (messageId) => {
     if (!activeRoom || !messageId) return;
     if (!(await showDialog('이 메시지를 삭제할까요?\n상대방 화면에서도 "삭제된 메시지"로 표시됩니다.', { confirm: true }))) return;
@@ -503,7 +503,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
         ...FETCH_OPTIONS,
       });
       if (!res.ok) throw new Error('메시지 삭제에 실패했습니다.');
-      /// 웹소켓 이벤트를 기다리지 않고 내 화면부터 바로 반영
+      // 웹소켓 이벤트를 기다리지 않고 내 화면부터 바로 반영
       setMessages(prev => prev.map(m => m.id === messageId ? { ...m, deleted: true, content: '' } : m));
     } catch (e) {
       console.error('메시지 삭제 실패', e);
@@ -511,7 +511,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     }
   };
 
-  /// 신고할 수 있는 메시지: 상대가 보낸 글, 사진만 (서버 검사와 같은 기준)
+  // 신고할 수 있는 메시지: 상대가 보낸 글, 사진만 (서버 검사와 같은 기준)
   const isReportable = (msg) =>
     msg.senderEmail !== currentEmail && !msg.deleted && msg.id
     && (msg.type === 'CHAT' || msg.type === 'IMAGE');
@@ -526,7 +526,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     setReportMode(true);
   };
 
-  /// 메시지는 1개만 선택 (다른 걸 누르면 선택이 옮겨감)
+  // 메시지는 1개만 선택 (다른 걸 누르면 선택이 옮겨감)
   const toggleReportSelect = (id) => {
     setReportSelectedId(current => (current === id ? null : id));
   };
@@ -542,7 +542,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     showDialog('신고가 접수되었어요.\n운영진이 확인 후 조치할게요.');
   };
 
-  /// 상단 상품명을 누르면 상품 상세로 이동 (삭제된 상품이면 안내만)
+  // 상단 상품명을 누르면 상품 상세로 이동 (삭제된 상품이면 안내만)
   const handleGoToProduct = async () => {
     const productId = activeRoom?.productId;
     if (!productId) {
@@ -558,13 +558,13 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     }
   };
 
-  /// 후기 작성 배너를 누르면 마이페이지에서 후기 작성 창을 바로 엶
+  // 후기 작성 배너를 누르면 마이페이지에서 후기 작성 창을 바로 엶
   const handleGoToReview = () => {
     if (!activeRoom?.productId) return;
     navigate(`/buyer/mypage/orders?openReview=${activeRoom.productId}`);
   };
 
-  /// 사진 첨부: 먼저 업로드해서 받은 주소를 메시지로 보냄
+  // 사진 첨부: 먼저 업로드해서 받은 주소를 메시지로 보냄
   const handleImageButtonClick = () => {
     if (!connected || !activeRoom || activeRoom.targetWithdrawn) return;
     fileInputRef.current?.click();
@@ -572,7 +572,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
 
   const handleImageSelected = async (e) => {
     const file = e.target.files?.[0];
-    e.target.value = ''; /// 같은 파일을 다시 골라도 동작하게 초기화
+    e.target.value = ''; // 같은 파일을 다시 골라도 동작하게 초기화
     if (!file || !activeRoom) return;
 
     setUploadingImage(true);
@@ -592,7 +592,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
         destination: '/app/chat.message',
         body: JSON.stringify({ roomId: activeRoom.roomId, content: url, type: 'IMAGE' }),
       });
-      lastSentRef.current = null; /// 사진 전송 실패 시엔 입력창에 주소를 되돌리지 않음
+      lastSentRef.current = null; // 사진 전송 실패 시엔 입력창에 주소를 되돌리지 않음
     } catch (err) {
       console.error('이미지 전송 실패', err);
       showDialog('이미지 전송에 실패했습니다.');
@@ -605,7 +605,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
     .filter(r => !filterProductId || String(r.productId) === filterProductId)
     .filter(r => r.targetName?.includes(searchQuery) || r.productName?.includes(searchQuery));
 
-  /// 로그인 안 된 경우
+  // 로그인 안 된 경우
   if (!currentEmail) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -618,7 +618,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
   }
 
   return (
-    /// 채팅 페이지 전용 여백 (SharedChatPage.css)
+    // 채팅 페이지 전용 여백 (SharedChatPage.css)
     <div className="shared-chat-page min-h-screen bg-gray-50 flex flex-col text-gray-900 h-screen">
       <V3SiteHeader />
 
@@ -660,7 +660,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
               </div>
             ) : (
               filteredRooms.map((room) => {
-                /// 구매자 목록은 상품명을, 판매자 목록은 상대 이름을 제목으로 표시
+                // 구매자 목록은 상품명을, 판매자 목록은 상대 이름을 제목으로 표시
                 const nameContent = (
                   <>
                     <span className={`truncate min-w-0 ${(room.targetWithdrawn || room.iLeft) ? 'text-gray-500' : ''}`}>{room.targetWithdrawn ? withdrawnLabel : room.targetName}</span>
@@ -683,7 +683,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                 );
                 const titleContent = userRole === 'BUYER' ? productContent : nameContent;
                 const subtitleContent = userRole === 'BUYER' ? nameContent : productContent;
-                /// 구매자 목록 아이콘은 상품 썸네일 (없으면 기본 아이콘)
+                // 구매자 목록 아이콘은 상품 썸네일 (없으면 기본 아이콘)
                 const showProductThumb = userRole === 'BUYER' && !!room.productImageUrl
                   && !room.productDeleted && !room.targetWithdrawn;
 
@@ -691,7 +691,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                 <div
                   key={room.roomId}
                   onClick={() => setActiveRoom(room)}
-                  /// 판매자가 나간 방은 목록에서 흐리게 표시 (누르면 재입장)
+                  // 판매자가 나간 방은 목록에서 흐리게 표시 (누르면 재입장)
                   className={`p-4 border-b border-gray-50 flex items-start gap-3 cursor-pointer transition ${
                     room.iLeft ? 'opacity-50 grayscale' : ''
                   } ${
@@ -913,7 +913,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                     const prevMsg = filteredMessages[idx - 1];
                     const showDateSeparator = !isSameDay(prevMsg?.sentAt, msg.sentAt);
 
-                    /// 입장, 퇴장 안내는 가운데 회색 글씨로 표시
+                    // 입장, 퇴장 안내는 가운데 회색 글씨로 표시
                     if (msg.type === 'JOIN' || msg.type === 'LEAVE') {
                       return (
                         <div key={msg.id || `sys-${msg.sentAt}`} className="flex justify-center my-1">
@@ -938,7 +938,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                           className={`group flex max-w-[75%] ${isMe ? 'self-end flex-row-reverse' : 'self-start'} ${
                             reportMode && isReportable(msg) ? 'cursor-pointer' : ''
                           }`}
-                          /// 신고 모드에선 말풍선 아무 곳이나 눌러도 선택 (사진 확대보다 먼저)
+                          // 신고 모드에선 말풍선 아무 곳이나 눌러도 선택 (사진 확대보다 먼저)
                           onClickCapture={reportMode && isReportable(msg) ? (e) => {
                             e.stopPropagation();
                             toggleReportSelect(msg.id);
@@ -987,7 +987,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
                                 <img
                                   src={msg.content}
                                   alt="전송된 이미지"
-                                  /// 사진이 로드되기 전에도 자리를 잡아 두도록 크기 고정
+                                  // 사진이 로드되기 전에도 자리를 잡아 두도록 크기 고정
                                   className="w-[220px] h-[220px] rounded-2xl object-cover cursor-pointer bg-gray-100"
                                   onLoad={handleImageLoad}
                                   onClick={() => setLightboxImage(msg.content)}

@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/// 사용자가 채팅 메시지를 신고하는 API (POST /api/chat/rooms/{방번호}/reports)
+// 사용자가 채팅 메시지를 신고하는 API (POST /api/chat/rooms/{방번호}/reports)
 @RestController
 @RequestMapping("/api/chat")
 @RequiredArgsConstructor
@@ -27,7 +27,7 @@ public class ChatReportController {
             @PathVariable Long roomId,
             @RequestBody ChatReportCreateRequest request,
             HttpSession session) {
-        /// 로그인한 사용자만 신고 가능
+        // 로그인한 사용자만 신고 가능
         String reporterEmail = session == null ? null : (String) session.getAttribute("userId");
         if (reporterEmail == null) {
             throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);

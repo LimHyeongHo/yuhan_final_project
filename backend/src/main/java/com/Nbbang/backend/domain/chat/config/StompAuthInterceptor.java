@@ -19,8 +19,8 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 
-/// 웹소켓 연결, 구독 보안 검사
-/// 연결할 때 로그인 확인, 구독할 때 내 채팅방인지 확인
+// 웹소켓 연결, 구독 보안 검사
+// 연결할 때 로그인 확인, 구독할 때 내 채팅방인지 확인
 @Component
 @RequiredArgsConstructor
 public class StompAuthInterceptor implements ChannelInterceptor {
@@ -44,12 +44,12 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     private void handleConnect(StompHeaderAccessor accessor) {
         Map<String, Object> sessionAttrs = accessor.getSessionAttributes();
         String userId = sessionAttrs != null ? (String) sessionAttrs.get("userId") : null;
-        /// 로그인 안 했으면 웹소켓 연결을 거부함
+        // 로그인 안 했으면 웹소켓 연결을 거부함
         if (userId == null) {
             throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
         }
         String role = (String) sessionAttrs.getOrDefault("role", "ROLE_USER");
-        /// 세션의 이메일과 권한으로 웹소켓 사용자를 등록해 누가 보낸 메시지인지 구분
+        // 세션의 이메일과 권한으로 웹소켓 사용자를 등록해 누가 보낸 메시지인지 구분
         accessor.setUser(new UsernamePasswordAuthenticationToken(
                 userId, null, List.of(new SimpleGrantedAuthority(role))));
     }
@@ -57,12 +57,12 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     private void handleSubscribe(StompHeaderAccessor accessor) {
         String destination = accessor.getDestination();
 
-        /// 전송 실패 알림은 본인에게만 오도록 /user/queue/errors 로만 구독 가능
+        // 전송 실패 알림은 본인에게만 오도록 /user/queue/errors 로만 구독 가능
         if (destination != null && destination.startsWith("/queue/")) {
             throw new CustomException(ErrorCode.CHAT_ACCESS_DENIED);
         }
 
-        /// 본인 계정으로 온 채팅 알림은 본인만 구독 가능 (/topic/chat/user/{이메일})
+        // 본인 계정으로 온 채팅 알림은 본인만 구독 가능 (/topic/chat/user/{이메일})
         String userTopicEmail = extractUserTopicEmail(destination);
         if (userTopicEmail != null) {
             Principal principal = accessor.getUser();
@@ -85,7 +85,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
 
         String myEmail = principal.getName();
         ChatRoom room = chatRoomService.getRoom(roomId);
-        /// 채팅방 구매자, 판매자만 구독 가능 (chat_room 테이블 확인)
+        // 채팅방 구매자, 판매자만 구독 가능 (chat_room 테이블 확인)
         if (!myEmail.equals(room.getBuyerEmail()) && !myEmail.equals(room.getSellerEmail())) {
             throw new CustomException(ErrorCode.CHAT_ACCESS_DENIED);
         }

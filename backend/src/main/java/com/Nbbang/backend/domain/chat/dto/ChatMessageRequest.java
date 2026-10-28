@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/// 메시지 전송 요청 형식 (사진은 업로드한 URL을 content에 담는다)
+// 메시지 전송 요청 형식 (사진은 업로드한 URL을 content에 담는다)
 @Getter
 @Setter
 @NoArgsConstructor
