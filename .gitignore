@@ -13,7 +13,6 @@ build/
 ### 보안 및 환경 설정 (절대 깃허브에 안 올라감) ###
 # DB 비밀번호, API 키 등이 들어가는 파일들
 application.yml
-application.properties
 *.key
 *.p12
 *.pem
