@@ -1,0 +1,63 @@
+services:
+  - type: web
+    name: yuhan-final-project-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /actuator/health/readiness
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: JPA_DDL_AUTO
+        value: update
+      - key: DATABASE_URL
+        fromDatabase:
+          name: yuhan-final-project-db
+          property: connectionString
+      - key: DB_USERNAME
+        fromDatabase:
+          name: yuhan-final-project-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: yuhan-final-project-db
+          property: password
+      - key: PKI_SERVER_SECRET
+        generateValue: true
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: BACKEND_PUBLIC_URL
+        sync: false
+      - key: SESSION_COOKIE_SAME_SITE
+        value: none
+      - key: TOSS_SECRET_KEY
+        sync: false
+      - key: PORTONE_API_SECRET
+        sync: false
+      - key: NAVER_CLIENT_ID
+        sync: false
+      - key: NAVER_CLIENT_SECRET
+        sync: false
+      - key: ALADIN_TTB_KEY
+        sync: false
+      - key: KAKAO_REST_API_KEY
+        sync: false
+      - key: GOOGLE_BOOKS_API_KEY
+        sync: false
+      - key: BLOCKCHAIN_URL
+        sync: false
+      - key: BLOCKCHAIN_PRIVATE_KEY
+        sync: false
+      - key: BLOCKCHAIN_CONTRACT_ADDRESS
+        sync: false
+
+databases:
+  - name: yuhan-final-project-db
+    plan: free
+    region: singapore
+    postgresMajorVersion: "17"
+    databaseName: nbbang
+    user: nbbang

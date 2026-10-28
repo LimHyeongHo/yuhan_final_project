@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown,
@@ -43,7 +44,7 @@ const UserAuthorization = () => {
 
   // 채팅 신고 — 판매자 목록과 따로 불러와서, 이 API가 실패해도 판매자 목록·상품 신고는 그대로 뜨게 함
   useEffect(() => {
-    fetch('http://localhost:8080/api/admin/chat-reports/reported-buyers', { credentials: 'include' })
+    fetch(`${API_BASE}/admin/chat-reports/reported-buyers`, { credentials: 'include' })
       .then((response) => {
         if (!response.ok) throw new Error('신고된 구매자 목록을 불러오지 못했습니다.');
         return response.json();
@@ -52,7 +53,7 @@ const UserAuthorization = () => {
       .catch((error) => console.error(error))
       .finally(() => setIsBuyersLoading(false));
 
-    fetch('http://localhost:8080/api/admin/chat-reports', { credentials: 'include' })
+    fetch(`${API_BASE}/admin/chat-reports`, { credentials: 'include' })
       .then((response) => {
         if (!response.ok) throw new Error('채팅 신고 로그를 불러오지 못했습니다.');
         return response.json();
@@ -82,8 +83,8 @@ const UserAuthorization = () => {
 
   useEffect(() => {
     Promise.all([
-      fetch('http://localhost:8080/api/admin/sellers/stats-list', { credentials: 'include' }),
-      fetch('http://localhost:8080/api/admin/product-reports', { credentials: 'include' }),
+      fetch(`${API_BASE}/admin/sellers/stats-list`, { credentials: 'include' }),
+      fetch(`${API_BASE}/admin/product-reports`, { credentials: 'include' }),
     ])
       .then(async ([sellersResponse, reportsResponse]) => {
         if (!sellersResponse.ok || !reportsResponse.ok) {
@@ -156,8 +157,8 @@ const UserAuthorization = () => {
     // 채팅 신고 — 신고 종류별로 상태 변경 API가 다름
     const isChat = report.type === 'CHAT';
     const statusUrl = isChat
-      ? `http://localhost:8080/api/admin/chat-reports/${report.id}/status`
-      : `http://localhost:8080/api/admin/product-reports/${report.id}/status`;
+      ? `${API_BASE}/admin/chat-reports/${report.id}/status`
+      : `${API_BASE}/admin/product-reports/${report.id}/status`;
 
     setIsUpdatingReport(true);
     try {

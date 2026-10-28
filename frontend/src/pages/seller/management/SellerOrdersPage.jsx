@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useState, useEffect } from 'react';
 import { Package, Users, Calendar, User, ShoppingCart, Loader } from 'lucide-react';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
@@ -10,7 +11,7 @@ const SellerOrdersPage = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/products/seller/orders', {
+    fetch(`${API_BASE}/products/seller/orders`, {
       method: 'GET',
       credentials: 'include',
       headers: {

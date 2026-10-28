@@ -16,7 +16,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/settlement")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class SettlementController {
 
     private final SettlementService settlementService;

@@ -27,6 +27,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 	// Spring Boot Core & Web
 	implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -42,6 +43,7 @@ dependencies {
 
 	// WebSocket API 추가 (실시간 채팅용)
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
 	// BouncyCastle (PKI & CA 인증서 기능용)
 	implementation 'org.bouncycastle:bcprov-jdk18on:1.78'

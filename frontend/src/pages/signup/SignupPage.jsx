@@ -1,3 +1,4 @@
+import { API_BASE } from '../../config/api';
 import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import V3SiteHeader from '../../components/layout/V3SiteHeader';
@@ -36,7 +37,7 @@ const validateDepartment = (value) => {
 
 const checkEmailAvailability = async (email) => {
   try {
-    const res = await fetch(`http://localhost:8080/api/pki/check-email?email=${encodeURIComponent(email)}`);
+    const res = await fetch(`${API_BASE}/pki/check-email?email=${encodeURIComponent(email)}`);
     if (!res.ok) return "";
     const data = await res.json();
     if (data.available) return "";
@@ -250,7 +251,7 @@ const SignupPage = () => {
 
       if (response.code !== undefined) throw new Error(response.message);
 
-      const verifyRes = await fetch('http://localhost:8080/api/pki/verify-portone', {
+      const verifyRes = await fetch(`${API_BASE}/pki/verify-portone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identityVerificationId: response.identityVerificationId })
@@ -281,7 +282,7 @@ const SignupPage = () => {
       const keyPair = await generateKeyPair();
       const pubKey = await exportPublicKey(keyPair.publicKey);
 
-      const res = await fetch('http://localhost:8080/api/pki/register', {
+      const res = await fetch(`${API_BASE}/pki/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

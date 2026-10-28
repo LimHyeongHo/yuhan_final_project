@@ -1,9 +1,9 @@
+import { API_BASE } from '../../../config/api';
 // [UI-RQ-003] "내가 받은 후기" 탭 — 마이페이지 레이아웃 안에서 SellerProfileContent 렌더 (다른 탭과 스타일 통일)
 import React, { useEffect, useState } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import SellerProfileContent from '../seller/SellerProfileContent';
 
-const API_BASE = 'http://localhost:8080/api';
 
 const MyPageMyReviews = () => {
   const [email, setEmail] = useState(null);

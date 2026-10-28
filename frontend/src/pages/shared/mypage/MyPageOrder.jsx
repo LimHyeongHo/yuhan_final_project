@@ -1,8 +1,8 @@
+import { API_BASE } from '../../../config/api';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Package, ChevronRight, Clock, Star, X, ThumbsUp, Minus, ThumbsDown } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-const API_BASE = 'http://localhost:8080/api';
 
 // 3단계 감정 메타 (백엔드 Sentiment enum 과 1:1) — 아이콘은 lucide 라인 아이콘(초록/노랑/빨강)
 const SENTIMENTS = [

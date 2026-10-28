@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
@@ -49,7 +50,7 @@ const BuyerProductsPage = () => {
     setIsLoading(true);
     setLoadError('');
 
-    fetch('http://localhost:8080/api/products')
+    fetch(`${API_BASE}/products`)
       .then((res) => {
         if (!res.ok) throw new Error('상품 목록을 불러오지 못했습니다.');
         return res.json();

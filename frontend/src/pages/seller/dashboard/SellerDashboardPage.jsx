@@ -1,5 +1,6 @@
+import { API_BASE } from '../../../config/api';
 import React, { useState } from 'react';
-import { Store, TrendingUp, Package, MessageSquare, PlusCircle, ArrowRight, BookOpen, Clock, Bell, AlertTriangle } from 'lucide-react';
+import { Store, TrendingUp, Package, MessageSquare, PlusCircle, ArrowRight, BookOpen, Clock, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 // [feature/chat-fixes] 채팅 안읽음 수를 전역 Context(WebSocket)에서 실시간으로 받음 (기존 20초 폴링 대체)
@@ -14,7 +15,7 @@ const SellerDashboardPage = () => {
 
   const deleteNotification = (id) => {
     if (!window.confirm('이 알림을 삭제하시겠습니까?')) return;
-    fetch(`http://localhost:8080/api/seller/notifications/${id}`, {
+    fetch(`${API_BASE}/seller/notifications/${id}`, {
       method: 'DELETE',
       credentials: 'include'
     })
@@ -38,7 +39,7 @@ const SellerDashboardPage = () => {
   React.useEffect(() => {
     // [수정] sellerId=1 고정 하드코딩 → 로그인한 본인 상품만 조회
     // 1. 내 판매 현황 목록 불러오기
-    fetch('http://localhost:8080/api/products/seller/me', { credentials: 'include' })
+    fetch(`${API_BASE}/products/seller/me`, { credentials: 'include' })
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch products');
         return res.json();
@@ -59,7 +60,7 @@ const SellerDashboardPage = () => {
       .catch(err => console.error(err));
 
     // 2. 누군가 참여한 최근 내역 불러오기 (최근 알림용)
-    fetch('http://localhost:8080/api/products/seller/me/participations', { credentials: 'include' })
+    fetch(`${API_BASE}/products/seller/me/participations`, { credentials: 'include' })
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch participations');
         return res.json();
@@ -70,7 +71,7 @@ const SellerDashboardPage = () => {
       .catch(err => console.error(err));
 
     // 3. 시스템 알림(거절 사유 등) 불러오기
-    fetch('http://localhost:8080/api/seller/notifications', { credentials: 'include' })
+    fetch(`${API_BASE}/seller/notifications`, { credentials: 'include' })
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch notifications');
         return res.json();

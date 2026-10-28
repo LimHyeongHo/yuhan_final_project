@@ -1,6 +1,7 @@
+import { API_BASE } from '../../../config/api';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ImageOff, Package, Search, Filter, Edit2, Trash2, CheckCircle, Clock, ExternalLink, AlertTriangle } from 'lucide-react';
+import { ImageOff, Package, Search, Filter, Edit2, Trash2, CheckCircle, Clock, ExternalLink } from 'lucide-react';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
 
@@ -10,7 +11,7 @@ const SellerProductsPage = () => {
 
   const fetchProducts = () => {
     // [수정] sellerId=1 고정 하드코딩 → 로그인한 본인 상품만 조회
-    fetch('http://localhost:8080/api/products/seller/me', { credentials: 'include' })
+    fetch(`${API_BASE}/products/seller/me`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         const formattedData = data.filter(item => item.type === 'BOOK').map(item => ({
@@ -53,7 +54,7 @@ const SellerProductsPage = () => {
     if (!confirmDelete) return;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/products/${id}`, {
+      const response = await fetch(`${API_BASE}/products/${id}`, {
         method: 'DELETE',
         credentials: 'include',
       });

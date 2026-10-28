@@ -69,7 +69,7 @@ import InquiryPage from './pages/shared/inquiry/InquiryPage';
 // "/yuhan_final_project" 하위 경로에서 열리기 때문에 basename이 필요하다.
 // 개발 모드에서까지 이 접두사를 강제하면 localhost:3000/ 이 라우터와 안 맞아 백지 화면이 된다
 // (결제 완료 후 백엔드 리다이렉트도 이 접두사 없이 오기 때문에 동일하게 백지화됨).
-const routerBasename = process.env.NODE_ENV === 'production' ? process.env.PUBLIC_URL : '';
+const routerBasename = process.env.PUBLIC_URL || '';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();

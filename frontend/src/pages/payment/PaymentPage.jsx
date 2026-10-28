@@ -1,10 +1,11 @@
+import { API_ORIGIN } from '../../config/api';
 import React from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { CreditCard, Image as ImageIcon, Users } from 'lucide-react';
 import V3SiteHeader from '../../components/layout/V3SiteHeader';
 import { TOSS_CLIENT_KEY } from '../../config/clientEnv';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+const API_BASE_URL = API_ORIGIN;
 
 const PaymentPage = () => {
   const location = useLocation();

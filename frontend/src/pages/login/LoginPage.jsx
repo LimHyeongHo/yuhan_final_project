@@ -1,3 +1,4 @@
+import { API_BASE } from '../../config/api';
 import React, { useState } from 'react';
 
 /// [*] 회원가입 페이지와 연결
@@ -50,7 +51,7 @@ const LoginPage = () => {
     if (!email || !password) return alert("이메일과 비밀번호를 입력해주세요.");
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8080/api/pki/admin/login', {
+      const res = await fetch(`${API_BASE}/pki/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // [수정] 세션 쿠키를 주고받기 위해 credentials 추가
@@ -161,7 +162,7 @@ const LoginPage = () => {
 
       if (response.code !== undefined) throw new Error(response.message);
 
-      const verifyRes = await fetch('http://localhost:8080/api/pki/verify-portone', {
+      const verifyRes = await fetch(`${API_BASE}/pki/verify-portone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identityVerificationId: response.identityVerificationId, email })
@@ -211,7 +212,7 @@ const LoginPage = () => {
       }
 
       const deviceId = getDeviceId();
-      const chalRes = await fetch(`http://localhost:8080/api/pki/login/challenge?deviceId=${deviceId}`);
+      const chalRes = await fetch(`${API_BASE}/pki/login/challenge?deviceId=${deviceId}`);
       if (!chalRes.ok) {
         // 미등록 기기(AUTH_UNREGISTERED_DEVICE) / 폐기된 인증서(AUTH_CERTIFICATE_REVOKED) 모두 재발급 대상.
         const err = await chalRes.json().catch(() => ({}));
@@ -235,7 +236,7 @@ const LoginPage = () => {
       }
       const answer = new TextDecoder().decode(plainBuf);
 
-      const verRes = await fetch('http://localhost:8080/api/pki/login/verify', {
+      const verRes = await fetch(`${API_BASE}/pki/login/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // [수정] 로그인 성공 시 서버가 내려주는 세션 쿠키(JSESSIONID)를 저장/전송하기 위해 credentials 추가
@@ -295,7 +296,7 @@ const LoginPage = () => {
       const keyPair = await generateKeyPair();
       const pubKey = await exportPublicKey(keyPair.publicKey);
 
-      const res = await fetch('http://localhost:8080/api/pki/register', {
+      const res = await fetch(`${API_BASE}/pki/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, nickname: "", role: "", ci: regCi, publicKey: pubKey, deviceId: getDeviceId() })
