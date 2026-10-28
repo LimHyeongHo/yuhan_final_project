@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import V3SiteHeader from '../../components/layout/V3SiteHeader';
+import { PORTONE_CHANNEL_KEY, PORTONE_STORE_ID } from '../../config/clientEnv';
 import '../../styles/authPages.css';
 
 /// [신규] 로그인 성공 직후 인증서 타이머(10분)를 서버와 동기화하기 위한 훅
@@ -154,8 +155,8 @@ const LoginPage = () => {
     setIsLoading(true);
     try {
       const response = await window.PortOne.requestIdentityVerification({
-        storeId: "store-fd77dc69-cea9-4fd9-83c9-9888650fe579",
-        channelKey: "channel-key-8ffdf987-acaa-40a7-bac8-c8000aab12f2",
+        storeId: PORTONE_STORE_ID,
+        channelKey: PORTONE_CHANNEL_KEY,
         identityVerificationId: `verif-${Date.now()}`
       });
 

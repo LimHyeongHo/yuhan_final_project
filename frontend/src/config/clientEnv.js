@@ -1,0 +1,3 @@
+export const PORTONE_STORE_ID = process.env.REACT_APP_PORTONE_STORE_ID;
+export const PORTONE_CHANNEL_KEY = process.env.REACT_APP_PORTONE_CHANNEL_KEY;
+export const TOSS_CLIENT_KEY = process.env.REACT_APP_TOSS_CLIENT_KEY;

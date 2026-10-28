@@ -24,7 +24,7 @@ public class GoogleBooksService {
     private final String apiKey;
 
     @Autowired
-    public GoogleBooksService(@Value("${GOOGLE_BOOKS_API_KEY:}") String apiKey) {
+    public GoogleBooksService(@Value("${google.books-api-key:}") String apiKey) {
         this(createRestTemplate(), apiKey);
     }
 
