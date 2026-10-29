@@ -1,9 +1,9 @@
+import { API_BASE } from '../../../config/api';
 // [수정][feature/ui-fixes] 더미 목록 대신 실제 등록 상품(GET /api/products/seller/me) 조회 + 카드 클릭 시 해당 게시글로 이동
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, Users, ChevronRight } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8080/api';
 
 const STATUS_LABEL = {
   OPEN: { text: '모집 중', cls: 'text-blue-700 bg-blue-100' },

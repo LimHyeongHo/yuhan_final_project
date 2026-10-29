@@ -4,7 +4,6 @@ import com.Nbbang.backend.domain.report.dto.ChatReportStatusUpdateRequest;
 import com.Nbbang.backend.domain.report.service.ChatReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,7 +18,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admin/chat-reports")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class AdminChatReportController {
 
     private final ChatReportService chatReportService;

@@ -1,6 +1,8 @@
+import { API_BASE } from '../../config/api';
 import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import V3SiteHeader from '../../components/layout/V3SiteHeader';
+import { PORTONE_CHANNEL_KEY, PORTONE_STORE_ID } from '../../config/clientEnv';
 import { validatePassword, validatePasswordConfirm } from '../../utils/passwordValidation';
 import '../../styles/authPages.css';
 
@@ -35,7 +37,7 @@ const validateDepartment = (value) => {
 
 const checkEmailAvailability = async (email) => {
   try {
-    const res = await fetch(`http://localhost:8080/api/pki/check-email?email=${encodeURIComponent(email)}`);
+    const res = await fetch(`${API_BASE}/pki/check-email?email=${encodeURIComponent(email)}`);
     if (!res.ok) return "";
     const data = await res.json();
     if (data.available) return "";
@@ -242,14 +244,14 @@ const SignupPage = () => {
     setIsLoading(true);
     try {
       const response = await window.PortOne.requestIdentityVerification({
-        storeId: "store-fd77dc69-cea9-4fd9-83c9-9888650fe579",
-        channelKey: "channel-key-8ffdf987-acaa-40a7-bac8-c8000aab12f2",
+        storeId: PORTONE_STORE_ID,
+        channelKey: PORTONE_CHANNEL_KEY,
         identityVerificationId: `verif-${Date.now()}`
       });
 
       if (response.code !== undefined) throw new Error(response.message);
 
-      const verifyRes = await fetch('http://localhost:8080/api/pki/verify-portone', {
+      const verifyRes = await fetch(`${API_BASE}/pki/verify-portone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identityVerificationId: response.identityVerificationId })
@@ -280,7 +282,7 @@ const SignupPage = () => {
       const keyPair = await generateKeyPair();
       const pubKey = await exportPublicKey(keyPair.publicKey);
 
-      const res = await fetch('http://localhost:8080/api/pki/register', {
+      const res = await fetch(`${API_BASE}/pki/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

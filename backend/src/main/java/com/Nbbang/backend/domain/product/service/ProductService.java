@@ -21,6 +21,7 @@ import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -50,6 +51,9 @@ import java.util.regex.Pattern;
 @Slf4j
 @Transactional(readOnly = true)
 public class ProductService {
+
+    @Value("${app.public-base-url:http://localhost:8080}")
+    private String publicBaseUrl;
 
     private static final Pattern PRODUCT_ID_IN_TAMPER_LOG = Pattern.compile("productId=(\\d+)");
     private static final List<SecuritySimulationStatus> TAMPERED_SIMULATION_STATUSES = List.of(
@@ -116,7 +120,7 @@ public class ProductService {
                 Files.write(filePath, image.getBytes());
                 
                 // 프론트엔드에서 접근할 수 있는 URL 경로 저장 (WebMvcConfigurer 연결 필요)
-                product.setImageUrl("http://localhost:8080/uploads/" + savedFilename);
+                product.setImageUrl(publicBaseUrl + "/uploads/" + savedFilename);
             } catch (IOException e) {
                 log.warn("상품 이미지 저장 실패: type={}", e.getClass().getSimpleName());
             }
@@ -367,7 +371,7 @@ public class ProductService {
                 Path filePath = Paths.get(uploadDir + savedFilename);
                 Files.write(filePath, image.getBytes());
 
-                product.setImageUrl("http://localhost:8080/uploads/" + savedFilename);
+                product.setImageUrl(publicBaseUrl + "/uploads/" + savedFilename);
             } catch (IOException e) {
                 log.warn("상품 이미지 갱신 실패: type={}", e.getClass().getSimpleName());
             }

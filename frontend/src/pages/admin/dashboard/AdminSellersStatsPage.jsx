@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, BarChart3, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -8,7 +9,7 @@ const AdminSellersStatsPage = () => {
   const [sellers, setSellers] = useState([]);
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/admin/sellers/stats-list', { credentials: 'include' })
+    fetch(`${API_BASE}/admin/sellers/stats-list`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => setSellers(data))
       .catch(err => console.error("데이터 로드 실패:", err));

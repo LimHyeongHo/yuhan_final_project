@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Users, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +10,7 @@ const AdminUsersStatsPage = () => {
   const [days, setDays] = useState(1);
 
   useEffect(() => {
-    fetch(`http://localhost:8080/api/admin/users/stats-list?days=${days}`, { credentials: 'include' })
+    fetch(`${API_BASE}/admin/users/stats-list?days=${days}`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => setUsers(data))
       .catch(err => console.error("데이터 로드 실패:", err));

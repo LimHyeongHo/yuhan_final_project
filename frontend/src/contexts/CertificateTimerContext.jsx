@@ -1,9 +1,9 @@
+import { API_BASE } from '../config/api';
 // [신규 파일] CA 인증서 유효시간(기본 10분) 카운트다운 + 만료 시 자동 로그아웃을 앱 전역에서 공유하기 위한 Context
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from './SessionContext';
 
-const API_BASE = 'http://localhost:8080';
 // 서버(만료시각의 기준)와 얼마 주기로 재동기화할지: 드리프트 보정 + 서버측 강제 폐기 감지용
 const SYNC_INTERVAL_MS = 15000;
 
@@ -23,7 +23,7 @@ export const CertificateTimerProvider = ({ children }) => {
     expiredHandledRef.current = true;
 
     try {
-      await fetch(`${API_BASE}/api/member/certificate/revoke`, {
+      await fetch(`${API_BASE}/member/certificate/revoke`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -47,7 +47,7 @@ export const CertificateTimerProvider = ({ children }) => {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/api/member/certificate/status`, {
+      const res = await fetch(`${API_BASE}/member/certificate/status`, {
         credentials: 'include',
       });
 
@@ -84,7 +84,7 @@ export const CertificateTimerProvider = ({ children }) => {
   // [신규] +5분/-5분 조정: 화면 표시뿐 아니라 서버 DB의 만료시각(expiresAt)을 직접 갱신한다.
   const extend = useCallback(async (deltaMinutes) => {
     try {
-      const res = await fetch(`${API_BASE}/api/member/certificate/extend`, {
+      const res = await fetch(`${API_BASE}/member/certificate/extend`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

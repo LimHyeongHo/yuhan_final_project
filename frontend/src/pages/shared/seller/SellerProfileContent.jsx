@@ -1,9 +1,9 @@
+import { API_BASE } from '../../../config/api';
 // [UI-RQ-002][UI-RQ-003] 판매자 프로필+거래후기 공용 콘텐츠 (독립 페이지 / 마이페이지 탭)
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, Package, Clock, ThumbsUp, Minus, ThumbsDown, Info, ShieldCheck, UserX, UserMinus, Home, Search, Loader2 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8080/api';
 
 // 3단계 감정 표시 메타
 const SENTIMENT = {

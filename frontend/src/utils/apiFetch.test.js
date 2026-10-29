@@ -34,6 +34,36 @@ describe('createApiFetch', () => {
     expect(firstMutationOptions.headers.get('X-XSRF-TOKEN')).toBe('csrf-token');
   });
 
+  test('adds a CSRF token to deployed Render mutation requests', async () => {
+    const nativeFetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ headerName: 'X-XSRF-TOKEN', token: 'deployed-token' }),
+      })
+      .mockResolvedValue({ ok: true });
+    const apiFetch = createApiFetch(
+      nativeFetch,
+      'https://yuhanfinalproject.vercel.app',
+      'https://yuhan-final-project-api.onrender.com'
+    );
+
+    await apiFetch('https://yuhan-final-project-api.onrender.com/api/payment/prepare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"productId":1}',
+    });
+
+    expect(nativeFetch).toHaveBeenNthCalledWith(
+      1,
+      'https://yuhan-final-project-api.onrender.com/api/csrf',
+      { credentials: 'include' }
+    );
+    const mutationOptions = nativeFetch.mock.calls[1][1];
+    expect(mutationOptions.credentials).toBe('include');
+    expect(mutationOptions.headers.get('X-XSRF-TOKEN')).toBe('deployed-token');
+    expect(mutationOptions.headers.get('Content-Type')).toBe('application/json');
+  });
+
   test('does not modify requests to external services', async () => {
     const nativeFetch = jest.fn().mockResolvedValue({ ok: true });
     const apiFetch = createApiFetch(nativeFetch, 'http://localhost:3000');

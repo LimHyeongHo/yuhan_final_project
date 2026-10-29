@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   CheckCircle2,
@@ -18,7 +19,6 @@ import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import { useSession } from '../../../contexts/SessionContext';
 import './InquiryPage.css';
 
-const API_BASE = `http://${window.location.hostname}:8080`;
 const EMPTY_FORM = { title: '', content: '', secret: false, notice: false };
 
 const formatDate = (value) => {
@@ -68,7 +68,7 @@ const InquiryPage = () => {
     try {
       const params = new URLSearchParams();
       if (isAdmin) params.set('authorType', authorType);
-      const response = await fetch(`${API_BASE}/api/inquiries?${params}`, {
+      const response = await fetch(`${API_BASE}/inquiries?${params}`, {
         credentials: 'include',
       });
       if (!response.ok) throw new Error(await readError(response, '문의 목록을 불러오지 못했습니다.'));
@@ -94,7 +94,7 @@ const InquiryPage = () => {
     setDetailLoading(true);
     setError('');
     try {
-      const response = await fetch(`${API_BASE}/api/inquiries/${id}`, {
+      const response = await fetch(`${API_BASE}/inquiries/${id}`, {
         credentials: 'include',
       });
       if (!response.ok) throw new Error(await readError(response, '문의 내용을 불러오지 못했습니다.'));
@@ -118,7 +118,7 @@ const InquiryPage = () => {
     setSubmitting(true);
     setError('');
     try {
-      const response = await fetch(`${API_BASE}/api/inquiries`, {
+      const response = await fetch(`${API_BASE}/inquiries`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

@@ -1,10 +1,10 @@
+import { API_BASE } from '../../../config/api';
 // ===== 26.08.31 건우 추가내용 시작 =====
 // 정산/출금 기능 실제 연동: 하드코딩된 값(125,000원, 동작 없는 버튼)을 실제 API 호출로 교체.
 // 실제 은행 송금 자동화는 없음 - 신청 접수 후 관리자(/admin/settlements)가 수동 승인하는 방식.
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Landmark, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8080/api';
 
 const STATUS_LABEL = {
   REQUESTED: { text: '신청중', className: 'bg-amber-50 text-amber-700', icon: Clock },

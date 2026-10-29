@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminHeader from '../../../components/admin/AdminHeader';
@@ -10,7 +11,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-const API = 'http://localhost:8080/api/admin/security';
+const API = `${API_BASE}/admin/security`;
 const PRODUCTS_PER_PAGE = 10;
 const DEMO_GENESIS_HASH = '0'.repeat(64);
 const MAX_TAMPER_PRICE = 5000000;

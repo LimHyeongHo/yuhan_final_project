@@ -14,7 +14,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/search")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class NaverSearchController {
 
     /// [-] 네이버 검색 api 사용 불가능으로 인해 삭제 고려중

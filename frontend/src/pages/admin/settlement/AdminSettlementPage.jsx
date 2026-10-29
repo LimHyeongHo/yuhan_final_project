@@ -1,9 +1,9 @@
+import { API_BASE } from '../../../config/api';
 // ===== 26.08.31 건우 추가내용 시작 =====
 import React, { useState, useEffect } from 'react';
 import { Wallet, Landmark, Clock, CheckCircle2 } from 'lucide-react';
 import AdminHeader from '../../../components/admin/AdminHeader';
 
-const API_BASE = 'http://localhost:8080/api';
 
 const WithdrawalRow = ({ item, onApprove, onReject }) => (
   <div className="admin-v3-list-row flex items-center justify-between p-5 border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition">

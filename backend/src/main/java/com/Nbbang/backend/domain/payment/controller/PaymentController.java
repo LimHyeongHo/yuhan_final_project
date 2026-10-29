@@ -23,7 +23,6 @@ import java.nio.charset.StandardCharsets;
 @RestController
 @RequestMapping("/api/payment")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class PaymentController {
 
     private final PaymentService paymentService;

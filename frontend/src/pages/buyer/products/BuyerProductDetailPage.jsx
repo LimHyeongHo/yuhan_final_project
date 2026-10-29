@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useState, useEffect } from 'react';
 //아래 import문 삭제
 // import { useParams, Link } from 'react-router-dom';
@@ -39,7 +40,7 @@ const BuyerProductDetailPage = () => {
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   useEffect(() => {
-    fetch(`http://localhost:8080/api/products/${id}`)
+    fetch(`${API_BASE}/products/${id}`)
       .then(res => {
         if (!res.ok) throw new Error("상품을 찾을 수 없습니다.");
         return res.json();
@@ -89,7 +90,7 @@ const BuyerProductDetailPage = () => {
         // ===== 0906 문건우 수정 시작 =====
         // PRD-RQ-001: 로그인한 사용자가 이 상품에 실제로 참여 중인지 서버에서 확인
         // (예전엔 isJoined가 항상 false로 고정된 죽은 코드라 취소 버튼을 실제로 쓸 수 없었음)
-        fetch(`http://localhost:8080/api/products/${id}/participation/status`, { credentials: 'include' })
+        fetch(`${API_BASE}/products/${id}/participation/status`, { credentials: 'include' })
           .then((res) => (res.ok ? res.json() : false))
           .then((joined) => setIsJoined(joined))
           .catch(() => { });
@@ -97,7 +98,7 @@ const BuyerProductDetailPage = () => {
 
         // [신규] 판매자 프로필 요약 조회 (닉네임 / 거래 만족도 % / 후기 수)
         if (data.sellerEmail) {
-          fetch(`http://localhost:8080/api/sellers/${encodeURIComponent(data.sellerEmail)}/profile`)
+          fetch(`${API_BASE}/sellers/${encodeURIComponent(data.sellerEmail)}/profile`)
             .then(r => (r.ok ? r.json() : null))
             .then(p => p && setSeller(p))
             .catch(() => { });
@@ -109,7 +110,7 @@ const BuyerProductDetailPage = () => {
       });
 
     // [신규] 스크랩 상태 호출
-    fetch(`http://localhost:8080/api/products/${id}/scrap/status`, { credentials: 'include' })
+    fetch(`${API_BASE}/products/${id}/scrap/status`, { credentials: 'include' })
       .then(res => {
         if (res.ok) return res.json();
         return false;
@@ -125,7 +126,7 @@ const BuyerProductDetailPage = () => {
     let active = true;
     setVerification({ status: 'LOADING' });
 
-    fetch(`http://localhost:8080/api/products/${id}/verify`, { signal: controller.signal })
+    fetch(`${API_BASE}/products/${id}/verify`, { signal: controller.signal })
       .then(res => {
         if (!res.ok) throw new Error('검증 API 호출 실패');
         return res.json();
@@ -169,7 +170,7 @@ const BuyerProductDetailPage = () => {
           return;
         }
         // 백엔드 API 연동: 참여 인원 감소 (취소)
-        const res = await fetch(`http://localhost:8080/api/products/${product.id}/cancel`, {
+        const res = await fetch(`${API_BASE}/products/${product.id}/cancel`, {
           method: 'POST',
           credentials: 'include',
         });
@@ -197,7 +198,7 @@ const BuyerProductDetailPage = () => {
   const handleScrapToggle = async () => {
     if (!product) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/products/${product.id}/scrap`, {
+      const res = await fetch(`${API_BASE}/products/${product.id}/scrap`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -254,7 +255,7 @@ const BuyerProductDetailPage = () => {
 
     setIsSubmittingReport(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/products/${product.id}/reports`, {
+      const response = await fetch(`${API_BASE}/products/${product.id}/reports`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -291,7 +292,7 @@ const BuyerProductDetailPage = () => {
       return;
     }
     try {
-      const res = await fetch('http://localhost:8080/api/chat/rooms', {
+      const res = await fetch(`${API_BASE}/chat/rooms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

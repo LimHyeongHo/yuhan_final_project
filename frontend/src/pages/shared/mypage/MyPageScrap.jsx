@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useState, useEffect } from 'react';
 import { Bookmark, ShoppingBag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -7,7 +8,7 @@ const MyPageScrap = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/products/scraps/me', { credentials: 'include' })
+    fetch(`${API_BASE}/products/scraps/me`, { credentials: 'include' })
       .then(res => {
         if (!res.ok) throw new Error('스크랩 목록을 불러올 수 없습니다.');
         return res.json();

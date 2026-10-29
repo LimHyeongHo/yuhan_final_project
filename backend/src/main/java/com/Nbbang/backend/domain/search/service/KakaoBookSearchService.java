@@ -40,7 +40,7 @@ public class KakaoBookSearchService {
     private final String restApiKey;
 
     @Autowired
-    public KakaoBookSearchService(@Value("${KAKAO_REST_API_KEY:}") String restApiKey) {
+    public KakaoBookSearchService(@Value("${kakao.rest-api-key:}") String restApiKey) {
         this(createRestTemplate(), restApiKey);
     }
 

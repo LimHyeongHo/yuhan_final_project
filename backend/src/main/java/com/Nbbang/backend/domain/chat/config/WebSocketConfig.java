@@ -1,6 +1,7 @@
 package com.Nbbang.backend.domain.chat.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -14,6 +15,9 @@ import org.springframework.web.socket.server.support.HttpSessionHandshakeInterce
 @EnableWebSocketMessageBroker
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    @Value("${app.cors.allowed-origins:http://localhost:3000}")
+    private String allowedOrigins;
 
     private final StompAuthInterceptor stompAuthInterceptor;
 
@@ -33,12 +37,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 // [수정] localhost:3000 고정 → 사설망 호스트 + 모든 포트 허용
-                .setAllowedOriginPatterns(
-                        "http://localhost:*",
-                        "http://127.0.0.1:*",
-                        "http://192.168.*.*:*",
-                        "http://10.*.*.*:*"
-                )
+                .setAllowedOrigins(allowedOrigins.split(","))
                 .addInterceptors(new HttpSessionHandshakeInterceptor())
                 .withSockJS();
     }

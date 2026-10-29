@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.UUID;
 
@@ -53,6 +54,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.valueOf(ErrorCode.FILE_SIZE_EXCEEDED.getStatus()))
                 .body(ErrorResponse.of(ErrorCode.FILE_SIZE_EXCEEDED, request.getRequestURI()));
+    }
+
+    /**
+     * 컨트롤러나 정적 리소스가 없는 경로는 서버 오류가 아니라 404로 응답합니다.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFoundException(final NoResourceFoundException e, final HttpServletRequest request) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of(ErrorCode.RESOURCE_NOT_FOUND, request.getRequestURI()));
     }
 
     /**

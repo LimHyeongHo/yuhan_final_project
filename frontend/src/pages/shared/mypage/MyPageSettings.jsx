@@ -1,3 +1,4 @@
+import { API_BASE } from '../../../config/api';
 import React, { useEffect, useState } from 'react';
 import { Save, Lock, User, Mail, Calendar, Eye, EyeOff } from 'lucide-react';
 import { validatePassword, validatePasswordConfirm } from '../../../utils/passwordValidation';
@@ -14,7 +15,7 @@ const MyPageSettings = () => {
   useEffect(() => {
     const fetchInfo = async () => {
       try {
-        const res = await fetch('http://localhost:8080/api/member/info', {
+        const res = await fetch(`${API_BASE}/member/info`, {
           credentials: 'include',
         });
         const data = await res.json();
@@ -61,7 +62,7 @@ const MyPageSettings = () => {
 
     setIsSaving(true);
     try {
-      const res = await fetch('http://localhost:8080/api/member/profile', {
+      const res = await fetch(`${API_BASE}/member/profile`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
