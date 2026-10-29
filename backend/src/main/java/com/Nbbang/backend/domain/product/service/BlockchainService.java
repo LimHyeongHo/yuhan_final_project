@@ -478,18 +478,13 @@ public class BlockchainService {
             String txHash,
             Integer retryCount,
             String lastError) {
-        productRepository.findById(productId).ifPresent(product -> {
-            product.setBlockchainStatus(status);
-            if (txHash != null && !txHash.isBlank()) {
-                product.setTxHash(txHash);
-            }
-            if (retryCount != null) {
-                product.setBlockchainRetryCount(retryCount);
-            }
-            product.setBlockchainLastError(lastError);
-            product.setBlockchainUpdatedAt(LocalDateTime.now());
-            productRepository.save(product);
-        });
+        productRepository.updateBlockchainJobState(
+                productId,
+                status,
+                txHash,
+                retryCount,
+                lastError,
+                LocalDateTime.now());
     }
 
     private int currentRetryCount(Long productId) {

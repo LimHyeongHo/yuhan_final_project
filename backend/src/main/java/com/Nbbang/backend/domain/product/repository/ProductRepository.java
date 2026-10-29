@@ -11,6 +11,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,6 +41,30 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             + "and (p.integrityStatus is null or p.integrityStatus <> :integrityStatus)")
     int updateIntegrityStatusIfDifferent(@Param("id") Long id,
                                          @Param("integrityStatus") String integrityStatus);
+
+    @Modifying
+    @Transactional
+    @Query("update Product p set "
+            + "p.blockchainStatus = :status, "
+            + "p.txHash = case when :txHash is null or :txHash = '' then p.txHash else :txHash end, "
+            + "p.blockchainRetryCount = coalesce(:retryCount, p.blockchainRetryCount), "
+            + "p.blockchainLastError = :lastError, "
+            + "p.blockchainUpdatedAt = :updatedAt "
+            + "where p.productId = :productId")
+    int updateBlockchainJobState(
+            @Param("productId") Long productId,
+            @Param("status") BlockchainJobStatus status,
+            @Param("txHash") String txHash,
+            @Param("retryCount") Integer retryCount,
+            @Param("lastError") String lastError,
+            @Param("updatedAt") LocalDateTime updatedAt);
+
+    @Modifying
+    @Transactional
+    @Query("update Product p set p.officialPrice = :officialPrice "
+            + "where p.productId = :productId and p.officialPrice is null")
+    int updateOfficialPriceIfMissing(@Param("productId") Long productId,
+                                     @Param("officialPrice") BigDecimal officialPrice);
 
     List<Product> findByBlockchainStatusIn(List<BlockchainJobStatus> statuses);
 }

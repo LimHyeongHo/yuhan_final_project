@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
@@ -53,6 +54,7 @@ class VerificationServiceTest {
 
     @Test
     void rpcFailureIsReturnedAsUnavailableWithPersistedJobState() {
+        product.setBlockchainStatus(BlockchainJobStatus.CONFIRMED);
         when(blockchainService.readHash(1L))
                 .thenReturn(BlockchainService.BlockchainReadResult.unavailable("timeout"));
 
@@ -60,7 +62,7 @@ class VerificationServiceTest {
 
         assertThat(result)
                 .containsEntry("status", "UNAVAILABLE")
-                .containsEntry("blockchainStatus", BlockchainJobStatus.SUBMITTED)
+                .containsEntry("blockchainStatus", BlockchainJobStatus.CONFIRMED)
                 .containsEntry("retryCount", 1)
                 .containsEntry("txHash", "0x1234")
                 .containsEntry("retryable", true);
@@ -70,8 +72,6 @@ class VerificationServiceTest {
     void finalFailureIsDistinguishedFromPending() {
         product.setBlockchainStatus(BlockchainJobStatus.FAILED_FINAL);
         product.setBlockchainLastError("invalid contract");
-        when(blockchainService.readHash(1L))
-                .thenReturn(BlockchainService.BlockchainReadResult.notFound("empty"));
 
         Map<String, Object> result = verificationService.verifyProduct(1L);
 
@@ -79,10 +79,12 @@ class VerificationServiceTest {
                 .containsEntry("status", "FAILED")
                 .containsEntry("lastError", "invalid contract")
                 .containsEntry("retryable", false);
+        verifyNoInteractions(blockchainService);
     }
 
     @Test
     void emptyOnChainHashIsReturnedAsPending() {
+        product.setBlockchainStatus(BlockchainJobStatus.CONFIRMED);
         when(blockchainService.readHash(1L))
                 .thenReturn(BlockchainService.BlockchainReadResult.success(""));
 
@@ -95,6 +97,7 @@ class VerificationServiceTest {
 
     @Test
     void cachesKakaoOfficialPriceAndUsesItForPriceVerification() {
+        product.setBlockchainStatus(BlockchainJobStatus.CONFIRMED);
         product.setIsbn("9781234567897");
         product.setPrice(new BigDecimal("7000"));
         product.setOriginalPrice(new BigDecimal("12000"));
@@ -111,11 +114,12 @@ class VerificationServiceTest {
                 .containsEntry("status", "GOOD_DEAL")
                 .containsEntry("officialPrice", new BigDecimal("10000"));
         assertThat(product.getOfficialPrice()).isEqualByComparingTo("10000");
-        verify(productRepository).save(product);
+        verify(productRepository).updateOfficialPriceIfMissing(1L, new BigDecimal("10000"));
     }
 
     @Test
     void repeatedForgedVerificationCreatesOneSecurityLog() {
+        product.setBlockchainStatus(BlockchainJobStatus.CONFIRMED);
         product.setPrice(new BigDecimal("20000"));
         when(blockchainService.readHash(1L))
                 .thenReturn(BlockchainService.BlockchainReadResult.success("0xabcdef"));
@@ -132,6 +136,7 @@ class VerificationServiceTest {
 
     @Test
     void repeatedValidVerificationCreatesOneSecurityLog() {
+        product.setBlockchainStatus(BlockchainJobStatus.CONFIRMED);
         product.setPrice(new BigDecimal("20000"));
         when(blockchainService.readHash(1L))
                 .thenReturn(BlockchainService.BlockchainReadResult.success("0xabcdef"));
@@ -144,5 +149,31 @@ class VerificationServiceTest {
         verificationService.verifyProduct(1L);
 
         verify(systemLogRepository, times(1)).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void submittedJobIsPendingWithoutHashComparisonOrSecuritySideEffects() {
+        Map<String, Object> result = verificationService.verifyProduct(1L);
+
+        assertThat(result)
+                .containsEntry("status", "PENDING")
+                .containsEntry("retryable", true);
+        verifyNoInteractions(blockchainService, productHashService,
+                systemLogRepository, notificationRepository);
+    }
+
+    @Test
+    void retryableFailureIsPendingWithoutForgedDetection() {
+        product.setBlockchainStatus(BlockchainJobStatus.FAILED_RETRYABLE);
+        product.setBlockchainLastError("temporary network error");
+
+        Map<String, Object> result = verificationService.verifyProduct(1L);
+
+        assertThat(result)
+                .containsEntry("status", "PENDING")
+                .containsEntry("lastError", "temporary network error")
+                .containsEntry("retryable", true);
+        verifyNoInteractions(blockchainService, productHashService,
+                systemLogRepository, notificationRepository);
     }
 }

@@ -2,8 +2,8 @@ package com.Nbbang.backend.domain.product.service;
 
 import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
 import com.Nbbang.backend.domain.admin.security.repository.SecuritySimulationRepository;
-import com.Nbbang.backend.domain.log.repository.SystemLogRepository;
 import com.Nbbang.backend.domain.payment.repository.PaymentRepository;
+import com.Nbbang.backend.domain.product.entity.BlockchainJobStatus;
 import com.Nbbang.backend.domain.product.entity.Product;
 import com.Nbbang.backend.domain.product.entity.ProductPriceHistory;
 import com.Nbbang.backend.domain.product.repository.ParticipationRepository;
@@ -16,6 +16,7 @@ import com.Nbbang.backend.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
@@ -57,8 +58,7 @@ class ProductServiceTest {
                 mock(VerificationService.class),
                 paymentRepository,
                 productPriceHistoryRepository,
-                mock(SecuritySimulationRepository.class),
-                mock(SystemLogRepository.class));
+                mock(SecuritySimulationRepository.class));
     }
 
     @Test
@@ -107,6 +107,38 @@ class ProductServiceTest {
         verify(productHashService, never()).calculateHash(existing);
         verifyNoInteractions(blockchainService);
         verify(productPriceHistoryRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void blockchainUpdateStartsAfterProductTransactionCommits() {
+        Product existing = existingBook();
+        existing.setBlockchainStatus(BlockchainJobStatus.CONFIRMED);
+        existing.setBlockchainRetryCount(2);
+        existing.setBlockchainLastError("previous error");
+        existing.setIntegrityStatus("VALID");
+        Product requested = manipulatedBookUpdate(new BigDecimal("18000"));
+
+        when(productRepository.findById(92L)).thenReturn(Optional.of(existing));
+        when(paymentRepository.existsByProductIdAndStatus(92L, "DONE")).thenReturn(false);
+        when(productHashService.calculateHash(existing)).thenReturn("new-data-hash");
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            productService.updateProduct(92L, requested, null, "seller@yuhan.ac.kr");
+
+            verify(blockchainService, never()).recordHashAsync(92L, "new-data-hash");
+            assertThat(existing.getBlockchainStatus()).isEqualTo(BlockchainJobStatus.QUEUED);
+            assertThat(existing.getBlockchainRetryCount()).isZero();
+            assertThat(existing.getBlockchainLastError()).isNull();
+            assertThat(existing.getIntegrityStatus()).isEqualTo("UNVERIFIED");
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(synchronization -> synchronization.afterCommit());
+
+            verify(blockchainService).recordHashAsync(92L, "new-data-hash");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test

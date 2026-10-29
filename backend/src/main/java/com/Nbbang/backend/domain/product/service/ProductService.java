@@ -5,8 +5,8 @@ import com.Nbbang.backend.domain.auth.repository.UserAccountRepository;
 import com.Nbbang.backend.domain.admin.security.entity.SecuritySimulation;
 import com.Nbbang.backend.domain.admin.security.entity.SecuritySimulationStatus;
 import com.Nbbang.backend.domain.admin.security.repository.SecuritySimulationRepository;
-import com.Nbbang.backend.domain.log.repository.SystemLogRepository;
 import com.Nbbang.backend.domain.payment.repository.PaymentRepository;
+import com.Nbbang.backend.domain.product.entity.BlockchainJobStatus;
 import com.Nbbang.backend.domain.product.entity.Participation;
 import com.Nbbang.backend.domain.product.entity.ProductPriceHistory;
 import com.Nbbang.backend.domain.product.entity.ProductCategory;
@@ -34,6 +34,7 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.List;
 import java.util.Map;
@@ -43,8 +44,6 @@ import java.util.Locale;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -55,7 +54,6 @@ public class ProductService {
     @Value("${app.public-base-url:http://localhost:8080}")
     private String publicBaseUrl;
 
-    private static final Pattern PRODUCT_ID_IN_TAMPER_LOG = Pattern.compile("productId=(\\d+)");
     private static final List<SecuritySimulationStatus> TAMPERED_SIMULATION_STATUSES = List.of(
             SecuritySimulationStatus.FORGED_DETECTED,
             SecuritySimulationStatus.HASH_MISMATCH);
@@ -71,7 +69,6 @@ public class ProductService {
     private final PaymentRepository paymentRepository;
     private final ProductPriceHistoryRepository productPriceHistoryRepository;
     private final SecuritySimulationRepository securitySimulationRepository;
-    private final SystemLogRepository systemLogRepository;
 
     // 로컬 업로드 경로 설정 (프로젝트 실행 위치의 uploads 폴더)
     private final String uploadDir = System.getProperty("user.dir") + "/uploads/";
@@ -380,7 +377,15 @@ public class ProductService {
         String newDataHash = null;
         if (priceChanged || isbnChanged) {
             newDataHash = productHashService.calculateHash(product);
-            blockchainService.recordHashAsync(product.getProductId(), newDataHash);
+            product.setBlockchainStatus(BlockchainJobStatus.QUEUED);
+            product.setBlockchainRetryCount(0);
+            product.setBlockchainLastError(null);
+            product.setBlockchainUpdatedAt(LocalDateTime.now());
+            product.setIntegrityStatus("UNVERIFIED");
+
+            String dataHashToRecord = newDataHash;
+            runAfterCommit(() -> blockchainService.recordHashAsync(
+                    product.getProductId(), dataHashToRecord));
         }
 
         if (priceChanged) {
@@ -511,21 +516,9 @@ public class ProductService {
     }
 
     public Set<Long> getTamperedProductIds() {
-        Set<Long> tamperedProductIds = securitySimulationRepository.findByStatusIn(TAMPERED_SIMULATION_STATUSES).stream()
+        return securitySimulationRepository.findByStatusIn(TAMPERED_SIMULATION_STATUSES).stream()
                 .map(SecuritySimulation::getProductId)
                 .filter(Objects::nonNull)
                 .collect(java.util.stream.Collectors.toCollection(HashSet::new));
-
-        systemLogRepository.findByTypeAndStatus("SECURITY", "TAMPERED").stream()
-                .map(log -> log.getDiff())
-                .filter(Objects::nonNull)
-                .forEach(diff -> {
-                    Matcher matcher = PRODUCT_ID_IN_TAMPER_LOG.matcher(diff);
-                    if (matcher.find()) {
-                        tamperedProductIds.add(Long.valueOf(matcher.group(1)));
-                    }
-                });
-
-        return tamperedProductIds;
     }
 }
