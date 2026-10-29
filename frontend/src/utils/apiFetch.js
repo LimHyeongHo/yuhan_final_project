@@ -1,16 +1,19 @@
+import { API_ORIGIN } from '../config/api';
+
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 const getRequestUrl = (input) => (
   typeof input === 'string' ? input : input?.url
 );
 
-const isBackendApiRequest = (input, pageOrigin) => {
+const isBackendApiRequest = (input, pageOrigin, apiOrigin) => {
   const requestUrl = getRequestUrl(input);
   if (!requestUrl) return false;
 
   try {
     const url = new URL(requestUrl, pageOrigin);
-    return url.port === '8080' && url.pathname.startsWith('/api/');
+    const backendOrigin = new URL(apiOrigin, pageOrigin).origin;
+    return url.origin === backendOrigin && url.pathname.startsWith('/api/');
   } catch {
     return false;
   }
@@ -20,7 +23,7 @@ const getRequestMethod = (input, options) => (
   options?.method || input?.method || 'GET'
 ).toUpperCase();
 
-export const createApiFetch = (nativeFetch, pageOrigin) => {
+export const createApiFetch = (nativeFetch, pageOrigin, apiOrigin = API_ORIGIN) => {
   const csrfTokens = new Map();
   const pendingTokens = new Map();
 
@@ -50,7 +53,7 @@ export const createApiFetch = (nativeFetch, pageOrigin) => {
   };
 
   return async (input, options = {}) => {
-    if (!isBackendApiRequest(input, pageOrigin)) {
+    if (!isBackendApiRequest(input, pageOrigin, apiOrigin)) {
       return nativeFetch(input, options);
     }
 
@@ -78,7 +81,7 @@ export const installApiFetch = () => {
   if (window.fetch.__yuBookApiFetch) return;
 
   const nativeFetch = window.fetch.bind(window);
-  const apiFetch = createApiFetch(nativeFetch, window.location.origin);
+  const apiFetch = createApiFetch(nativeFetch, window.location.origin, API_ORIGIN);
   apiFetch.__yuBookApiFetch = true;
   window.fetch = apiFetch;
 };

@@ -37,6 +37,9 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:http://localhost:3000}")
     private String allowedOrigins;
 
+    @Value("${server.servlet.session.cookie.same-site:lax}")
+    private String cookieSameSite;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         // [SEC-RQ-001] 이 앱은 Spring Security의 로그인 메커니즘을 쓰지 않고 커스텀 HttpSession(userId/role)으로
@@ -50,7 +53,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource())) // CORS 프리플라이트(OPTIONS) 허용
             .csrf(csrf -> csrf
                 .ignoringRequestMatchers(PRE_AUTH_CSRF_EXEMPT_REQUESTS)
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRepository(csrfTokenRepository())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
             )
             .sessionManagement(session -> session
@@ -61,6 +64,12 @@ public class SecurityConfig {
             );
 
         return http.build();
+    }
+
+    private CookieCsrfTokenRepository csrfTokenRepository() {
+        CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repository.setCookieCustomizer(cookie -> cookie.sameSite(cookieSameSite));
+        return repository;
     }
 
     @Bean
