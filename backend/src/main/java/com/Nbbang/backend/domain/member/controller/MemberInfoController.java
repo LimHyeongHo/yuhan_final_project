@@ -56,7 +56,7 @@ public class MemberInfoController {
     private final ParticipationRepository participationRepository;
     private final PaymentRepository paymentRepository;
 
-    // [MEM-RQ-001] 탈퇴 시 거래 이력은 보존하되 개인 표시 정보만 이 값으로 덮어써 익명화한다.
+    // 탈퇴 시 거래 이력은 보존하되 개인 표시 정보만 이 값으로 덮어써 익명화한다.
     private static final String ANONYMIZED_DISPLAY_NAME = "탈퇴한 사용자";
 
     public MemberInfoController(UserAccountRepository userAccountRepository,
@@ -104,7 +104,7 @@ public class MemberInfoController {
         return ResponseEntity.ok(body);
     }
 
-    // [UI-RQ-001] 프론트 라우트 가드(PrivateRoute/AdminRoute)가 localStorage(위변조 가능) 대신
+    // 프론트 라우트 가드(PrivateRoute/AdminRoute)가 localStorage(위변조 가능) 대신
     // 서버 세션을 신뢰하도록, 현재 로그인 세션의 역할/식별 정보를 반환한다.
     // 세션이 없으면 401을 명시적으로 내려 프론트가 "비로그인"으로 처리하게 한다.
     @GetMapping("/session")
@@ -192,7 +192,7 @@ public class MemberInfoController {
         return ResponseEntity.ok(body);
     }
 
-    // 회원 탈퇴 (MEM-RQ-001, MEM-RQ-002)
+    // 회원 탈퇴
     // - CA 인증서 폐기 (기기 인증서는 삭제하지 않고 revoked=true로만 표시해 감사 이력 보존)
     // - 계정은 물리 삭제 대신 status=WITHDRAWN으로 비활성화 (거래/결제/후기 감사 이력 보존)
     // - 판매자였다면 모집 중이던 상품을 즉시 거래 불가 상태(SELLER_WITHDRAWN)로 전환
@@ -213,7 +213,7 @@ public class MemberInfoController {
             }
         }
 
-        // [MEM-RQ-001] 참여/결제 기록(감사 데이터)은 그대로 두되, 화면에 노출되는 닉네임 스냅샷만 익명화
+        // 참여/결제 기록(감사 데이터)은 그대로 두되, 화면에 노출되는 닉네임 스냅샷만 익명화
         for (Participation participation : participationRepository.findByMember_EmailOrderByJoinDateDesc(userId)) {
             participation.setBuyerName(ANONYMIZED_DISPLAY_NAME);
         }
@@ -224,7 +224,7 @@ public class MemberInfoController {
         user.setStatus("WITHDRAWN");
         userAccountRepository.save(user);
 
-        // [NFR-002] 회원 탈퇴는 감사 로그 대상
+        // 회원 탈퇴는 감사 로그 대상
         systemLogService.log("MEMBER", "SUCCESS", "회원 탈퇴: " + userId);
 
         request.getSession().invalidate();

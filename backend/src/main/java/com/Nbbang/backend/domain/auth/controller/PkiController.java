@@ -152,7 +152,7 @@ public class PkiController {
         Map<String, Object> response = new HashMap<>();
         if (existing == null) {
             response.put("available", true);
-            // [MEM-RQ-001] 탈퇴 계정은 영구 재가입 불가 - 프론트가 "이미 사용 중"과 구분해 안내할 수 있도록 사유를 함께 내려준다.
+            // 탈퇴 계정은 영구 재가입 불가 - 프론트가 "이미 사용 중"과 구분해 안내할 수 있도록 사유를 함께 내려준다.
         } else if ("WITHDRAWN".equals(existing.getStatus())) {
             response.put("available", false);
             response.put("reason", "WITHDRAWN");
@@ -165,7 +165,7 @@ public class PkiController {
     @PostMapping("/register")
     @Transactional
     public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, String> request) {
-        // [SEC-RQ-003] 클라이언트가 보낸 role은 "구매자/판매자로 가입하겠다"는 의사표시로만 허용한다.
+        // 클라이언트가 보낸 role은 "구매자/판매자로 가입하겠다"는 의사표시로만 허용한다.
         // 허용 목록(빈 값=인증서 재발급 요청, ROLE_BUYER, ROLE_SELLER) 밖의 값(ROLE_ADMIN 등)은
         // 조용히 ROLE_BUYER로 처리하지 않고 400으로 거부한다.
         String requestedRole = request.get("role") != null ? request.get("role").trim() : "";
@@ -189,7 +189,7 @@ public class PkiController {
             if (email == null || email.isEmpty()) throw new CustomException(ErrorCode.VALIDATION_FAILED);
 
             // --- 중복 가입 방지 로직 (1인 1계정 정책) ---
-            // [MEM-RQ-001] 이 CI로 이미 가입된 계정이 있어도, 그 계정이 탈퇴(WITHDRAWN)한 상태라면
+            // CI로 이미 가입된 계정이 있어도, 그 계정이 탈퇴(WITHDRAWN)한 상태라면
             // 더 이상 "활성 중복 계정"이 아니므로 막지 않는다. 안 그러면 한 번 탈퇴한 사람은
             // 본인인증을 다시 받아도 어떤 이메일로도 영영 재가입할 수 없게 된다.
             String ciHash = pkiService.generateCiHash(ci);
@@ -209,7 +209,7 @@ public class PkiController {
             UserAccount userAccount = userAccountRepository.findById(email).orElse(null);
             boolean isNewUser = (userAccount == null);
 
-            // [MEM-RQ-001] 탈퇴(WITHDRAWN)한 이메일은 감사 이력 보존을 위해 영구적으로 재가입/기기 재등록 모두 불가.
+            // 탈퇴(WITHDRAWN)한 이메일은 감사 이력 보존을 위해 영구적으로 재가입/기기 재등록 모두 불가.
             // (row 자체는 남아있어 isNewUser=false로 잡히므로, "이미 사용 중" 분기보다 먼저 명확히 구분해서 안내한다.)
             if (!isNewUser && "WITHDRAWN".equals(userAccount.getStatus())) {
                 throw new CustomException(ErrorCode.AUTH_WITHDRAWN_ACCOUNT);
@@ -320,7 +320,7 @@ public class PkiController {
             throw new CustomException(ErrorCode.AUTH_ACCESS_DENIED);
         }
 
-        // [MEM-RQ-001] 탈퇴(WITHDRAWN)한 계정은 재로그인 불가
+        // 탈퇴(WITHDRAWN)한 계정은 재로그인 불가
         if ("WITHDRAWN".equals(user.getStatus())) {
             throw new CustomException(ErrorCode.AUTH_WITHDRAWN_ACCOUNT);
         }
@@ -367,7 +367,7 @@ public class PkiController {
     public ResponseEntity<Map<String, Object>> verify(@RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
         String deviceId = request.get("deviceId") != null ? request.get("deviceId").replaceAll("\\s", "") : "";
         String password = request.get("password");
-        // [변경] 서명(signature) 대신, 기기 개인키로 챌린지를 복호화한 평문 nonce
+        // 기기 개인키로 챌린지를 복호화한 평문 nonce
         String answer = request.get("answer");
         String ci = request.get("ci");
 
@@ -379,7 +379,7 @@ public class PkiController {
         UserAccount user = userAccountRepository.findById(cert.getUserId())
                 .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
-        // [MEM-RQ-001] 탈퇴(WITHDRAWN)한 계정은 재로그인 불가
+        // 탈퇴(WITHDRAWN)한 계정은 재로그인 불가
         if ("WITHDRAWN".equals(user.getStatus())) {
             throw new CustomException(ErrorCode.AUTH_WITHDRAWN_ACCOUNT);
         }
@@ -419,7 +419,7 @@ public class PkiController {
         return ResponseEntity.ok(response);
     }
 
-    // [SEC-RQ-002] 서버 로그아웃: 현재 HTTP 세션을 무효화하고 JSESSIONID 쿠키를 명시적으로 만료시킨다.
+    // 서버 로그아웃: 현재 HTTP 세션을 무효화하고 JSESSIONID 쿠키를 명시적으로 만료시킨다.
     // 수동 로그아웃은 정책상 인증서를 폐기하지 않으므로 caService/certificateSessionService는 호출하지 않는다.
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
@@ -428,7 +428,7 @@ public class PkiController {
             session.invalidate();
         }
 
-        // [SEC-RQ-002] 세션 무효화만으로는 브라우저에 남은 JSESSIONID 쿠키가 즉시 사라지지 않으므로,
+        // 세션 무효화만으로는 브라우저에 남은 JSESSIONID 쿠키가 즉시 사라지지 않으므로,
         // Max-Age=0 쿠키를 내려 클라이언트에서 확실히 삭제되도록 한다.
         Cookie expired = new Cookie("JSESSIONID", "");
         expired.setPath("/");
@@ -447,7 +447,7 @@ public class PkiController {
         DeviceCert cert = deviceCertRepository.findByDeviceId(deviceId)
                 .orElseThrow(() -> new CustomException(ErrorCode.AUTH_UNREGISTERED_DEVICE));
 
-            // [SEC-RQ-005] body의 deviceId만 믿고 폐기하면 deviceId만 아는 제3자가 남의 기기 인증서를
+            // body의 deviceId만 믿고 폐기하면 deviceId만 아는 제3자가 남의 기기 인증서를
             // 무력화할 수 있으므로, 로그인 세션의 소유자 본인이거나 관리자일 때만 폐기를 허용한다.
         HttpSession session = httpRequest.getSession(false);
         String sessionUserId = session != null ? (String) session.getAttribute("userId") : null;

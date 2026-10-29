@@ -28,7 +28,7 @@ public class UserAccount {
     @Column(nullable = false)
     private String role = "ROLE_USER";
 
-    // MEM-RQ-001: 탈퇴 시 물리 삭제 대신 이 값을 "WITHDRAWN"으로 바꿔 비활성화한다 (거래 감사 이력 보존).
+    // 탈퇴 시 물리 삭제 대신 이 값을 "WITHDRAWN"으로 바꿔 비활성화한다 (거래 감사 이력 보존).
     // columnDefinition에 DB 기본값을 명시해야 함 - 이미 데이터가 있는 테이블에 NOT NULL 컬럼을
     // "default 없이" 추가하면 기존 행이 전부 NULL이라 Postgres가 ALTER TABLE 자체를 거부한다.
     @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'ACTIVE'")

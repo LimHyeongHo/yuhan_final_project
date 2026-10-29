@@ -16,7 +16,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.HashMap;
 import java.util.Map;
 
-// [SEC-RQ-005] 프론트엔드는 이 컨트롤러를 전혀 호출하지 않는다 (기기 인증서 발급/폐기는
+// 프론트엔드는 이 컨트롤러를 전혀 호출하지 않는다 (기기 인증서 발급/폐기는
 // PkiController#register/revoke에서 CAService를 직접 호출). 그런데도 이 원시 API가 인증 없이
 // 열려 있으면 누구나 deviceId/serialNumber만으로 인증서를 발급·폐기할 수 있으므로 관리자 전용으로 제한한다.
 @RestController
