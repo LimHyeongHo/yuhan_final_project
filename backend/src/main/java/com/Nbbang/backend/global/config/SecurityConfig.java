@@ -11,15 +11,28 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import java.util.Set;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    private static final Set<String> PRE_AUTH_CSRF_EXEMPT_POST_PATHS = Set.of(
+            "/api/pki/admin/login",
+            "/api/pki/verify-portone",
+            "/api/pki/login/verify",
+            "/api/pki/register"
+    );
+
+    static final RequestMatcher PRE_AUTH_CSRF_EXEMPT_REQUESTS = request ->
+            "POST".equalsIgnoreCase(request.getMethod())
+                    && PRE_AUTH_CSRF_EXEMPT_POST_PATHS.contains(request.getRequestURI());
 
     @Value("${app.cors.allowed-origins:http://localhost:3000}")
     private String allowedOrigins;
@@ -36,6 +49,7 @@ public class SecurityConfig {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource())) // CORS 프리플라이트(OPTIONS) 허용
             .csrf(csrf -> csrf
+                .ignoringRequestMatchers(PRE_AUTH_CSRF_EXEMPT_REQUESTS)
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
             )
