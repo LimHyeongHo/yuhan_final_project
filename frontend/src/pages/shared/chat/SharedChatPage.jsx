@@ -8,9 +8,6 @@ import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import './SharedChatPage.css';
 import ChatReportModal from './ChatReportModal';
 
-// 접속한 주소 기준으로 서버 주소를 정함 (다른 기기에서 접속해도 동작)
-const API_BASE = `http://${window.location.hostname}:8080/api`;
-const WS_URL = `http://${window.location.hostname}:8080/ws`;
 const FETCH_OPTIONS = { credentials: 'include' };
 
 const formatTime = (dateTimeStr) => {

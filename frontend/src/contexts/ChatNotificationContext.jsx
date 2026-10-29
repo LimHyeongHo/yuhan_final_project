@@ -1,3 +1,4 @@
+import { API_BASE, WS_URL } from '../config/api';
 // Header/SellerDashboardPage의 20초 폴링을 개인 토픽(/topic/chat/user/{email}) WebSocket 구독으로 대체.
 // 이벤트가 오면 서버 목록 재조회로 배지·미리보기 갱신, 새 메시지는 우하단 토스트.
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';

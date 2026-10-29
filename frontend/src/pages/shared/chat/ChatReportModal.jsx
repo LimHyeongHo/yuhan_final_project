@@ -3,8 +3,6 @@ import React, { useState } from 'react';
 import { Flag, X } from 'lucide-react';
 
 // 상대 메시지 1개를 골라 사유와 함께 신고하는 창
-const API_BASE = `http://${window.location.hostname}:8080/api`;
-
 // 서버의 신고 사유 목록과 같아야 함
 const REPORT_REASONS = ['개인 거래 유도', '선입금 요청', '욕설·비방', '기타'];
 const MAX_DETAIL_LENGTH = 1000;
