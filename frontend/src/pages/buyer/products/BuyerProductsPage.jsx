@@ -58,6 +58,7 @@ const BuyerProductsPage = () => {
       .then((data) => {
         if (isCancelled) return;
 
+        const now = Date.now();
         const formattedData = data.map((item) => ({
           id: item.productId,
           title: item.title,
@@ -71,6 +72,8 @@ const BuyerProductsPage = () => {
           status: item.integrityTampered || item.integrityStatus === 'FORGED'
             ? '위변조 위험'
             : item.status === 'OPEN' ? '모집 중' : '마감됨',
+          isClosed: item.status !== 'OPEN'
+            || (item.deadline && new Date(item.deadline).getTime() < now),
           deadline: item.deadline ? item.deadline.split('T')[0] : '기한 없음',
           thumbnail: getDisplayProductImageUrl(item.imageUrl),
           description: item.description || '',
@@ -93,7 +96,7 @@ const BuyerProductsPage = () => {
 
   const filteredList = React.useMemo(() => {
     const filtered = productList.filter((item) => {
-      if (!showClosed && item.status === '마감됨') return false;
+      if (!showClosed && item.isClosed) return false;
       if (typeFilter !== 'ALL' && item.type !== typeFilter) return false;
       if (categoryFilter !== 'ALL' && item.category !== categoryFilter) return false;
 
