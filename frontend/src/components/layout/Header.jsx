@@ -2,11 +2,9 @@ import { API_BASE } from '../../config/api';
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import HeaderLogo from './HeaderLogo';
-// [신규] Bell — 헤더 채팅 알림 배지/미리보기 아이콘
 import { User, ShieldAlert, LogOut, Bell, X, Menu } from 'lucide-react';
 // [신규] 인증서 남은 시간(mm:ss) + +5분/-5분 조정을 위한 Context 훅
 import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
-// [feature/chat-fixes] 채팅 안읽음 수를 전역 WebSocket 기준으로 실시간 수신 (기존 20초 폴링 대체)
 import { useChatNotifications } from '../../contexts/ChatNotificationContext';
 import { useSession } from '../../contexts/SessionContext';
 
@@ -27,13 +25,12 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // [신규] 인증서 타이머 상태 (남은 초 / 조정 함수)
   const { remainingSeconds, extend } = useCertificateTimer();
-  // [신규] 헤더 알림 배지 + 미리보기 드롭다운용 상태 (채팅 + 판매자 참여 알림 통합)
-  // [feature/chat-fixes] 채팅방 목록/안읽음은 전역 Context(WebSocket)에서 실시간으로 받는다
+  // 채팅 알림은 웹소켓으로 바로 받고, 참여 알림과 시스템 알림은 따로 불러옴
   const { chatRooms } = useChatNotifications();
   const [participationAlerts, setParticipationAlerts] = useState([]);
   const [systemNotifications, setSystemNotifications] = useState([]);
   const [isChatPreviewOpen, setIsChatPreviewOpen] = useState(false);
-  // [신규] 참여 알림 "읽음" 기준 시각 (로컬 저장)
+  // 참여 알림을 마지막으로 확인한 시각 (브라우저에 저장)
   const [lastSeenParticipationAt, setLastSeenParticipationAt] = useState(
     () => localStorage.getItem('notif_participation_seen_at') || new Date(0).toISOString()
   );
@@ -42,9 +39,7 @@ const Header = () => {
   const nickname = sessionUser?.nickname || '로그인 필요';
   const userRole = sessionUser?.role || '';
 
-  // [feature/chat-fixes] 채팅 안읽음은 전역 Context로 이동 → 여기 chat-read 처리·20초 폴링 제거
-
-  // [신규] 판매자 참여/시스템 알림을 20초마다 갱신 (채팅과 무관한 별도 기능이라 폴링 유지)
+  // 판매자 참여 알림과 시스템 알림은 20초마다 새로 불러옴
   useEffect(() => {
     if (!isLoggedIn) {
       setParticipationAlerts([]);
@@ -82,7 +77,7 @@ const Header = () => {
   }, [isLoggedIn, userRole]);
 
   const handleLogout = async () => {
-    // [SEC-RQ-002] 서버 세션도 함께 무효화해야 뒤로가기/재요청으로 보호 API에 재진입할 수 없음.
+    // 로그아웃할 때 서버 세션도 끊어야 뒤로가기로 다시 들어올 수 없음
     // 인증서 폐기는 탈퇴/타이머 만료 때만 해야 하므로 여기서는 로그아웃 API만 호출한다.
     let serverLogoutOk = false;
     try {
@@ -97,7 +92,7 @@ const Header = () => {
 
     localStorage.removeItem('user_nickname');
     localStorage.removeItem('user_role');
-    // [신규] 채팅 메시지 판별 email 삭제
+    // 로그아웃하면 저장해 둔 이메일도 지움
     localStorage.removeItem('email');
     clearSession();
     // [SEC-RQ-002] 서버 세션 무효화 성공 여부를 확인하지 않고 "성공"만 안내하면,
@@ -112,7 +107,7 @@ const Header = () => {
 
   const myPagePath = userRole === 'ROLE_SELLER' ? '/seller/mypage' : userRole === 'ROLE_ADMIN' ? '/admin/dashboard' : '/buyer/mypage';
 
-  // [신규] 헤더 채팅 링크 클릭 시 비로그인이면 이동 막고 alert만 표시 (URL 직접 입력 접근은 미차단, PrivateRoute에서 별도 처리 예정)
+  // 로그인 안 했으면 채팅 메뉴를 눌러도 이동하지 않고 안내만 띄움
   const handleChatClick = (e) => {
     if (!isLoggedIn) {
       e.preventDefault();
@@ -120,7 +115,7 @@ const Header = () => {
     }
   };
 
-  // [신규] 알림 배지/미리보기 — role별 채팅 목록 경로, 채팅+참여 알림을 하나로 합쳐서 최신순 표시
+  // 안 읽은 채팅과 참여 알림을 합쳐 최신순으로 보여줌
   const chatBasePath = userRole === 'ROLE_SELLER' ? '/seller/chat' : '/buyer/chat';
 
   const unreadChatItems = chatRooms
@@ -176,7 +171,7 @@ const Header = () => {
     setIsChatPreviewOpen(!isChatPreviewOpen);
   };
 
-  // [신규] 항목 클릭 시 이동 — 채팅은 해당 방, 참여 알림은 판매 현황, 시스템 알림은 대시보드
+  // 알림을 누르면 이동 (채팅은 그 방, 참여 알림은 판매 현황, 시스템 알림은 대시보드)
   const handleNotificationItemClick = (item) => {
     markNotificationsSeen();
     setIsChatPreviewOpen(false);
@@ -227,7 +222,6 @@ const Header = () => {
               <Link to="/seller/status" className="hover:text-gray-950 transition">판매 현황</Link>
               <Link to="/seller/analytics" className="hover:text-gray-950 transition">분석 데이터</Link>
               <Link to="/seller/orders" className="hover:text-gray-950 transition">주문 관리</Link>
-              {/* [수정] onClick 추가 — 비로그인 시 handleChatClick이 이동 막고 alert 표시 */}
               <Link to="/seller/chat" className="hover:text-gray-950 transition" onClick={handleChatClick}>채팅</Link>
             </>
           )}
@@ -237,7 +231,6 @@ const Header = () => {
             <>
               <Link to="/" className="hover:text-gray-950 transition">홈</Link>
               <Link to="/buyer/products" className="hover:text-gray-950 transition">공구 찾기</Link>
-              {/* [수정] onClick 추가 — 비로그인 시 handleChatClick이 이동 막고 alert 표시 */}
               <Link to="/buyer/chat" className="hover:text-gray-950 transition" onClick={handleChatClick}>채팅</Link>
             </>
           )}
@@ -255,7 +248,7 @@ const Header = () => {
           </div>
         ) : isLoggedIn ? (
           <>
-            {/* [신규] 알림 배지 + 미리보기 드롭다운 */}
+            {/* 헤더 종 아이콘: 알림 개수와 미리보기 목록 */}
             <div className="relative shrink-0">
               <button
                 type="button"

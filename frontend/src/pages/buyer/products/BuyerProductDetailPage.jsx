@@ -84,7 +84,7 @@ const BuyerProductDetailPage = () => {
           rawStatus: data.status,
           thumbnail: getDisplayProductImageUrl(data.imageUrl),
           description: data.description,
-          sellerEmail: data.sellerEmail // [신규] 문의하기 버튼에서 채팅방 생성 API 호출용
+          sellerEmail: data.sellerEmail // 문의하기 채팅방을 만들 때 사용
         });
 
         // ===== 0906 문건우 수정 시작 =====
@@ -239,7 +239,6 @@ const BuyerProductDetailPage = () => {
     }
   };
 
-  // [신규] 문의하기 버튼 클릭 핸들러 — 채팅방 생성 후 채팅방 목록으로 이동
   const closeReportModal = () => {
     if (isSubmittingReport) return;
     setIsReportModalOpen(false);
@@ -303,7 +302,7 @@ const BuyerProductDetailPage = () => {
         }),
       });
       if (!res.ok) throw new Error('채팅방 생성에 실패했습니다.');
-      // [feature/chat-fixes] 생성/기존 방 id를 받아 채팅 화면에서 바로 그 방이 열리도록 roomId를 넘긴다
+      // 새로 만든 방이든 기존 방이든 그 방이 바로 열리도록 방 번호를 넘김
       const { roomId } = await res.json();
       navigate(roomId ? `/buyer/chat?roomId=${roomId}` : '/buyer/chat');
     } catch (e) {
@@ -314,9 +313,9 @@ const BuyerProductDetailPage = () => {
   if (!product) return <div className="p-8 text-center font-bold">도서 정보를 불러오는 중입니다...</div>;
 
   const progressRatio = Math.min(Math.round((product.currentCount / product.targetCount) * 100), 100);
-  // [신규] 본인이 등록한 상품이면 구매자용 버튼 대신 판매자용 버튼(판매 현황 / 구매자 문의)을 보여줌
+  // 본인 상품이면 구매자 버튼 대신 판매 현황, 구매자 문의 버튼을 보여줌
   const isOwnProduct = !!product.sellerEmail && product.sellerEmail === localStorage.getItem('email');
-  // [신규] 판매자(본인 상품 아닌 경우) 또는 관리자 계정 — 구매자 행동(참여/문의) 전부 비활성화
+  // 판매자와 관리자 계정은 참여, 문의 버튼을 쓸 수 없음 (본인 상품 제외)
   const isRestrictedViewer = ['ROLE_SELLER', 'ROLE_ADMIN'].includes(localStorage.getItem('user_role')) && !isOwnProduct;
 
   // PRD-RQ-002: 정원 달성 또는 OPEN이 아닌 상품은 신규 참여 버튼을 비활성화
@@ -636,7 +635,7 @@ const BuyerProductDetailPage = () => {
                     판매 현황 확인하기
                   </button>
 
-                  {/* [신규] 본인 상품: 문의하기 → 구매자 문의 확인하기 (이 상품 채팅만 필터링) */}
+                  {/* 본인 상품이면 이 상품으로 들어온 문의 채팅만 모아 봄 */}
                   <button
                     onClick={() => navigate(`/seller/chat?productId=${product.id}`)}
                     className="w-full py-3.5 rounded-2xl font-bold text-gray-700 bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center justify-center gap-2"

@@ -5,10 +5,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
-/**
- * WebSocket 세션 끊김 이벤트 처리
- * 브라우저 종료 or 네트워크 끊김 시 자동으로 호출됩니다.
- */
+// 웹소켓 연결이 끊기면 로그 기록 (서버 콘솔에 출력됨)
 @Component
 @Slf4j
 public class WebSocketEventListener {

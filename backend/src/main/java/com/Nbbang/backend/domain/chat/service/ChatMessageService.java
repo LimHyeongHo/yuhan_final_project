@@ -26,7 +26,7 @@ public class ChatMessageService {
     private final ChatRoomRepository chatRoomRepository;
     private final UserAccountRepository userAccountRepository;
 
-    /** 메시지 저장 후 응답 DTO 반환 */
+    // 메시지를 DB에 저장하고 보낸 사람 닉네임을 붙여 응답 (chat_message 테이블)
     @Transactional
     public ChatMessageResponse save(Long roomId, String senderEmail, String content, MessageType type) {
         ChatMessage message = new ChatMessage();
@@ -43,10 +43,8 @@ public class ChatMessageService {
         return ChatMessageResponse.from(message, nickname);
     }
 
-    /**
-     * [CHAT-RQ-001] 나가기/재입장 시스템 메시지 저장
-     * 안읽음 계산에 잡히지 않도록 isRead=true로 저장하고, 내용은 서버에서 닉네임으로 조립한다.
-     */
+    // 입장, 퇴장 안내 메시지를 저장
+    // 시스템 메시지라 안 읽은 메시지로 세지 않음 (읽음 상태로 저장됨)
     @Transactional
     public ChatMessageResponse saveSystemMessage(Long roomId, String actorEmail, MessageType type) {
         String nickname = userAccountRepository.findById(actorEmail)
@@ -67,17 +65,14 @@ public class ChatMessageService {
         return ChatMessageResponse.from(message, nickname);
     }
 
-    /**
-     * 채팅방 메시지 내역 조회 (최근 50개)
-     * [CHAT-RQ-001] 구매자가 나갔다가 다시 문의한 방이면 buyerHistoryFrom 이전 메시지는 돌려주지 않는다(복구 불가).
-     */
+    // 채팅방 최근 메시지 50개를 조회
+    // 구매자가 나갔다 다시 문의한 방이면 이전 메시지는 빼고 보여줌 (buyerHistoryFrom 기준)
     @Transactional(readOnly = true)
     public List<ChatMessageResponse> getHistory(ChatRoom room, String viewerEmail) {
         try {
             LocalDateTime clip = viewerEmail.equals(room.getBuyerEmail()) ? room.getBuyerHistoryFrom() : null;
             List<ChatMessageResponse> history = chatMessageRepository
-                    // JOIN/LEAVE 시스템 메시지도 내역에 포함해 가운데 안내로 표시
-                    // [수정] 최신 50개 조회 (Desc)
+                    // 입장, 퇴장 안내도 내역에 포함
                     .findTop50ByRoomIdAndTypeInOrderBySentAtDesc(room.getId(),
                             List.of(MessageType.CHAT, MessageType.IMAGE, MessageType.JOIN, MessageType.LEAVE))
                     .stream()
@@ -89,7 +84,7 @@ public class ChatMessageService {
                         return ChatMessageResponse.from(msg, nickname);
                     })
                     .collect(Collectors.toList());
-            // [수정] 화면은 오래된 → 최신 순이라 다시 뒤집음
+            // 화면은 오래된 순이라 다시 뒤집음
             Collections.reverse(history);
             return history;
         } catch (Exception e) {
@@ -97,25 +92,18 @@ public class ChatMessageService {
         }
     }
 
-    /** 안읽은 메시지 읽음 처리 */
     @Transactional
     public void markAsRead(Long roomId, String readerEmail) {
         chatMessageRepository.markAsRead(roomId, readerEmail);
     }
 
-    // [CHAT-RQ-002] 채팅방 미리보기에 반영되는 이벤트 타입 — CHAT/IMAGE 메시지 + JOIN/LEAVE 시스템 메시지
-    // (updateLastMessage/broadcastSystemMessage가 미리보기를 갱신하는 대상과 동일해야 한다)
+    // 채팅방 목록 미리보기에 보일 수 있는 메시지 종류 (글, 사진, 입장, 퇴장)
     private static final List<MessageType> PREVIEW_EVENT_TYPES =
             List.of(MessageType.CHAT, MessageType.IMAGE, MessageType.JOIN, MessageType.LEAVE);
 
-    /**
-     * [CHAT-RQ-002] 메시지 전송 취소 (소프트 삭제)
-     * 작성자 본인만 가능 → 타인 요청은 CHAT_MESSAGE_NOT_OWNER(403).
-     * 이미 취소된 메시지를 다시 호출해도 결과가 같도록 멱등하게 처리한다.
-     * 취소한 메시지가 방의 "진짜 마지막 이벤트"(CHAT/IMAGE/JOIN/LEAVE 통틀어 가장 최근)일 때만
-     * 채팅방 목록 미리보기를 갱신한다 — 그보다 이전 메시지를 취소한 경우 미리보기는 그대로 둔다.
-     * @return 미리보기 갱신 여부와, 갱신해야 한다면 새 미리보기 문구
-     */
+    // 메시지 삭제 (본인 메시지만, 실제로 지우지 않고 삭제 표시)
+    // 원문은 DB에 남아 있어서 신고가 들어오면 관리자가 확인 가능
+    // 삭제한 게 가장 최근 메시지면 목록 미리보기도 바뀜
     @Transactional
     public DeleteMessageResult deleteMessage(Long roomId, Long messageId, String requesterEmail) {
         ChatMessage message = chatMessageRepository.findById(messageId)
@@ -127,7 +115,7 @@ public class ChatMessageService {
             throw new CustomException(ErrorCode.CHAT_MESSAGE_NOT_OWNER);
         }
 
-        // [CHAT-RQ-001] 나간 사용자는 자기 메시지도 취소할 수 없다 (ChatController.sendMessage()와 동일한 검증)
+        // 나간 사용자는 자기 메시지도 삭제 불가
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CHAT_ROOM_NOT_FOUND));
         boolean requesterLeft = requesterEmail.equals(room.getBuyerEmail())
@@ -137,13 +125,14 @@ public class ChatMessageService {
             throw new CustomException(ErrorCode.CHAT_ROOM_LEFT);
         }
 
-        // 삭제 처리 전, 이 메시지가 현재 방의 미리보기 출처(=가장 최근 미취소 이벤트)인지 확인
+        // 지우는 메시지가 지금 미리보기에 보이는 메시지인지 확인
         Long currentLatestEventId = chatMessageRepository
                 .findTopByRoomIdAndTypeInAndDeletedFalseOrderBySentAtDesc(roomId, PREVIEW_EVENT_TYPES)
                 .map(ChatMessage::getId)
                 .orElse(null);
         boolean wasLatestEvent = message.getId().equals(currentLatestEventId);
 
+        // 이미 삭제된 메시지면 그대로 둠 (여러 번 요청해도 결과 같음)
         if (!message.isDeleted()) {
             message.setDeleted(true);
             message.setDeletedAt(LocalDateTime.now());
@@ -160,6 +149,6 @@ public class ChatMessageService {
         return new DeleteMessageResult(true, preview);
     }
 
-    // [CHAT-RQ-002] previewChanged=false면 채팅방 미리보기를 건드리지 않아야 한다는 뜻
+    // 삭제 후 목록 미리보기를 바꿔야 하는지와 바꿀 문구를 함께 돌려줌
     public record DeleteMessageResult(boolean previewChanged, String newPreview) {}
 }

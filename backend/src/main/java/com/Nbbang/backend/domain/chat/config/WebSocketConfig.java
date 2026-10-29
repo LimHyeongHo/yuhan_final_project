@@ -21,22 +21,23 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final StompAuthInterceptor stompAuthInterceptor;
 
-    // [신규] STOMP heartbeat 전용 타이머 — 빈으로 등록하면 @Scheduled(결제 환불 등)가 이걸 쓰게 될 수 있어 내부 전용으로 둠
+    // 연결이 살아 있는지 주기적으로 확인하는 신호(heartbeat) 전용 스케줄러
     private final ThreadPoolTaskScheduler heartbeatScheduler = createHeartbeatScheduler();
 
     private static ThreadPoolTaskScheduler createHeartbeatScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
         scheduler.setPoolSize(1);
         scheduler.setThreadNamePrefix("stomp-heartbeat-");
-        scheduler.setDaemon(true); // 서버 종료를 막지 않도록
+        scheduler.setDaemon(true);
         scheduler.initialize();
         return scheduler;
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // 웹소켓 연결 진입점 (/ws)
         registry.addEndpoint("/ws")
-                // [수정] localhost:3000 고정 → 사설망 호스트 + 모든 포트 허용
+                // 기존 로컬 호스트에서 사설망 호스트 + 모든 포트 허용으로 수정
                 .setAllowedOrigins(allowedOrigins.split(","))
                 .addInterceptors(new HttpSessionHandshakeInterceptor())
                 .withSockJS();
@@ -44,15 +45,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
+        // 메시지 전송은 /app, 구독은 /topic, /queue 주소 사용
         registry.setApplicationDestinationPrefixes("/app");
-        // [수정] heartbeat 10초 — 네트워크가 조용히 끊겨도(노트북 잠자기·와이파이 변경) 클라이언트가 약 20초 안에 감지해 재연결
-        // [수정] /queue: 전송 실패 알림용 사용자 전용 큐(/user/queue/errors)
+        // 10초마다 연결 확인 신호로 끊긴 연결 감지
         registry.enableSimpleBroker("/topic", "/queue")
                 .setHeartbeatValue(new long[]{10000, 10000})
                 .setTaskScheduler(heartbeatScheduler);
     }
 
-    // STOMP CONNECT 시 세션 인증 인터셉터 등록
+    // 연결, 구독 요청마다 보안 검사 실행
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(stompAuthInterceptor);

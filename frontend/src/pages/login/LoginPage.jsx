@@ -65,7 +65,7 @@ const LoginPage = () => {
 
         localStorage.setItem('user_nickname', result.nickname);
         localStorage.setItem('user_role', result.role);
-        // [신규] 채팅 메시지 판별 email 저장
+        // 채팅에서 내 메시지인지 구분하려고 이메일 저장
         localStorage.setItem('email', email);
         localStorage.setItem('user_id', numericId.toString());
         await refreshSession();
@@ -251,7 +251,7 @@ const LoginPage = () => {
 
         localStorage.setItem('user_nickname', result.nickname);
         localStorage.setItem('user_role', result.role || 'ROLE_BUYER');
-        // [신규] 채팅 메시지 판별 email 저장
+        // 채팅에서 내 메시지인지 구분하려고 이메일 저장
         localStorage.setItem('email', email);
         localStorage.setItem('user_id', numericId.toString());
         await refreshSession();

@@ -1,5 +1,3 @@
-import { API_BASE, WS_URL } from '../config/api';
-// [신규 파일][feature/chat-fixes] 채팅 안읽음 배지 전역 공유 Context
 // Header/SellerDashboardPage의 20초 폴링을 개인 토픽(/topic/chat/user/{email}) WebSocket 구독으로 대체.
 // 이벤트가 오면 서버 목록 재조회로 배지·미리보기 갱신, 새 메시지는 우하단 토스트.
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
@@ -11,6 +9,7 @@ import SockJS from 'sockjs-client';
 
 const ChatNotificationContext = createContext(null);
 
+// 화면 오른쪽 아래에 뜨는 새 메시지 알림 창 (누르면 그 채팅방으로 이동)
 const ChatToast = ({ toast, onClose }) => {
   const navigate = useNavigate();
   if (!toast) return null;
@@ -45,9 +44,9 @@ export const ChatNotificationProvider = ({ children }) => {
   const reloadTimerRef = useRef(null);
   const toastTimerRef = useRef(null);
   const clientRef = useRef(null);
-  // 방금 읽은 방 id → 서버 재조회가 아직 커밋 전 상태를 되돌리지 않도록 잠깐 0으로 강제
+  // 방금 읽은 방은 서버 응답이 늦게 와도 안 읽은 수를 0으로 유지
   const recentlyReadRef = useRef(new Map());
-  // 채팅 화면에서 지금 열어 둔 방 id (그 방 메시지는 토스트 생략)
+  // 지금 열어 둔 채팅방 (그 방 메시지는 알림 창 생략)
   const activeRoomIdRef = useRef(null);
 
   const email = localStorage.getItem('email');
@@ -58,7 +57,7 @@ export const ChatNotificationProvider = ({ children }) => {
       const res = await fetch(`${API_BASE}/chat/rooms`, { credentials: 'include' });
       if (!res.ok) return;
       const data = await res.json();
-      // 최근 3초 내에 읽음 처리한 방은 서버 응답이 뒤늦더라도 0으로 유지
+      // 3초 안에 읽은 방은 서버 값과 상관없이 0으로 표시
       const now = Date.now();
       for (const [rid, ts] of recentlyReadRef.current) {
         if (now - ts > 3000) recentlyReadRef.current.delete(rid);
@@ -71,19 +70,20 @@ export const ChatNotificationProvider = ({ children }) => {
     }
   }, []);
 
-  // 이벤트가 몰려와도 목록 재조회는 300ms 디바운스
+  // 알림이 연달아 와도 0.3초 모았다가 목록을 한 번만 다시 불러옴
   const scheduleReload = useCallback(() => {
     clearTimeout(reloadTimerRef.current);
     reloadTimerRef.current = setTimeout(reloadRooms, 300);
   }, [reloadRooms]);
 
+  // 알림 창은 4초 뒤 자동으로 사라짐
   const showToast = useCallback((payload) => {
     setToast(payload);
     clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(null), 4000);
   }, []);
 
-  // ── WebSocket 연결 + 개인 토픽 구독 ──────────────────────────
+  // 웹소켓 연결 후 로그인한 본인 계정으로 온 채팅 알림 구독 (/topic/chat/user/{이메일})
   useEffect(() => {
     if (!email) { setChatRooms([]); return; }
 
@@ -91,6 +91,7 @@ export const ChatNotificationProvider = ({ children }) => {
 
     const client = new Client({
       webSocketFactory: () => new SockJS(WS_URL),
+      // 연결이 끊기면 5초마다 자동 재연결
       reconnectDelay: 5000,
       onConnect: () => {
         client.subscribe(`/topic/chat/user/${email}`, (frame) => {
@@ -98,7 +99,7 @@ export const ChatNotificationProvider = ({ children }) => {
           try { msg = JSON.parse(frame.body); } catch (e) { return; }
 
           const isNewMessage = (msg.type === 'CHAT' || msg.type === 'IMAGE') && msg.senderEmail !== email;
-          // 지금 그 방을 열어 두고 있을 때만 토스트 생략 (다른 방을 보고 있어도 토스트는 떠야 함)
+          // 지금 보고 있는 방의 메시지만 알림 창 생략 (다른 방이면 알림)
           if (isNewMessage && msg.roomId !== activeRoomIdRef.current) {
             showToast({
               roomId: msg.roomId,
@@ -106,10 +107,10 @@ export const ChatNotificationProvider = ({ children }) => {
               preview: msg.type === 'IMAGE' ? '[사진]' : msg.content,
             });
           }
-          // 새 메시지 / 읽음 / 전송취소 무엇이든 배지·미리보기는 서버 기준으로 재조회
+          // 새 메시지, 읽음, 삭제 무엇이든 서버에서 목록을 다시 불러와 숫자 갱신
           scheduleReload();
         });
-        // [수정] 재연결 시 끊겨 있던 동안 놓친 알림 반영
+        // 다시 연결되면 끊긴 동안 놓친 알림도 반영
         scheduleReload();
       },
     });
@@ -123,7 +124,7 @@ export const ChatNotificationProvider = ({ children }) => {
     };
   }, [email, reloadRooms, scheduleReload, showToast]);
 
-  // ── 같은 탭 내 이벤트: 읽음 처리 / 방 목록 변경(나가기 등) / 창 복귀 ──
+  // 같은 탭 안의 신호 처리 (읽음, 방 목록 변경, 창으로 돌아옴)
   useEffect(() => {
     const onRead = (e) => {
       const { roomId } = e.detail || {};
@@ -145,6 +146,7 @@ export const ChatNotificationProvider = ({ children }) => {
     };
   }, [scheduleReload]);
 
+  // 헤더에 표시할 전체 안 읽은 메시지 수
   const totalChatUnread = chatRooms.reduce((sum, r) => sum + (r.unreadCount || 0), 0);
 
   return (
@@ -157,8 +159,8 @@ export const ChatNotificationProvider = ({ children }) => {
   );
 };
 
-// Header / SellerDashboardPage 등에서 실시간 안읽음 수를 꺼내 쓰기 위한 훅
+// 헤더 등에서 안 읽은 수를 꺼내 쓰는 훅
 export const useChatNotifications = () => {
   const ctx = useContext(ChatNotificationContext);
-  return ctx || { chatRooms: [], totalChatUnread: 0, reloadRooms: () => {} };
+  return ctx || { chatRooms: [], totalChatUnread: 0, reloadRooms: () => { } };
 };

@@ -22,7 +22,7 @@ public class Product {
     @Column(name = "seller_id", nullable = false)
     private Long sellerId;
 
-    // [신규] POST /api/chat/rooms 호출용 판매자 이메일
+    // 판매자 이메일 (문의하기 채팅방을 만들 때 사용)
     @Column(name = "seller_email")
     private String sellerEmail;
 

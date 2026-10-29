@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Store, TrendingUp, Package, MessageSquare, PlusCircle, ArrowRight, BookOpen, Clock, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import V3SiteHeader from '../../../components/layout/V3SiteHeader';
-// [feature/chat-fixes] 채팅 안읽음 수를 전역 Context(WebSocket)에서 실시간으로 받음 (기존 20초 폴링 대체)
+// 안 읽은 채팅 수는 채팅 알림 기능에서 바로 받아옴
 import { useChatNotifications } from '../../../contexts/ChatNotificationContext';
 
 const SellerDashboardPage = () => {
@@ -33,8 +33,6 @@ const SellerDashboardPage = () => {
     const isWithinWeek = joinedAt && (Date.now() - joinedAt.getTime()) <= 7 * 24 * 60 * 60 * 1000;
     return isWithinWeek ? sum + (part.product?.price || 0) : sum;
   }, 0);
-
-  // [feature/chat-fixes] 신규 채팅/문의 건수는 전역 Context에서 실시간으로 받음 (여기서 폴링 안 함)
 
   React.useEffect(() => {
     // [수정] sellerId=1 고정 하드코딩 → 로그인한 본인 상품만 조회
