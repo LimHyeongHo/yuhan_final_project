@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-// 판매자용 정산/출금 API. 실제 은행 송금 자동화는 없고, 신청 접수 후 관리자가 수동 승인하는 방식.
+// 판매자 정산 계좌/출금 신청 API → SettlementService (송금은 관리자 수동 승인)
 @RestController
 @RequestMapping("/api/settlement")
 @RequiredArgsConstructor

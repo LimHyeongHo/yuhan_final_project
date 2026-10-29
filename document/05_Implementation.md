@@ -23,7 +23,6 @@
 | 스마트 컨트랙트 | `backend/src/main/resources/contracts/` | Solidity `PriceVerification` |
 | 요구사항 | `requirements/` | 보안·안정성·외부 API 요구사항 |
 | 현행 프로젝트 문서 | `document/` | 문제, 요구사항, 설계, 아키텍처, 구현 규칙 |
-| 검토/발표 자료 | `docs/` | 보고서, 가이드, 디자인 |
 | 참고 코드 | `legacy_code/` | 현행 제품 코드와 구분 |
 
 ## 2. 브랜치 전략
@@ -106,7 +105,7 @@ PR에는 다음을 포함한다.
 - 현 전략에서는 `Squash and merge`, `Rebase and merge`를 사용하지 않는다.
 - 병합 전 최종 diff와 테스트 결과를 확인한다.
 
-최근 `develop` 히스토에는 PR Merge commit이 남아 있어 이 병합 방식을 대체로 사용하고 있음을 확인했다. GitHub에서 다른 병합 방식을 기술적으로 차단했는지는 별도 확인이 필요하다.
+최근 `develop` 히스토리에는 PR Merge commit이 남아 있어 이 병합 방식을 대체로 사용하고 있음을 확인했다. GitHub에서 다른 병합 방식을 기술적으로 차단했는지는 별도 확인이 필요하다.
 
 ## 4. 커밋 규칙
 

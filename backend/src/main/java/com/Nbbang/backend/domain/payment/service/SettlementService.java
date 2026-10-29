@@ -94,7 +94,7 @@ public class SettlementService {
             throw new CustomException(ErrorCode.VALIDATION_FAILED);
         }
 
-        // 계좌 row를 잠가 같은 판매자의 출금 신청을 직렬화 — 동시 요청이 같은 출금 가능액을 보고 초과 신청하는 것 방지
+        // 계좌 락으로 중복 출금 신청 방지
         SettlementAccount account = settlementAccountRepository.findBySellerEmailForUpdate(sellerEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.MYPAGE_SETTLEMENT_NO_ACCOUNT));
 
@@ -124,7 +124,7 @@ public class SettlementService {
                 .toList();
     }
 
-    // ========== 관리자 승인 (실제 송금 자동화 없음, 수동 확인 후 상태만 변경) ==========
+    // 관리자 승인/거절 (상태만 변경)
 
     public List<AdminWithdrawalResponse> getPendingWithdrawals() {
         return withdrawalRequestRepository.findByStatusOrderByRequestedAtAsc("REQUESTED")

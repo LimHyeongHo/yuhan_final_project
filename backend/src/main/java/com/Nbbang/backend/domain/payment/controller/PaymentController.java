@@ -30,8 +30,7 @@ public class PaymentController {
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
 
-    // 결제 준비: Toss 결제창을 열기 전에 서버가 가격을 검증하고 PENDING 기록을 남긴다.
-    // 로그인 세션이 있어야만 진행 가능 (참여자 계정을 클라이언트 입력이 아닌 세션 기준으로 기록하기 위함).
+    // PaymentPage.jsx 결제하기 → PaymentService.prepare()
     @PostMapping("/prepare")
     public ResponseEntity<PaymentPrepareResponse> preparePayment(@RequestBody PaymentPrepareRequest request,
                                                                     HttpServletRequest httpRequest) {
@@ -48,7 +47,7 @@ public class PaymentController {
         return (String) session.getAttribute("userId");
     }
 
-    // 토스페이먼츠 → 백엔드 콜백 (결제 성공)
+    // Toss 결제 성공 리다이렉트 → PaymentService.processSuccessCallback()
     @GetMapping("/success")
     public void paymentSuccess(
             @RequestParam String paymentKey,
@@ -78,7 +77,7 @@ public class PaymentController {
         }
     }
 
-    // 토스페이먼츠 → 백엔드 콜백 (결제 실패)
+    // Toss 결제 실패 리다이렉트
     @GetMapping("/fail")
     public void paymentFail(
             @RequestParam(required = false, defaultValue = "") String code,

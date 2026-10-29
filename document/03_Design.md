@@ -1,7 +1,7 @@
 # 03. 설계 및 데이터베이스 모델링 (Design & Data Modeling)
 
 - 문서 기준일: 2026-10-21
-- 모델링 기준: 현재 `backend/src/main/java` JPA 엔티티 20개
+- 모델링 기준: 현재 `backend/src/main/java` JPA 엔티티 21개
 - DB: Supabase PostgreSQL, Spring Data JPA, `ddl-auto=update`
 
 > 이 문서는 미래 목표 스키마가 아니라 **현재 코드의 모델**을 설명한다. `GROUP_PURCHASE`와 `HISTORY` 테이블은 존재하지 않으며, 공동구매 상태는 `PRODUCT`, 결제 이력은 `PAYMENT`에 저장한다.
@@ -26,8 +26,9 @@
 ```mermaid
 stateDiagram-v2
     [*] --> OPEN: 상품 등록
-    OPEN --> CLOSED_SUCCESS: 마감 + 목표 인원 달성
-    OPEN --> CLOSED_FAIL: 마감 + 목표 인원 미달
+    OPEN --> CLOSED_SUCCESS: 목표 인원 달성(마지막 참여 확정 즉시)
+    OPEN --> CLOSED_FAIL: 마감 + 목표 인원 미달(스케줄러)
+    OPEN --> SELLER_WITHDRAWN: 판매자 탈퇴
 ```
 
 #### Toss 결제/참여
@@ -37,12 +38,16 @@ stateDiagram-v2
     [*] --> PENDING: 결제 준비
     PENDING --> APPROVED: Toss 승인
     APPROVED --> DONE: 참여 확정
-    APPROVED --> CANCEL_REQUESTED: 참여 확정 실패/취소
-    DONE --> CANCEL_REQUESTED: 참여 취소
-    REFUND_FAILED --> CANCEL_REQUESTED: 재시도
+    APPROVED --> CANCEL_REQUESTED: 참여 확정 실패 / 종료 공구 자동 환불
+    DONE --> CANCEL_REQUESTED: 구매자 참여 취소 / 종료 공구 자동 환불
+    REFUND_FAILED --> CANCEL_REQUESTED: 구매자 재취소 또는 콜백 재호출 시 재시도
     CANCEL_REQUESTED --> CANCELED: Toss 취소 확인
     CANCEL_REQUESTED --> REFUND_FAILED: 취소 실패
 ```
+
+- 종료 공구 자동 환불: 상품 삭제·`CLOSED_FAIL`·`SELLER_WITHDRAWN` 상품의 결제를 `PaymentRefundScheduler`가 1분마다 환불한다.
+- `REFUND_FAILED`는 자동 재시도하지 않는다.
+- 환불 전 Toss 결제 상태를 조회해, 이미 취소된 건은 로컬 상태만 `CANCELED`로 맞춘다.
 
 #### 블록체인 작업
 
@@ -80,6 +85,7 @@ stateDiagram-v2
 | 문의 | `inquiry` / `Inquiry` | 문의·공지·비공개/답변 상태 | FK `author_email` |
 | 문의 | `inquiry_comment` / `InquiryComment` | 관리자 답변 | FK `inquiry_id`, FK `admin_email` |
 | 신고 | `product_reports` / `ProductReport` | 상품/판매자 신고 | UK (`reporter_email`, `product_id`), 3개 FK |
+| 신고 | `chat_reports` / `ChatReport` | 채팅 메시지 신고·관리자 처리 | UK (`reporter_email`, `message_id`), 3개 FK |
 | 신고 | `user_report_counts` / `UserReportCount` | 게시물·채팅 신고 누적 | PK `member_email`, FK 없음 |
 | 로그 | `system_log` / `SystemLog` | 보안·회원·상품 이벤트 로그 | PK `id` |
 | 보안 | `security_simulation` / `SecuritySimulation` | 위변조·복구 시뮬레이션 스냅샷 | PK `simulation_id`, UK (`administrator_id`, `idempotency_key`) |

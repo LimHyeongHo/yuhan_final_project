@@ -28,7 +28,7 @@ const PaymentPage = () => {
 
   const handlePayment = async () => {
     try {
-      // 결제창을 열기 전에 서버가 실제 가격을 확인하고 PENDING 기록을 남긴다.
+      // 결제창 열기 전 PaymentController.preparePayment() 호출 (가격 검증, PENDING 생성)
       const prepareRes = await fetch(`${API_BASE_URL}/api/payment/prepare`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,90 +74,86 @@ const PaymentPage = () => {
 
         <main className="v3-unified-page-card__body flex-grow items-center">
 
-        <div className="w-full max-w-xl bg-white rounded-[32px] border border-gray-200 shadow-sm overflow-hidden">
+          <div className="w-full max-w-xl bg-white rounded-[32px] border border-gray-200 shadow-sm overflow-hidden">
 
-          {/* 썸네일 */}
-          <div className="w-full h-56 bg-gray-100 relative overflow-hidden flex items-center justify-center">
-            {product.thumbnail ? (
-              <img
-                src={product.thumbnail}
-                alt={product.title}
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-2 text-gray-400">
-                <ImageIcon size={36} />
-                <span className="text-xs font-bold">이미지 없음</span>
-              </div>
-            )}
-          </div>
-
-          {/* 상품 정보 */}
-          <div className="p-8 flex flex-col gap-6">
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-widest">{product.major}</span>
-              <h3 className="text-xl font-extrabold text-gray-900 leading-snug">{product.title}</h3>
-              <span className="text-sm text-gray-400 font-semibold">{product.author}</span>
-            </div>
-
-            <div className="flex flex-col gap-4 pt-4 border-t border-gray-100">
-              {/* 가격 */}
-              <div className="flex items-end justify-between">
-                <div className="flex flex-col">
-                  {product.originalPrice && (
-                    <span className="text-sm text-gray-400 line-through font-semibold">{Number(product.originalPrice).toLocaleString()}원</span>
-                  )}
-                  <span className="text-2xl font-black text-blue-600">{Number(product.price).toLocaleString()}원</span>
-                </div>
-                {product.dDay && (
-                  <span className="text-xs font-black px-2.5 py-1 rounded-md bg-red-500 text-white">{product.dDay}</span>
-                )}
-              </div>
-
-              {/* 인원 현황 */}
-              {product.current != null && product.target != null && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-sm font-bold text-gray-500">
-                      <Users size={15} />
-                      <span>참여 인원</span>
-                    </div>
-                    <span className="text-sm font-extrabold">
-                      <span className="text-blue-600">{product.current}</span>
-                      <span className="text-gray-400"> / {product.target}명</span>
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min((product.current / product.target) * 100, 100)}%` }}
-                    />
-                  </div>
-                  <span className="text-xs font-bold text-gray-400 text-right">
-                    {product.target - product.current > 0
-                      ? `${product.target - product.current}명 더 모이면 출발!`
-                      : '모집 완료'}
-                  </span>
+            <div className="w-full h-56 bg-gray-100 relative overflow-hidden flex items-center justify-center">
+              {product.thumbnail ? (
+                <img
+                  src={product.thumbnail}
+                  alt={product.title}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-gray-400">
+                  <ImageIcon size={36} />
+                  <span className="text-xs font-bold">이미지 없음</span>
                 </div>
               )}
             </div>
 
-            <button
-              onClick={handlePayment}
-              className="w-full flex items-center justify-center gap-3 py-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-base font-extrabold rounded-2xl transition shadow-md shadow-blue-200"
-            >
-              <CreditCard size={20} />
-              결제하기
-            </button>
+            <div className="p-8 flex flex-col gap-6">
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-widest">{product.major}</span>
+                <h3 className="text-xl font-extrabold text-gray-900 leading-snug">{product.title}</h3>
+                <span className="text-sm text-gray-400 font-semibold">{product.author}</span>
+              </div>
 
-            <button
-              onClick={() => navigate(-1)}
-              className="w-full flex items-center justify-center pl-3 py-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-bold rounded-2xl transition"
-            >
-              돌아가기
-            </button>
+              <div className="flex flex-col gap-4 pt-4 border-t border-gray-100">
+                <div className="flex items-end justify-between">
+                  <div className="flex flex-col">
+                    {product.originalPrice && (
+                      <span className="text-sm text-gray-400 line-through font-semibold">{Number(product.originalPrice).toLocaleString()}원</span>
+                    )}
+                    <span className="text-2xl font-black text-blue-600">{Number(product.price).toLocaleString()}원</span>
+                  </div>
+                  {product.dDay && (
+                    <span className="text-xs font-black px-2.5 py-1 rounded-md bg-red-500 text-white">{product.dDay}</span>
+                  )}
+                </div>
+
+                {product.current != null && product.target != null && (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-sm font-bold text-gray-500">
+                        <Users size={15} />
+                        <span>참여 인원</span>
+                      </div>
+                      <span className="text-sm font-extrabold">
+                        <span className="text-blue-600">{product.current}</span>
+                        <span className="text-gray-400"> / {product.target}명</span>
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min((product.current / product.target) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-gray-400 text-right">
+                      {product.target - product.current > 0
+                        ? `${product.target - product.current}명 더 모이면 출발!`
+                        : '모집 완료'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={handlePayment}
+                className="w-full flex items-center justify-center gap-3 py-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-base font-extrabold rounded-2xl transition shadow-md shadow-blue-200"
+              >
+                <CreditCard size={20} />
+                결제하기
+              </button>
+
+              <button
+                onClick={() => navigate(-1)}
+                className="w-full flex items-center justify-center pl-3 py-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-bold rounded-2xl transition"
+              >
+                돌아가기
+              </button>
+            </div>
           </div>
-        </div>
 
         </main>
       </div>
