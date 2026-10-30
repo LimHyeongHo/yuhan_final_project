@@ -284,6 +284,7 @@ const SharedChatPage = ({ userRole = 'SELLER' }) => {
             const updated = {
               ...prev[idx],
               lastMessage: msg.type === 'IMAGE' ? '[사진]' : msg.content,
+              lastSentAt: msg.sentAt,
               unreadCount: isThisRoomActive ? 0 : (!isMine ? prev[idx].unreadCount + 1 : prev[idx].unreadCount),
             };
             const rest = prev.filter((_, i) => i !== idx);
