@@ -4,24 +4,21 @@ import com.Nbbang.backend.domain.chat.dto.ChatMessageResponse;
 import com.Nbbang.backend.domain.chat.dto.ChatRoomResponse;
 import com.Nbbang.backend.domain.chat.entity.ChatRoom;
 import com.Nbbang.backend.domain.chat.entity.MessageType;
+import com.Nbbang.backend.domain.chat.service.ChatImageStorageService;
 import com.Nbbang.backend.domain.chat.service.ChatMessageService;
 import com.Nbbang.backend.domain.chat.service.ChatRoomService;
 import com.Nbbang.backend.global.exception.CustomException;
 import com.Nbbang.backend.global.exception.ErrorCode;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -36,6 +33,7 @@ public class ChatRoomController {
 
     private final ChatRoomService chatRoomService;
     private final ChatMessageService chatMessageService;
+    private final ChatImageStorageService chatImageStorageService;
     private final SimpMessageSendingOperations messagingTemplate;
 
     private static final List<String> ALLOWED_IMAGE_EXTENSIONS = List.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
@@ -138,12 +136,11 @@ public class ChatRoomController {
         return ResponseEntity.ok().build();
     }
 
-    // 채팅 이미지 업로드 (서버 uploads 폴더에 저장)
+    // 채팅 이미지 업로드 (Supabase Storage에 저장)
     @PostMapping("/upload")
     public ResponseEntity<Map<String, String>> uploadImage(
             @RequestParam("image") MultipartFile image,
-            HttpSession session,
-            HttpServletRequest request) {
+            HttpSession session) {
         getEmail(session); // 로그인 확인
 
         if (image.getSize() > MAX_IMAGE_SIZE) {
@@ -160,24 +157,14 @@ public class ChatRoomController {
             throw new CustomException(ErrorCode.CHAT_INVALID_FILE_FORMAT);
         }
 
-        String uploadDir = System.getProperty("user.dir") + "/uploads/";
+        // 파일명은 UUID로 바꿔 저장 (덮어쓰기를 방지함)
+        String savedFilename = UUID.randomUUID().toString() + extension;
         try {
-            File directory = new File(uploadDir);
-            if (!directory.exists()) {
-                directory.mkdirs();
-            }
-
-            // 파일명은 UUID로 바꿔 저장 (덮어쓰기를 방지함)
-            String savedFilename = UUID.randomUUID().toString() + extension;
-
-            Path filePath = Paths.get(uploadDir + savedFilename);
-            Files.write(filePath, image.getBytes());
-
-            String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
-            return ResponseEntity.ok(Map.of("url", baseUrl + "/uploads/" + savedFilename));
-        } catch (IOException e) {
+            String url = chatImageStorageService.upload(savedFilename, image.getBytes(), contentType);
+            return ResponseEntity.ok(Map.of("url", url));
+        } catch (IOException | RestClientException | IllegalStateException e) {
             // 내부 에러 내용은 숨기고 서버 로그에만 기록
-            log.error("채팅 이미지 업로드 실패 — uploadDir: {}", uploadDir, e);
+            log.error("채팅 이미지 업로드 실패 — file: {}", savedFilename, e);
             throw new CustomException(ErrorCode.CHAT_IMAGE_UPLOAD_FAILED);
         }
     }
