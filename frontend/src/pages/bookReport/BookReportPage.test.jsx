@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import BookReportPage from './BookReportPage';
 
 jest.mock('../../components/layout/Header', () => () => <div data-testid="header" />);
+jest.mock('../../config/api', () => ({ API_BASE: 'https://api.example.com/api' }));
 
 describe('BookReportPage', () => {
   afterEach(() => {
@@ -15,6 +16,10 @@ describe('BookReportPage', () => {
     render(<BookReportPage />);
 
     expect(await screen.findByText('아직 생성된 도서 리포트가 없습니다.')).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.example.com/api/book-reports/latest?category=COMPUTER_SOFTWARE',
+      expect.objectContaining({ credentials: 'include' }),
+    );
   });
 
   test('always displays the source limitation from a generated report', async () => {

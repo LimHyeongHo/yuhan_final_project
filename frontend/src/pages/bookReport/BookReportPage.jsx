@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AlertCircle, BookOpen, ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
 import Header from '../../components/layout/Header';
 import { PRODUCT_CATEGORIES } from '../../constants/productCategories';
+import { API_BASE } from '../../config/api';
 
 const REPORT_CATEGORIES = PRODUCT_CATEGORIES.filter(
   ({ code }) => code !== 'FREE_MAJOR' && code !== 'GENERAL',
@@ -79,7 +80,7 @@ const BookReportPage = () => {
       setReport(null);
       try {
         const response = await fetch(
-          `http://${window.location.hostname}:8080/api/book-reports/latest?category=${encodeURIComponent(category)}`,
+          `${API_BASE}/book-reports/latest?category=${encodeURIComponent(category)}`,
           { credentials: 'include', signal: controller.signal },
         );
         if (response.status === 404) {
