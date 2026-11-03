@@ -1,0 +1,16 @@
+.brand-logo-image {
+  display: block;
+  flex: 0 0 auto;
+  width: 88px;
+  height: 60px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 330% 262%;
+}
+
+@media (max-width: 600px) {
+  .brand-logo-image {
+    width: 72px;
+    height: 49px;
+  }
+}

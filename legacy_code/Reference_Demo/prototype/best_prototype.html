@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>YU-BOOK | 베스트 공구</title>
+    <link rel="stylesheet" href="css/common.css">
+    <style>
+        .page-wrapper { max-width: 1200px; margin: 60px auto; padding: 0 20px; }
+        .page-title { font-size: 28px; font-weight: 700; margin-bottom: 40px; text-align: center; }
+        
+        .best-list { display: flex; flex-direction: column; gap: 20px; margin-bottom: 50px; }
+        .best-item { display: flex; gap: 30px; border: 1px solid #eee; padding: 20px; border-radius: 8px; transition: 0.2s; align-items: center;}
+        .best-item:hover { box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-color: #00796b; }
+        
+        .rank-badge { font-size: 32px; font-weight: 900; color: #00796b; width: 50px; text-align: center; font-style: italic; }
+        .best-img { width: 120px; aspect-ratio: 3/4; }
+        .best-info { flex: 1; }
+        .best-title { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
+        .best-desc { font-size: 14px; color: #555; margin-bottom: 15px; }
+    </style>
+</head>
+<header>
+    <div class="top-bar">
+        <div class="top-bar-content">
+            <a href="login_prototype.html">로그인</a>
+            <a href="cart_prototype.html">장바구니</a>
+            <a href="mypage_prototype.html">마이페이지</a>
+            <a href="board_prototype.html">고객센터</a>
+        </div>
+    </div>
+    
+    <nav class="main-nav">
+        <a href="prototype_1.html" class="logo">YU-BOOK</a>
+        <ul class="nav-menu">
+            <li><a href="books_prototype.html">전공도서</a></li>
+            <li><a href="recommend_prototype.html">학부별 추천</a></li>
+            <li><a href="best_prototype.html">베스트 공구</a></li>
+            <li><a href="community_prototype.html">게시판</a></li>
+        </ul>
+    </nav>
+</header>
+<body>
+    <main class="page-wrapper">
+        <h2 class="page-title">실시간 베스트 공동구매 🏆</h2>
+        
+        <div class="best-list">
+            <div class="best-item">
+                <div class="rank-badge">1</div>
+                <div class="best-img img-placeholder">[표지]</div>
+                <div class="best-info">
+                    <p class="best-title"><a href="detail_prototype.html">운영체제 개론 (7판)</a></p>
+                    <p class="best-desc">현재 공구 달성률 150% 돌파! 내일 3차 공구 마감</p>
+                    <strong style="color: #d32f2f; font-size: 20px;">24,000원</strong>
+                </div>
+            </div>
+            
+            <div class="best-item">
+                <div class="rank-badge">2</div>
+                <div class="best-img img-placeholder">[표지]</div>
+                <div class="best-info">
+                    <p class="best-title"><a href="detail_prototype.html">알고리즘 문제 해결 전략</a></p>
+                    <p class="best-desc">컴퓨터공학과 필수 수강 교재</p>
+                    <strong style="color: #d32f2f; font-size: 20px;">28,000원</strong>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer><iframe src="footer_prototype.html" width="100%" height="200px" frameborder="0"></iframe></footer>
+</body>
+</html>

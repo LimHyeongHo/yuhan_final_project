@@ -1,0 +1,344 @@
+/* Login Page Styles */
+
+.login-page {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  min-height: 100vh;
+}
+
+.login-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 80px;
+  padding: 0 32px;
+  max-width: 1280px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.logo {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 900;
+  font-size: 30px;
+  color: #191b24;
+  letter-spacing: -1.5px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+}
+
+.nav-link {
+  font-family: 'Space Grotesk', 'Noto Sans KR', sans-serif;
+  font-size: 16px;
+  color: #424656;
+  letter-spacing: -0.4px;
+  cursor: pointer;
+}
+
+.login-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 1024px;
+  padding: 271px 16px 191px;
+  position: relative;
+  overflow: hidden;
+}
+
+.background-atmospheric {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.blur-overlay {
+  position: absolute;
+  border-radius: 9999px;
+  width: 640px;
+  height: 512px;
+  filter: blur(60px);
+}
+
+.blur-blue {
+  background-color: rgba(0, 80, 203, 0.05);
+  top: -102.39px;
+  left: -128px;
+}
+
+.blur-red {
+  background-color: rgba(169, 51, 73, 0.05);
+  bottom: -102.39px;
+  right: -128px;
+}
+
+.atmospheric-image {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.3;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+.atmospheric-image img {
+  position: absolute;
+  width: 100%;
+  height: auto;
+  top: -12.5%;
+  left: 0;
+  object-fit: cover;
+}
+
+.login-container {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  max-width: 448px;
+  width: 448px;
+  position: relative;
+  z-index: 10;
+}
+
+.login-card {
+  backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(194, 198, 216, 0.5);
+  border-radius: 12px;
+  padding: 41px;
+  box-shadow: 0px 10px 40px 0px rgba(0, 80, 203, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 39.5px;
+}
+
+.login-header-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.secure-label {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  color: #a93349;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  text-align: center;
+}
+
+.login-title {
+  font-family: 'Space Grotesk', 'Noto Sans KR', sans-serif;
+  font-size: 30px;
+  font-weight: 500;
+  color: #191b24;
+  text-align: center;
+  letter-spacing: -0.75px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.label-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.form-label {
+  font-family: 'Space Grotesk', 'Noto Sans KR', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  color: #424656;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.forgot-password {
+  font-family: 'Space Grotesk', 'Noto Sans KR', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  color: #0050cb;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.forgot-password:hover {
+  text-decoration: underline;
+}
+
+.form-input {
+  background-color: #f2f3ff;
+  border: 1px solid #c2c6d8;
+  border-radius: 8px;
+  padding: 19px 21px;
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  color: #727687;
+  box-sizing: border-box;
+  width: 100%;
+  outline: none;
+}
+
+.form-input::placeholder {
+  color: #727687;
+}
+
+.form-input:focus {
+  border-color: #0050cb;
+  background-color: #fafbff;
+}
+
+.login-button {
+  background-color: #0050cb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 16px;
+  font-family: 'Space Grotesk', 'Noto Sans KR', sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0px 10px 15px -3px rgba(0, 80, 203, 0.2), 0px 4px 6px -4px rgba(0, 80, 203, 0.2);
+  width: 100%;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.login-button:hover {
+  background-color: #003da8;
+  box-shadow: 0px 15px 25px -3px rgba(0, 80, 203, 0.3), 0px 6px 8px -4px rgba(0, 80, 203, 0.3);
+}
+
+.login-button:active {
+  background-color: #003399;
+}
+
+.login-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-family: 'Space Grotesk', 'Noto Sans KR', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  width: 100%;
+}
+
+.footer-text {
+  color: #424656;
+}
+
+.footer-link {
+  color: #0050cb;
+  cursor: pointer;
+}
+
+.footer-link:hover {
+  text-decoration: underline;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .login-header {
+    flex-direction: column;
+    height: auto;
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .nav-links {
+    gap: 16px;
+    font-size: 14px;
+  }
+
+  .login-container {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .login-card {
+    padding: 24px;
+    gap: 24px;
+  }
+
+  .login-main {
+    padding: 100px 16px;
+    min-height: auto;
+  }
+}
+
+/* Final design-system integration for the legacy login layout. */
+.global-v3-theme .login-main {
+  min-height: calc(100vh - 76px);
+  padding: 72px 16px;
+}
+
+.global-v3-theme .login-card {
+  border-color: var(--site-border);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 28px 65px rgba(61, 47, 29, 0.14);
+}
+
+.global-v3-theme .secure-label,
+.global-v3-theme .forgot-password,
+.global-v3-theme .footer-link {
+  color: var(--site-brown);
+}
+
+.global-v3-theme .form-input {
+  border-color: var(--site-border);
+  border-radius: 14px;
+  background: #faf7f0;
+}
+
+.global-v3-theme .login-button {
+  border-radius: 14px;
+  background: var(--site-brown);
+  box-shadow: 0 12px 25px rgba(80, 57, 18, 0.18);
+}
+
+.global-v3-theme .login-button:hover {
+  background: #614000;
+}
+
+.global-v3-theme .blur-blue {
+  background-color: rgba(191, 152, 84, 0.11);
+}
+
+.global-v3-theme .blur-red {
+  background-color: rgba(23, 38, 53, 0.08);
+}
+
+.global-v3-theme .login-title,
+.global-v3-theme .logo {
+  color: var(--site-ink);
+}

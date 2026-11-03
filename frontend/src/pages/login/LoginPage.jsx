@@ -1,0 +1,504 @@
+import { API_BASE } from '../../config/api';
+import React, { useState } from 'react';
+
+/// [*] 회원가입 페이지와 연결
+import { Link, useNavigate } from 'react-router-dom';
+
+import V3SiteHeader from '../../components/layout/V3SiteHeader';
+import { PORTONE_CHANNEL_KEY, PORTONE_STORE_ID } from '../../config/clientEnv';
+import '../../styles/authPages.css';
+
+/// [신규] 로그인 성공 직후 인증서 타이머(10분)를 서버와 동기화하기 위한 훅
+import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
+import { useSession } from '../../contexts/SessionContext';
+
+const DB_NAME = "PKI_KeyStore";
+const STORE_NAME = "privateKeys";
+
+const LoginPage = () => {
+  const navigate = useNavigate();
+  const [mode, setMode] = useState('user'); // 'user' | 'admin'
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isVerified, setIsVerified] = useState(false);
+  const [regCi, setRegCi] = useState(null);
+  const [privateKey, setPrivateKey] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [needsReissue, setNeedsReissue] = useState(false);
+  // [신규] 테스트 로그인 탭에서 선택한 역할 힌트 ('seller' | 'buyer' | 'admin' | null)
+  const [testRoleHint, setTestRoleHint] = useState(null);
+  // [신규] 로그인 성공 후 인증서 타이머 상태를 갱신하기 위해 Context에서 syncStatus를 꺼내옴
+  const { syncStatus } = useCertificateTimer();
+  const { refreshSession } = useSession();
+
+  // [신규] 역할별 테스트 계정 안내 (자동입력 아님, 참고용 텍스트만 보여줌)
+  const TEST_ROLE_HINTS = {
+    seller: [
+      { email: 'seller01@test.com', nickname: '판매자1', password: '1234' },
+      { email: 'seller02@test.com', nickname: '판매자2', password: '1234' },
+    ],
+    buyer: [
+      { email: 'buyer01@test.com', nickname: '구매자1', password: '1234' },
+      { email: 'buyer02@test.com', nickname: '구매자2', password: '1234' },
+    ],
+    admin: [
+      { email: 'admin@naver.com', nickname: '관리자', password: 'admin1234' },
+    ],
+  };
+
+  const handleAdminLogin = async (e) => {
+    e.preventDefault();
+    if (!email || !password) return alert("이메일과 비밀번호를 입력해주세요.");
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/pki/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // [수정] 세션 쿠키를 주고받기 위해 credentials 추가
+        credentials: 'include',
+        body: JSON.stringify({ email, password })
+      });
+      const result = await res.json();
+      if (res.ok) {
+        // [임시] 백엔드의 sellerId(Long) 타입에 맞추기 위해 이메일을 숫자로 매핑
+        const numericId = email === 'seller01@test.com' ? 1 : (email === 'seller02@test.com' ? 2 : 3);
+
+        localStorage.setItem('user_nickname', result.nickname);
+        localStorage.setItem('user_role', result.role);
+        // 채팅에서 내 메시지인지 구분하려고 이메일 저장
+        localStorage.setItem('email', email);
+        localStorage.setItem('user_id', numericId.toString());
+        await refreshSession();
+        // [신규] 관리자는 인증서 타이머가 없지만, 혹시 있을 상태를 정리하기 위해 동기화 호출
+        await syncStatus();
+        alert(`${result.nickname}님 환영합니다!`);
+        if (result.role === 'ROLE_ADMIN') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/');
+        }
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (e) {
+      alert("로그인 오류: " + e.message);
+      window.location.reload();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getDeviceId = () => {
+    let deviceId = localStorage.getItem('pki_device_id');
+    if (!deviceId) {
+      deviceId = 'dev-' + crypto.randomUUID();
+      localStorage.setItem('pki_device_id', deviceId);
+    }
+    return deviceId;
+  };
+
+  const openDB = () => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, 1);
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME);
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  };
+
+  const savePrivateKey = async (userId, key) => {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    tx.objectStore(STORE_NAME).put(key, userId.trim());
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  };
+
+  const loadPrivateKey = async (userId) => {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const store = tx.objectStore(STORE_NAME);
+    const request = store.get(userId.trim());
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  };
+
+  const generateKeyPair = async () => {
+    // [변경] 서명용(RSASSA-PKCS1-v1_5) → 공개키 암호화용(RSA-OAEP).
+    return await window.crypto.subtle.generateKey(
+      { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+      true, ["encrypt", "decrypt"]
+    );
+  };
+
+  const exportPublicKey = async (key) => {
+    const exported = await window.crypto.subtle.exportKey("spki", key);
+    return btoa(String.fromCharCode(...new Uint8Array(exported)));
+  };
+
+  // 1. 본인인증 실행
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    if (!email) return alert("이메일을 입력해주세요.");
+
+
+    setNeedsReissue(false);
+    setIsLoading(true);
+    try {
+      const response = await window.PortOne.requestIdentityVerification({
+        storeId: PORTONE_STORE_ID,
+        channelKey: PORTONE_CHANNEL_KEY,
+        identityVerificationId: `verif-${Date.now()}`
+      });
+
+      if (response.code !== undefined) throw new Error(response.message);
+
+      const verifyRes = await fetch(`${API_BASE}/pki/verify-portone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identityVerificationId: response.identityVerificationId, email })
+      });
+
+      if (!verifyRes.ok) throw new Error("서버 검증 실패");
+
+      const result = await verifyRes.json();
+      if (!result.ci) throw new Error("CI 정보가 없습니다.");
+
+      setRegCi(result.ci);
+      setIsVerified(true);
+
+      const key = await loadPrivateKey(email);
+      if (key) setPrivateKey(key);
+
+      // matchesAccount는 이 이메일 계정에 이미 등록된 기기가 있을 때만 내려온다.
+      // "true" → 계정 소유자 본인 확인, "false" → 다른 사람 정보로 인증됨(로그인은 거부될 것).
+      if (result.matchesAccount === "true") {
+        alert(`✨ ${result.name}님 본인인증이 완료되었습니다! (계정 소유자 본인 확인됨)`);
+      } else if (result.matchesAccount === "false") {
+        alert(`⚠️ ${result.name}님 정보로 본인인증되었지만, 이 계정(${email}) 소유자와 일치하지 않습니다. 로그인할 수 없습니다.`);
+      } else {
+        alert(`✨ ${result.name}님 본인인증이 완료되었습니다!`);
+      }
+    } catch (e) {
+      alert("본인인증 중 오류 발생: " + e.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 2. 안전 로그인 실행
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    if (!isVerified) return alert("본인인증을 먼저 진행해주세요.");
+    if (!password) return alert("비밀번호를 입력해주세요.");
+
+    setIsLoading(true);
+    let reissueNeeded = false;
+    try {
+      let currentKey = privateKey;
+      if (!currentKey) currentKey = await loadPrivateKey(email);
+      if (!currentKey) {
+        reissueNeeded = true;
+        throw new Error("기기 인증 정보가 없습니다. '인증서 재발급'이 필요합니다.");
+      }
+
+      const deviceId = getDeviceId();
+      const chalRes = await fetch(`${API_BASE}/pki/login/challenge?deviceId=${deviceId}`);
+      if (!chalRes.ok) {
+        // 미등록 기기(AUTH_UNREGISTERED_DEVICE) / 폐기된 인증서(AUTH_CERTIFICATE_REVOKED) 모두 재발급 대상.
+        const err = await chalRes.json().catch(() => ({}));
+        reissueNeeded = true;
+        throw new Error(err.message || "서버에서 기기 정보를 찾을 수 없습니다.");
+      }
+      const { challenge } = await chalRes.json();
+
+      // 서버가 기기 공개키로 암호화한 챌린지를 개인키로 복호화해 평문 nonce 를 되돌려준다.
+      const cipherBytes = Uint8Array.from(atob(challenge), (c) => c.charCodeAt(0));
+      let plainBuf;
+      try {
+        plainBuf = await window.crypto.subtle.decrypt({ name: "RSA-OAEP" }, currentKey, cipherBytes);
+      } catch (decryptError) {
+        // [신규] 이 브라우저에 저장된 개인키가 예전 알고리즘(서명용 RSASSA-PKCS1-v1_5)으로 만들어진
+        // 경우 여기서 "key.algorithm does not match that of operation" 같은 예외가 난다.
+        // 예전엔 이 예외가 아래 문자열 매칭(기기 인증 정보가 없습니다/기기 인증 실패)에 걸리지 않아
+        // 재발급 버튼이 뜨지 않고 그냥 막혔음 — 재발급이 필요한 상황으로 명시적으로 처리한다.
+        reissueNeeded = true;
+        throw new Error("저장된 기기 인증서가 최신 로그인 방식과 호환되지 않습니다. '인증서 재발급'이 필요합니다.");
+      }
+      const answer = new TextDecoder().decode(plainBuf);
+
+      const verRes = await fetch(`${API_BASE}/pki/login/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // [수정] 로그인 성공 시 서버가 내려주는 세션 쿠키(JSESSIONID)를 저장/전송하기 위해 credentials 추가
+        credentials: 'include',
+        body: JSON.stringify({ deviceId, password, answer, ci: regCi })
+      });
+
+      const result = await verRes.json();
+      if (verRes.ok) {
+        // [임시] 백엔드의 sellerId(Long) 타입에 맞추기 위해 이메일을 숫자로 매핑
+        const numericId = email === 'seller01@test.com' ? 1 : (email === 'seller02@test.com' ? 2 : 3);
+
+        localStorage.setItem('user_nickname', result.nickname);
+        localStorage.setItem('user_role', result.role || 'ROLE_BUYER');
+        // 채팅에서 내 메시지인지 구분하려고 이메일 저장
+        localStorage.setItem('email', email);
+        localStorage.setItem('user_id', numericId.toString());
+        await refreshSession();
+        // [신규] 로그인 성공 직후 서버에서 시작된 인증서 10분 타이머를 프론트와 동기화
+        await syncStatus();
+        alert(`${result.nickname}님 환영합니다!`);
+        if (result.role === 'ROLE_ADMIN') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/');
+        }
+        return;
+      } else {
+        const message = result.message || "로그인에 실패했습니다.";
+        // 기기 인증서가 없거나 폐기된 경우 재발급 대상. 메시지 문자열은 ErrorCode 정리 때 바뀔 수 있으므로 code로 판단.
+        // (AUTH_SIGNATURE_VERIFICATION_FAILED는 CI 불일치 등에도 쓰여 재발급 대상에서 제외)
+        if (result.code === 'AUTH_UNREGISTERED_DEVICE' || result.code === 'AUTH_CERTIFICATE_REVOKED') {
+          reissueNeeded = true;
+        }
+        throw new Error(message);
+      }
+    } catch (e) {
+      setNeedsReissue(reissueNeeded);
+      alert("로그인 오류: " + e.message);
+      // 재발급이 필요한 경우엔 새로고침하면 재발급 버튼이 다시 숨겨지므로, 이 경우만 새로고침을 건너뜀.
+      if (!reissueNeeded) {
+        window.location.reload();
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 3. 기기 인증서 재발급
+  const handleReissue = async () => {
+    if (!isVerified || !regCi) return alert("본인인증을 먼저 완료해야 합니다.");
+    if (!password) return alert("비밀번호를 입력해주세요.");
+    if (!window.confirm("인증서를 재발급하시겠습니까?")) return;
+
+    setIsLoading(true);
+    try {
+      const keyPair = await generateKeyPair();
+      const pubKey = await exportPublicKey(keyPair.publicKey);
+
+      const res = await fetch(`${API_BASE}/pki/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, nickname: "", role: "", ci: regCi, publicKey: pubKey, deviceId: getDeviceId() })
+      });
+
+      if (res.ok) {
+        await savePrivateKey(email, keyPair.privateKey);
+        setPrivateKey(keyPair.privateKey);
+        setNeedsReissue(false);
+        alert("인증서가 성공적으로 재발급되었습니다! 이제 로그인이 가능합니다.");
+      } else {
+        const data = await res.json();
+        throw new Error(data.message || data.error || "재발급 중 오류 발생");
+      }
+    } catch (e) {
+      alert("오류: " + e.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // [MEM-RQ-003] 인증서 재발급 실패 시, 새로고침 없이 이메일을 바꿔서 본인인증부터 다시 시작할 수 있도록
+  // isVerified/needsReissue/regCi/privateKey 참조와 입력값을 전부 초기화한다.
+  const resetToStart = () => {
+    setIsVerified(false);
+    setNeedsReissue(false);
+    setRegCi(null);
+    setPrivateKey(null);
+    setEmail('');
+    setPassword('');
+  };
+
+  return (
+    <div className="v3-page v3-design-page auth-v3-page">
+      <main className="v3-main auth-v3-main">
+        <section className="v3-bookcase auth-v3-bookcase">
+          <V3SiteHeader embedded />
+
+          <div className="auth-v3-popup-layer">
+            {/* 중앙 로그인 팝업 */}
+            <div className="auth-v3-card auth-v3-card--login">
+          {/* 카드 상단 */}
+          <div className="text-center mb-8">
+            <p className="text-xs font-semibold text-red-500 uppercase tracking-widest mb-1">
+              SECURE LOGIN
+            </p>
+            <h1 className="text-4xl font-extrabold text-gray-950">
+              로그인
+            </h1>
+          </div>
+
+          {/* 모드 탭 */}
+          <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-6">
+            <button
+              type="button"
+              onClick={() => { setMode('user'); setEmail(''); setPassword(''); setIsVerified(false); setTestRoleHint(null); setNeedsReissue(false); }}
+              className={`flex-1 py-2.5 text-sm font-bold transition ${mode === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+            >
+              일반 로그인
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('admin'); setEmail(''); setPassword(''); setIsVerified(false); setTestRoleHint(null); setNeedsReissue(false); }}
+              className={`flex-1 py-2.5 text-sm font-bold transition ${mode === 'admin' ? 'bg-red-600 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+            >
+              관리자 로그인
+            </button>
+          </div>
+
+          {/* [신규] 테스트 역할 선택 (자동입력 없음, 참고용 힌트만 표시) */}
+          {mode === 'admin' && (
+            <div className="mb-4">
+              <div className="flex gap-2">
+                {[
+                  { key: 'seller', label: '판매자' },
+                  { key: 'buyer', label: '구매자' },
+                  { key: 'admin', label: '관리자' },
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setTestRoleHint(key)}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg border transition ${testRoleHint === key
+                        ? 'border-purple-500 bg-purple-50 text-purple-600'
+                        : 'border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300'
+                      }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {testRoleHint && (
+                <div className="mt-2 p-3 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-600 space-y-1">
+                  {TEST_ROLE_HINTS[testRoleHint].map((acc) => (
+                    <div key={acc.email}>
+                      {acc.nickname}: <span className="font-mono">{acc.email}</span> / <span className="font-mono">{acc.password}</span>
+                    </div>
+                  ))}
+                  <div className="text-gray-400">위 이메일/비밀번호를 아래 입력창에 직접 입력해주세요.</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 4. 로그인 폼 (Login Form) */}
+          <form className="flex flex-col gap-6" onSubmit={mode === 'admin' ? handleAdminLogin : (e) => e.preventDefault()}>
+            {/* 이메일 입력 */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="email" className="text-sm font-medium text-gray-800">
+                아이디(이메일)
+              </label>
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com"
+                className="w-full p-4 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base"
+                disabled={isVerified}
+              />
+            </div>
+
+            {/* 비밀번호 입력 */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between items-baseline">
+                <label htmlFor="password" className="text-sm font-medium text-gray-800">
+                  비밀번호
+                </label>
+              </div>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full p-4 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-base"
+              />
+            </div>
+
+            {mode === 'admin' ? (
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full mt-2 p-4 bg-red-600 text-white rounded-xl font-bold text-lg shadow-lg shadow-red-200 hover:bg-red-700 transition duration-150 active:scale-[0.98] disabled:bg-gray-400"
+              >
+                {isLoading ? '로그인 중...' : '관리자 로그인'}
+              </button>
+            ) : !isVerified ? (
+              <button
+                type="button"
+                onClick={handleVerify}
+                disabled={isLoading}
+                className="w-full mt-2 p-4 bg-blue-600 text-white rounded-xl font-bold text-lg shadow-lg shadow-blue-200 hover:bg-blue-700 transition duration-150 active:scale-[0.98] disabled:bg-gray-400"
+              >
+                {isLoading ? '처리 중...' : '본인인증 실행'}
+              </button>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={handleLogin}
+                  disabled={isLoading}
+                  className="w-full mt-2 p-4 bg-green-600 text-white rounded-xl font-bold text-lg shadow-lg shadow-green-200 hover:bg-green-700 transition duration-150 active:scale-[0.98]"
+                >
+                  {isLoading ? '로그인 중...' : '안전 로그인 실행'}
+                </button>
+                {needsReissue && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleReissue}
+                      disabled={isLoading}
+                      className="w-full p-3 bg-purple-600 text-white rounded-xl font-bold text-base shadow-lg shadow-purple-200 hover:bg-purple-700 transition duration-150"
+                    >
+                      기기 인증서 재발급
+                    </button>
+                    {/* [MEM-RQ-003] 재발급이 실패했거나 다른 계정으로 다시 시도하고 싶을 때, 새로고침 없이 처음부터 */}
+                    <button
+                      type="button"
+                      onClick={resetToStart}
+                      disabled={isLoading}
+                      className="w-full p-2.5 text-sm font-bold text-gray-500 hover:text-gray-700 underline transition"
+                    >
+                      처음부터 다시 (다른 이메일로 본인인증)
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </form>
+
+          {/* 5. 카드 하단 (Footer)
+          [*] 회원가입 페이지와 연결 */}
+          <div className="mt-10 text-center text-gray-700">
+            계정이 없으신가요? <Link to="/signup" className="text-blue-600 font-medium hover:underline">회원가입</Link>
+          </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+};
+
+export default LoginPage;

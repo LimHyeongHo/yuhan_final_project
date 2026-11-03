@@ -1,0 +1,963 @@
+import { API_BASE } from '../../../config/api';
+import React, { useState, useEffect } from 'react';
+//아래 import문 삭제
+// import { useParams, Link } from 'react-router-dom';
+import { Clock, Users, ChevronLeft, ChevronRight, CheckCircle, Share2, AlertCircle, MessageCircle, AlertTriangle, X, Copy, Heart, Info, ImageOff } from 'lucide-react';
+import V3SiteHeader from '../../../components/layout/V3SiteHeader';
+import { getProductCategoryName } from '../../../constants/productCategories';
+import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
+//[추가]
+// "목록으로 돌아가기"를 정해진 목록 대신 실제로 들어온 곳으로 되돌아가게 함
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+const BuyerProductDetailPage = () => {
+  // 1. 주소창에서 상품 고유 ID 추출 (예: /buyer/products/1 -> id = "1")
+  const { id } = useParams();
+  //[추가]
+  const navigate = useNavigate();
+  const location = useLocation();
+  // 앱 안에서 이동해 왔으면 뒤로 가고, 새로고침·직접 접속이면 기본 목록으로 감
+  const handleBackToList = () => {
+    if (location.key !== 'default') {
+      navigate(-1);
+    } else {
+      navigate('/buyer/products');
+    }
+  };
+  // 들어온 경로에 맞는 버튼 문구 (정보가 없으면 "목록으로 돌아가기")
+  const backButtonText = location.state?.backButtonText || '목록으로 돌아가기';
+  const [product, setProduct] = useState(null);
+  const [verification, setVerification] = useState({ status: 'LOADING' }); // [신규] 블록체인 검증 상태
+  const [verificationRetryKey, setVerificationRetryKey] = useState(0);
+  const [isJoined, setIsJoined] = useState(false); // 테스트용: 공구 참여 상태 토글
+  const [showReceiptModal, setShowReceiptModal] = useState(false); // [신규] 스마트 영수증 모달 상태
+  const [isScrapped, setIsScrapped] = useState(false); // [신규] 스크랩 상태
+  const [seller, setSeller] = useState(null); // 판매자 프로필 요약 (닉네임, 거래 만족도, 후기 수)
+  const [showSellerSatInfo, setShowSellerSatInfo] = useState(false); // 거래 만족도 설명 상자 열고 닫기
+
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDetail, setReportDetail] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/products/${id}`)
+      .then(res => {
+        if (!res.ok) throw new Error("상품을 찾을 수 없습니다.");
+        return res.json();
+      })
+      .then(data => {
+        // 마감일 전에 목표를 달성해 끝난 공구도 있어서, OPEN이 아니면 날짜 대신 상태로 배지를 보여줌
+        let dDayBadge;
+        if (data.status !== 'OPEN') {
+          dDayBadge = data.status === 'CLOSED_SUCCESS' ? '모집 완료' : '마감';
+        } else if (data.deadline) {
+          const deadlineDate = new Date(data.deadline);
+          const today = new Date();
+          const diffTime = deadlineDate - today;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const dDayText = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? 'D-Day' : '마감');
+          dDayBadge = `${dDayText} 마감`;
+        } else {
+          dDayBadge = '기한 없음';
+        }
+
+        setProduct({
+          id: String(data.productId),
+          title: data.title,
+          type: data.type,
+          major: data.type === 'BOOK' ? getProductCategoryName(data.category) : '학과 물품',
+          author: data.author || '',
+          publisher: data.publisher || '',
+          originalPrice: data.originalPrice || data.price,
+          price: data.price,
+          currentCount: data.currentCount,
+          targetCount: data.targetCount,
+          deadline: data.deadline ? data.deadline.split('T')[0].replace(/-/g, '.') : '기한 없음',
+          dDayBadge,
+          status: data.status === 'OPEN' ? '모집 중' : '마감됨',
+
+          // PRD-RQ-002: 버튼 비활성화 판단용 원본 상태값 보존
+          // [MEM-RQ-002] 탈퇴 판매자 상품(SELLER_WITHDRAWN) 판별용 원본 상태값
+          rawStatus: data.status,
+          thumbnail: getDisplayProductImageUrl(data.imageUrl),
+          description: data.description,
+          sellerEmail: data.sellerEmail // 문의하기 채팅방을 만들 때 사용
+        });
+
+        // ===== 0906 문건우 수정 시작 =====
+        // PRD-RQ-001: 로그인한 사용자가 이 상품에 실제로 참여 중인지 서버에서 확인
+        // (예전엔 isJoined가 항상 false로 고정된 죽은 코드라 취소 버튼을 실제로 쓸 수 없었음)
+        fetch(`${API_BASE}/products/${id}/participation/status`, { credentials: 'include' })
+          .then((res) => (res.ok ? res.json() : false))
+          .then((joined) => setIsJoined(joined))
+          .catch(() => { });
+        // ===== 0906 문건우 수정 끝 =====
+
+        // 판매자 프로필 요약 조회 (닉네임, 거래 만족도, 후기 수)
+        if (data.sellerEmail) {
+          fetch(`${API_BASE}/sellers/${encodeURIComponent(data.sellerEmail)}/profile`)
+            .then(r => (r.ok ? r.json() : null))
+            .then(p => p && setSeller(p))
+            .catch(() => { });
+        }
+      })
+      .catch(err => {
+        console.error("상품 상세 로드 실패:", err);
+        alert("상품 정보를 불러오는데 실패했습니다.");
+      });
+
+    // [신규] 스크랩 상태 호출
+    fetch(`${API_BASE}/products/${id}/scrap/status`, { credentials: 'include' })
+      .then(res => {
+        if (res.ok) return res.json();
+        return false;
+      })
+      .then(data => setIsScrapped(data))
+      .catch(err => console.error("스크랩 상태 로드 실패:", err));
+  }, [id]);
+
+  // 블록체인 노드 장애가 상품 상세 조회를 막지 않도록 별도 요청과 제한 시간을 사용한다.
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    let active = true;
+    setVerification({ status: 'LOADING' });
+
+    fetch(`${API_BASE}/products/${id}/verify`, { signal: controller.signal })
+      .then(res => {
+        if (!res.ok) throw new Error('검증 API 호출 실패');
+        return res.json();
+      })
+      .then(data => {
+        if (active) setVerification(data);
+      })
+      .catch(err => {
+        if (active) {
+          console.error("검증 정보 로드 실패:", err);
+          setVerification({
+            status: 'UNAVAILABLE',
+            message: '블록체인 검증 서비스를 일시적으로 사용할 수 없습니다.',
+            retryable: true
+          });
+        }
+      })
+      .finally(() => clearTimeout(timeoutId));
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [id, verificationRetryKey]);
+
+  // 공구 참여하기 버튼 클릭 핸들러
+  const handleJoinToggle = async () => {
+    if (!product) return;
+
+    try {
+      if (!isJoined) {
+        //[추가] 참여 처리는 결제 성공 후 백엔드가 대신 해줌 — 여기선 결제 페이지로 이동만
+        //이전에 있던 if문 안 쪽은 전부 삭제함. else문은 그대로
+        navigate('/payment', { state: { product } });
+
+      } else {
+        // ===== 0906 문건우 수정 시작 =====
+        // PRD-RQ-001: 실수로 인한 취소를 막기 위한 확인창 + 인증 쿠키 포함
+        if (!window.confirm('공동구매 참여를 취소하시겠어요? 결제가 완료된 건은 환불 처리됩니다.')) {
+          return;
+        }
+        // 백엔드 API 연동: 참여 인원 감소 (취소)
+        const res = await fetch(`${API_BASE}/products/${product.id}/cancel`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.message || "참여 취소 실패");
+        }
+        // ===== 0906 문건우 수정 끝 =====
+        const updatedProduct = await res.json();
+
+        // 서버에서 받은 최신 인원으로 화면 업데이트
+        setProduct(prev => ({ ...prev, currentCount: updatedProduct.currentCount }));
+        setIsJoined(false);
+        alert('공동구매 참여가 취소되었습니다.');
+      }
+    } catch (error) {
+      console.error(error);
+      // ===== 0906 문건우 수정 시작 =====
+      alert(error.message || "서버와 통신하는 중 문제가 발생했습니다.");
+      // ===== 0906 문건우 수정 끝 =====
+    }
+  };
+
+  // [신규] 스크랩 버튼 클릭 핸들러
+  const handleScrapToggle = async () => {
+    if (!product) return;
+    try {
+      const res = await fetch(`${API_BASE}/products/${product.id}/scrap`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('로그인이 필요합니다.');
+        throw new Error('스크랩 처리에 실패했습니다.');
+      }
+      const newStatus = await res.json();
+      setIsScrapped(newStatus);
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
+  // 공유 버튼: 공유 기능을 지원하면 공유창을 띄우고, 아니면 링크를 복사함
+  const handleShare = async () => {
+    // 책 제목이 "본제목 - 부제목..." 형태로 길게 들어오므로 다른 화면들처럼 '-' 앞부분만 사용
+    const shortTitle = (product?.title || 'N빵 공동구매').split('-')[0].trim();
+    // 카톡 "복사"는 url + text를 구분자 없이 이어붙이므로 text 맨 앞에 줄바꿈을 둬서 링크와 문구가 분리되게 함
+    const shareData = {
+      title: shortTitle,
+      text: `\n${shortTitle} 공동구매에 참여해보세요!`,
+      url: window.location.href,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (e) {
+        // 사용자가 공유창을 취소한 경우는 조용히 무시
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      alert('상품 링크가 클립보드에 복사되었습니다.');
+    } catch (e) {
+      alert('링크 복사에 실패했습니다.');
+    }
+  };
+
+  const closeReportModal = () => {
+    if (isSubmittingReport) return;
+    setIsReportModalOpen(false);
+    setReportReason('');
+    setReportDetail('');
+  };
+
+  const handleProductReport = async () => {
+    if (!reportReason) {
+      alert('신고 사유를 선택해주세요.');
+      return;
+    }
+
+    setIsSubmittingReport(true);
+    try {
+      const response = await fetch(`${API_BASE}/products/${product.id}/reports`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reportReason, detail: reportDetail }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          throw new Error('로그인이 필요합니다. 다시 로그인해주세요.');
+        }
+        if (response.status === 409) {
+          throw new Error('이미 이 상품을 신고했습니다.');
+        }
+        if (response.status === 403) {
+          throw new Error('본인 상품은 신고할 수 없습니다.');
+        }
+        throw new Error(error.message || error.error || '신고 처리에 실패했습니다.');
+      }
+
+      alert('신고가 접수되었습니다. 검토 후 조치하겠습니다.');
+      setIsReportModalOpen(false);
+      setReportReason('');
+      setReportDetail('');
+    } catch (error) {
+      alert(error.message || '신고 처리에 실패했습니다.');
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
+  const handleChatInquiry = async () => {
+    if (!localStorage.getItem('user_nickname')) {
+      alert('로그인이 필요합니다');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/chat/rooms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          sellerEmail: product.sellerEmail,
+          productId: product.id,
+          productName: product.title,
+        }),
+      });
+      if (!res.ok) throw new Error('채팅방 생성에 실패했습니다.');
+      // 새로 만든 방이든 기존 방이든 그 방이 바로 열리도록 방 번호를 넘김
+      const { roomId } = await res.json();
+      navigate(roomId ? `/buyer/chat?roomId=${roomId}` : '/buyer/chat');
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
+  if (!product) return <div className="p-8 text-center font-bold">도서 정보를 불러오는 중입니다...</div>;
+
+  const progressRatio = Math.min(Math.round((product.currentCount / product.targetCount) * 100), 100);
+  // 본인 상품이면 구매자 버튼 대신 판매 현황, 구매자 문의 버튼을 보여줌
+  const isOwnProduct = !!product.sellerEmail && product.sellerEmail === localStorage.getItem('email');
+  // 판매자와 관리자 계정은 참여, 문의 버튼을 쓸 수 없음 (본인 상품 제외)
+  const isRestrictedViewer = ['ROLE_SELLER', 'ROLE_ADMIN'].includes(localStorage.getItem('user_role')) && !isOwnProduct;
+
+  // PRD-RQ-002: 정원 달성 또는 OPEN이 아닌 상품은 신규 참여 버튼을 비활성화
+  const isFull = product.rawStatus !== 'OPEN' || product.currentCount >= product.targetCount;
+  // [MEM-RQ-002] 판매자가 탈퇴한 상품 - 참여/문의 버튼을 막고 사유를 안내
+  const isSellerWithdrawn = product.rawStatus === 'SELLER_WITHDRAWN';
+
+  // [신규] 검증 상태에 따른 뱃지 렌더링 함수
+  const renderVerificationBadge = () => {
+    if (!verification) return null;
+    let badgeContent = null;
+    switch (verification.status) {
+      case 'LOADING':
+        badgeContent = (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 text-gray-600 text-sm font-bold rounded-full border border-gray-200 shadow-sm">
+            <Clock size={16} /> 블록체인 확인 중
+          </div>
+        );
+        break;
+      case 'PENDING':
+      case 'UNAVAILABLE':
+      case 'FAILED':
+        badgeContent = (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 text-sm font-bold rounded-full border border-amber-200 shadow-sm">
+            <AlertTriangle size={16} />
+            {verification.status === 'PENDING' ? '블록체인 기록 대기 중' : '블록체인 확인 불가'}
+            {verification.retryable && (
+              <button
+                type="button"
+                onClick={() => setVerificationRetryKey(key => key + 1)}
+                className="ml-1 underline underline-offset-2"
+              >
+                다시 확인
+              </button>
+            )}
+          </div>
+        );
+        break;
+      case 'VALID':
+        badgeContent = (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-sm font-bold rounded-full border border-green-200 shadow-sm">
+            <CheckCircle size={16} /> 블록체인 검증 완료
+          </div>
+        );
+        break;
+      case 'GOOD_DEAL':
+        badgeContent = (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-sm font-bold rounded-full border border-blue-200 shadow-sm">
+            <CheckCircle size={16} /> 블록체인 검증 완료 (착한 가격)
+          </div>
+        );
+        break;
+      case 'ANCHORING_WARNING':
+        badgeContent = (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-orange-700 text-sm font-bold rounded-full border border-orange-200 shadow-sm">
+            <AlertCircle size={16} /> 블록체인 검증 완료 (시세 주의)
+          </div>
+        );
+        break;
+      case 'FORGED':
+        badgeContent = (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 text-sm font-bold rounded-full border border-red-200 shadow-sm">
+            <AlertCircle size={16} /> 블록체인 검증 실패, 데이터 위변조 감지됨
+          </div>
+        );
+        break;
+      default:
+        return null;
+    }
+
+    return (
+      <div
+        onClick={() => setShowReceiptModal(true)}
+        className="cursor-pointer hover:opacity-80 transition-opacity inline-block"
+        title="클릭하여 블록체인 스마트 보증서 확인하기"
+      >
+        {badgeContent}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
+      <V3SiteHeader />
+
+      <main className="flex-grow max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col gap-6">
+
+        {/* 뒤로가기 네비게이션 */}
+        <div className="flex items-center justify-between">
+          <button onClick={handleBackToList} className="flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-gray-900 transition">
+            <ChevronLeft size={18} />
+            {backButtonText}
+          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleScrapToggle}
+              className={`p-2 border border-gray-200 rounded-xl transition shadow-sm ${isScrapped ? 'text-red-500 bg-red-50 border-red-200' : 'text-gray-400 hover:text-red-500 bg-white'}`}
+            >
+              <Heart size={16} fill={isScrapped ? 'currentColor' : 'none'} />
+            </button>
+            {/* 공유 버튼 */}
+            <button
+              onClick={handleShare}
+              className="p-2 text-gray-400 hover:text-gray-600 bg-white border border-gray-200 rounded-xl transition shadow-sm"
+            >
+              <Share2 size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsReportModalOpen(true)}
+              disabled={isOwnProduct}
+              title={isOwnProduct ? '본인 상품은 신고할 수 없습니다' : '상품 신고'}
+              className="p-2 text-gray-400 hover:text-red-600 bg-white border border-gray-200 rounded-xl transition shadow-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <AlertTriangle size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* 메인 레이아웃 그리드 (PC 2열 분할) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+          {/* 좌측 컬럼: 이미지 및 도서 상세 설명 */}
+          <div className="lg:col-span-7 flex flex-col gap-6">
+            {/* 큰 이미지 박스 */}
+            <div className="bg-white rounded-[32px] border border-gray-200 p-4 md:p-6 shadow-sm flex items-center justify-center aspect-[4/3] md:aspect-[16/10] overflow-hidden relative">
+              <div className="flex flex-col items-center gap-2 text-gray-400">
+                <ImageOff size={100} strokeWidth={1.5} />
+                <span className="text-xl font-semibold">이미지 없음</span>
+              </div>
+              {product.thumbnail && (
+                <img
+                  src={product.thumbnail}
+                  alt=""
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  style={product.type === 'BOOK' ? {
+                    width: '105%',
+                    height: '105%',
+                    maxWidth: 'calc(100% - 20px)',
+                    maxHeight: 'calc(100% - 20px)',
+                  } : undefined}
+                  className={product.type === 'BOOK'
+                    ? 'absolute object-contain rounded-2xl bg-white'
+                    : 'absolute inset-4 md:inset-6 object-cover rounded-2xl'}
+                />
+              )}
+              <span className="absolute top-8 left-8 bg-red-500 text-white text-xs font-black px-3 py-1.5 rounded-md shadow-md">
+                {product.dDayBadge}
+              </span>
+            </div>
+
+            {/* 도서 소개글 */}
+            <div className="bg-white rounded-[32px] p-6 md:p-8 border border-gray-200 shadow-sm flex flex-col gap-4">
+              <h3 className="text-lg font-black text-gray-950 border-b border-gray-100 pb-3">도서 및 공구 소개</h3>
+              <p className="text-gray-600 text-sm md:text-base font-medium leading-relaxed whitespace-pre-wrap">
+                {product.description}
+              </p>
+            </div>
+
+            {/* 안전 거래 유의사항 (블록체인 강조) */}
+            <div className="bg-blue-50/50 rounded-2xl p-5 border border-blue-100 flex gap-3">
+              <AlertCircle className="text-blue-500 shrink-0 mt-0.5" size={20} />
+              <div className="flex flex-col gap-1">
+                <span className="text-sm font-bold text-blue-900">N방 안전 투명 거래 안내</span>
+                <span className="text-xs text-blue-700 font-semibold leading-relaxed">
+                  본 플랫폼은 영수증 검증 및 결제 내역을 블록체인 상에 투명하게 기록하여 거래 조작을 방지합니다. 모집 정원이 100% 달성되면 스마트 계약에 의해 안전하게 거래 및 배부가 확정됩니다.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 우측 컬럼: 구매 및 공구 현황 컨트롤 패널 (스티키 고정 효과 추가) */}
+          <div className="lg:col-span-5 flex flex-col gap-6 lg:sticky lg:top-24">
+            <div className="bg-white rounded-[32px] p-6 md:p-8 border border-gray-200 shadow-sm flex flex-col gap-6">
+
+              {/* 태그 & 학과 */}
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-black text-blue-600 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded">
+                  {product.major}
+                </span>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400">
+                  <Clock size={14} />
+                  <span>마감일: {product.deadline}</span>
+                </div>
+              </div>
+
+              {/* 제목 및 저자 정보 */}
+              <div className="flex flex-col gap-1.5">
+                {renderVerificationBadge()}
+                {/* 폰트 수정 하려면 아래 className을 수정하면 됨 */}
+                <h1 className="text-xl md:text-2xl font-black text-gray-900 leading-tight mt-2">
+                  {product.title.includes('-') ? (
+                    <>
+                      <span>{product.title.split('-')[0].trim()}</span>
+                      <span className="text-sm md:text-sm text-gray-500 font-bold block mt-1 hidden" >
+                        - {product.title.substring(product.title.indexOf('-') + 1).trim()}
+                      </span>
+                    </>
+                  ) : (
+                    product.title
+                  )}
+                </h1>
+                <span className="text-sm font-bold text-gray-400">
+                  {product.author} | {product.publisher}
+                </span>
+                {/* 판매자 프로필 카드 (누르면 프로필·거래 후기 페이지로 이동) */}
+                {product.sellerEmail && (
+                  <div className="mt-2 flex flex-col gap-2">
+                    <div
+                      onClick={() => navigate(`/sellers/${encodeURIComponent(product.sellerEmail)}`)}
+                      className="flex items-center gap-3 p-3 rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition w-full text-left group cursor-pointer"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-black shrink-0">
+                        {(seller?.nickname || '판').charAt(0)}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-extrabold text-gray-900 group-hover:text-blue-600 transition truncate">
+                          {seller?.nickname || '판매자'}
+                        </span>
+                        <span className="text-xs font-bold text-gray-400 flex items-center gap-1">
+                          {seller?.totalReviews > 0 ? (
+                            <>
+                              거래 만족도 {seller.satisfactionRate}% · 후기 {seller.totalReviews}
+                              <button
+                                type="button"
+                                aria-label="거래 만족도 설명"
+                                onClick={(e) => { e.stopPropagation(); setShowSellerSatInfo((v) => !v); }}
+                                className="text-gray-300 hover:text-blue-500 transition"
+                              >
+                                <Info size={12} />
+                              </button>
+                            </>
+                          ) : (
+                            '거래 후기 보기'
+                          )}
+                        </span>
+                      </div>
+                      <ChevronRight size={16} className="text-gray-300 group-hover:text-blue-500 transition ml-auto shrink-0" />
+                    </div>
+
+                    {showSellerSatInfo && (
+                      <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-3 text-[11px] font-medium text-blue-900 leading-relaxed flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <Info size={13} className="text-blue-500 shrink-0 mt-0.5" />
+                          <span>
+                            거래 만족도는 해당 공동구매 참여자로부터 받은 <b className="font-extrabold">좋아요·보통이에요·싫어요</b>로 구분된 평가와 후기를 포함해 계산한 신뢰 지표입니다.
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowSellerSatInfo(false)}
+                          className="self-end text-[11px] font-bold text-blue-600 hover:text-blue-700 px-2 py-1"
+                        >
+                          확인
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 가격 정보 (정가 대비 할인가 구조 적용) */}
+              <div className="bg-gray-50 rounded-2xl p-4 flex justify-between items-center">
+                <div className="flex flex-col">
+                  {product.originalPrice === product.price ? (
+                    <>
+                      <span className="text-xs text-gray-500 font-bold">정가와 동일</span>
+                      <span className="text-xs text-gray-500 font-black mt-0.5">할인율 없음</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-xs text-gray-400 line-through font-bold">정가 {product.originalPrice.toLocaleString()}원</span>
+                      {(() => {
+                        const diffRatio = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+                        if (diffRatio > 0) {
+                          return <span className="text-xs text-emerald-600 font-black mt-0.5">-{diffRatio}% 할인가</span>;
+                        }
+                        return <span className="text-xs text-orange-500 font-black mt-0.5">정가보다 {Math.abs(diffRatio)}% 비쌈</span>;
+                      })()}
+                    </>
+                  )}
+                </div>
+                <div className="text-right">
+                  <span className="text-2xl md:text-3xl font-black text-blue-600">{product.price.toLocaleString()}원</span>
+                  <span className="text-xs text-gray-500 font-bold block mt-0.5">(인당 부담금)</span>
+                </div>
+              </div>
+
+              {/* 공구 진행률 상황판 */}
+              <div className="flex flex-col gap-3 pt-2">
+                <div className="flex justify-between items-end">
+                  <span className="text-sm font-black text-gray-900 flex items-center gap-1.5">
+                    <Users size={16} className="text-blue-500" />
+                    모집 현황 <span className="text-blue-600">{progressRatio}%</span>
+                  </span>
+                  <span className="text-sm font-bold text-gray-600">
+                    <span className="font-black text-gray-900">{product.currentCount}</span> / {product.targetCount} 명
+                  </span>
+                </div>
+
+                {/* 진행 게이지 */}
+                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${isJoined ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                    style={{ width: `${progressRatio}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              {isOwnProduct ? (
+                <>
+                  {/* 본인 상품: 참여하기 대신 판매 현황 확인하기 */}
+                  <button
+                    onClick={() => navigate('/seller/status')}
+                    className="w-full py-4 rounded-2xl font-black text-base md:text-lg transition-all shadow-md flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-500/20"
+                  >
+                    판매 현황 확인하기
+                  </button>
+
+                  {/* 본인 상품이면 이 상품으로 들어온 문의 채팅만 모아 봄 */}
+                  <button
+                    onClick={() => navigate(`/seller/chat?productId=${product.id}`)}
+                    className="w-full py-3.5 rounded-2xl font-bold text-gray-700 bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={18} />
+                    구매자 문의 확인하기
+                  </button>
+                </>
+              ) : isRestrictedViewer ? (
+                <>
+                  {/* 판매자(남의 상품)·관리자 계정은 버튼 비활성화 */}
+                  <button
+                    disabled
+                    title="판매자·관리자 계정은 공동구매에 참여할 수 없습니다"
+                    className="w-full py-4 rounded-2xl font-black text-base md:text-lg flex items-center justify-center gap-2 bg-gray-100 text-gray-400 cursor-not-allowed"
+                  >
+                    공동구매 참여하기 (N빵 탑승)
+                  </button>
+
+                  <button
+                    disabled
+                    title="판매자·관리자 계정은 문의하기를 이용할 수 없습니다"
+                    className="w-full py-3.5 rounded-2xl font-bold bg-gray-100 text-gray-400 border-2 border-gray-200 cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={18} />
+                    판매자에게 문의하기 (채팅)
+                  </button>
+                  <p className="text-xs text-center text-gray-400 font-medium -mt-3">
+                    판매자·관리자 계정으로는 이용할 수 없는 기능입니다
+                  </p>
+                </>
+              ) : isSellerWithdrawn ? (
+                <>
+                  {/* [MEM-RQ-002] 판매자가 탈퇴한 상품 — 참여/문의 버튼 비활성화 + 사유 표시 */}
+                  <button
+                    disabled
+                    title="판매자가 탈퇴하여 더 이상 참여할 수 없는 상품입니다"
+                    className="w-full py-4 rounded-2xl font-black text-base md:text-lg flex items-center justify-center gap-2 bg-gray-100 text-gray-400 cursor-not-allowed"
+                  >
+                    공동구매 참여하기 (N빵 탑승)
+                  </button>
+
+                  <button
+                    disabled
+                    title="판매자가 탈퇴하여 문의할 수 없는 상품입니다"
+                    className="w-full py-3.5 rounded-2xl font-bold bg-gray-100 text-gray-400 border-2 border-gray-200 cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={18} />
+                    판매자에게 문의하기 (채팅)
+                  </button>
+                  <p className="text-xs text-center text-gray-400 font-medium -mt-3 flex items-center justify-center gap-1">
+                    <AlertCircle size={14} /> 판매자가 탈퇴하여 거래가 불가능한 상품입니다
+                  </p>
+                </>
+              ) : (
+                <>
+                  {/* 구매자 버튼 (참여 여부에 따라 바뀜) */}
+                  {/* ===== 0906 문건우 수정 시작 ===== */}
+                  {/* PRD-RQ-002: 미참여 상태에서 정원 달성/마감된 상품은 참여 버튼 비활성화 */}
+                  <button
+                    onClick={handleJoinToggle}
+                    disabled={!isJoined && isFull}
+                    className={`w-full py-4 rounded-2xl font-black text-base md:text-lg transition-all shadow-md flex items-center justify-center gap-2 ${isJoined
+                      ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100'
+                      : isFull
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-500/20'
+                      }`}
+                  >
+                    {isJoined ? (
+                      <>
+                        <CheckCircle size={20} />
+                        공구 탑승 완료 (취소하기)
+                      </>
+                    ) : isFull ? (
+                      '모집 완료'
+                    ) : (
+                      '공동구매 참여하기 (N빵 탑승)'
+                    )}
+                  </button>
+                  {/* ===== 0906 문건우 수정 끝 ===== */}
+
+                  {/* 문의하기 (채팅) 버튼 */}
+                  <button
+                    onClick={handleChatInquiry}
+                    className="w-full py-3.5 rounded-2xl font-bold text-gray-700 bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={18} />
+                    판매자에게 문의하기 (채팅)
+                  </button>
+                </>
+              )}
+
+            </div>
+          </div>
+
+        </div>
+
+      </main>
+
+      {/* 스마트 영수증 모달 렌더링 */}
+      {showReceiptModal && (
+        <SmartReceiptModal
+          verification={verification}
+          onClose={() => setShowReceiptModal(false)}
+        />
+      )}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/45 p-4" role="dialog" aria-modal="true" aria-labelledby="product-report-title">
+          <section className="w-full max-w-md rounded-[24px] bg-white p-6 shadow-2xl">
+            <header className="flex items-center justify-between border-b border-gray-100 pb-4">
+              <h2 id="product-report-title" className="flex items-center gap-2 text-xl font-extrabold text-gray-900"><AlertTriangle size={21} className="text-red-600" />상품 신고</h2>
+              <button type="button" onClick={closeReportModal} disabled={isSubmittingReport} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed" aria-label="신고 팝업 닫기"><X size={20} /></button>
+            </header>
+
+            <div>
+              <div className="mt-5">
+                <p className="pl-1 text-sm font-extrabold text-gray-800">신고 대상 판매자</p>
+                <div className="mt-3 rounded-2xl border border-gray-200 bg-gray-100 px-4 py-3 text-sm font-bold text-gray-600">
+                  {seller?.nickname || product.sellerEmail || '판매자 정보 없음'}
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <p className="pl-1 text-sm font-extrabold text-gray-800">신고 상품</p>
+                <div className="mt-3 rounded-2xl border border-gray-200 bg-gray-100 px-4 py-3 text-sm font-bold text-gray-600">
+                  {product.title}
+                </div>
+              </div>
+              <div className="mt-5">
+                <p className="pl-1 text-sm font-extrabold text-gray-800">신고 사유</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {['상품 정보와 다름', '부적절한 상품 설명', '거래 조건 미고지', '기타'].map((reason) => (
+                    <button
+                      key={reason}
+                      type="button"
+                      onClick={() => setReportReason(reason)}
+                      disabled={isSubmittingReport}
+                      className={`rounded-full border px-3 py-1.5 text-sm font-bold transition ${reportReason === reason ? 'border-red-200 bg-red-50 text-red-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <label htmlFor="product-report-detail" className="pl-1 text-sm font-extrabold text-gray-800">상세 내용 <span className="font-medium text-gray-400">(선택)</span></label>
+              <textarea
+                id="product-report-detail"
+                value={reportDetail}
+                onChange={(event) => setReportDetail(event.target.value.slice(0, 1000))}
+                disabled={isSubmittingReport}
+                placeholder="신고 사유를 자세히 입력해주세요."
+                className="mt-3 min-h-32 w-full resize-none rounded-2xl border border-gray-200 p-3 text-sm text-gray-700 outline-none transition focus:border-red-300 focus:ring-2 focus:ring-red-100 disabled:bg-gray-50"
+              />
+              <p className="mt-1 text-right text-xs font-medium text-gray-400">{reportDetail.length}/1000</p>
+            </div>
+
+            <p className="mt-4 text-xs leading-relaxed text-gray-400">신고 내용은 관리자 검토를 위해 저장됩니다. <br />허위 신고를 반복하면 이용이 제한될 수 있습니다.</p>
+
+            <footer className="mt-5 flex gap-2">
+              <button type="button" onClick={closeReportModal} disabled={isSubmittingReport} className="flex-1 rounded-xl bg-gray-100 py-3 font-bold text-gray-600 transition hover:bg-gray-200 disabled:cursor-not-allowed">취소</button>
+              <button type="button" onClick={handleProductReport} disabled={!reportReason || isSubmittingReport} className="flex-1 rounded-xl bg-red-600 py-3 font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-200">{isSubmittingReport ? '신고 중...' : '신고하기'}</button>
+            </footer>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// [신규] 스마트 영수증(보증서) 모달 컴포넌트
+const SmartReceiptModal = ({ verification, onClose }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (verification?.txHash) {
+      navigator.clipboard.writeText(verification.txHash);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const getStatusUI = () => {
+    switch (verification?.status) {
+      case 'FORGED':
+        return {
+          icon: <AlertCircle size={32} />,
+          headerIcon: <AlertCircle size={20} />,
+          colorText: 'text-red-500',
+          bgHeader: 'bg-red-100 text-red-600',
+          bgBox: 'bg-red-50/50 border-red-200',
+          title: '데이터 위변조 감지됨',
+          dbHashText: 'text-red-600 font-bold'
+        };
+      case 'ANCHORING_WARNING':
+        return {
+          icon: <AlertTriangle size={32} />,
+          headerIcon: <AlertTriangle size={20} />,
+          colorText: 'text-orange-500',
+          bgHeader: 'bg-orange-100 text-orange-600',
+          bgBox: 'bg-orange-50/50 border-orange-200',
+          title: '무결성 검증 완료 (시세 조작 주의)',
+          dbHashText: 'text-gray-800'
+        };
+      case 'GOOD_DEAL':
+        return {
+          icon: <CheckCircle size={32} />,
+          headerIcon: <CheckCircle size={20} />,
+          colorText: 'text-blue-500',
+          bgHeader: 'bg-blue-100 text-blue-600',
+          bgBox: 'bg-blue-50/50 border-blue-200',
+          title: '무결성 검증 완료 (착한 가격)',
+          dbHashText: 'text-gray-800'
+        };
+      case 'VALID':
+      default:
+        return {
+          icon: <CheckCircle size={32} />,
+          headerIcon: <CheckCircle size={20} />,
+          colorText: 'text-emerald-500',
+          bgHeader: 'bg-emerald-100 text-emerald-600',
+          bgBox: 'bg-emerald-50/50 border-emerald-200',
+          title: '무결성 검증 완료',
+          dbHashText: 'text-gray-800'
+        };
+    }
+  };
+
+  const ui = getStatusUI();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* 딤 배경 (Blur 효과) */}
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* 모달 컨텐츠 (Glassmorphism 카드) */}
+      <div className="relative w-full max-w-md bg-white border border-gray-200 shadow-[0_0_40px_rgba(59,130,246,0.15)] rounded-3xl overflow-hidden flex flex-col transform transition-all">
+
+        {/* 헤더 */}
+        <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center bg-white">
+          <div className="flex items-center gap-2">
+            <div className={`p-1.5 rounded-full ${ui.bgHeader}`}>
+              {ui.headerIcon}
+            </div>
+            <h2 className="text-lg font-black text-gray-900">블록체인 스마트 보증서</h2>
+          </div>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* 바디 (상세 데이터) */}
+        <div className="p-6 flex flex-col gap-6">
+
+          {/* 상태 배지 영역 */}
+          <div className="flex flex-col items-center justify-center gap-2 py-2">
+            <div className={`${ui.colorText} font-bold flex flex-col items-center gap-1`}>
+              {ui.icon}
+              <span className="text-lg text-center">{ui.title}</span>
+            </div>
+            <p className="text-xs text-gray-500 text-center font-medium">
+              이 거래의 가격과 정보는 이더리움 블록체인에 영구적으로 기록되어 절대 임의로 조작할 수 없습니다.
+            </p>
+          </div>
+
+          <div className="w-full h-px bg-gray-200/50" />
+
+          {/* 트랜잭션 정보 */}
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-gray-500">트랜잭션 해시 (TxHash)</span>
+              <div className="flex items-center gap-2 bg-gray-100/80 p-3 rounded-xl border border-gray-200/50">
+                <span className="text-xs font-mono text-gray-700 truncate flex-1">
+                  {verification?.txHash || 'Pending...'}
+                </span>
+                <button
+                  onClick={handleCopy}
+                  className="p-1.5 bg-white rounded-md shadow-sm border border-gray-200 text-gray-500 hover:text-blue-600 transition"
+                  title="해시 복사하기"
+                >
+                  <Copy size={14} />
+                </button>
+              </div>
+              {copied && <span className="text-[10px] text-blue-600 font-bold ml-1">복사되었습니다!</span>}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-gray-500">원본 해시 조합 (ID_ISBN_Price)</span>
+              <div className="bg-gray-100/80 p-3 rounded-xl border border-gray-200/50">
+                <span className="text-xs font-mono text-gray-700 break-all">
+                  {verification?.targetData || '데이터 없음'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-gray-500">블록체인 저장 해시 vs DB 해시</span>
+              <div className={`p-3 rounded-xl border ${ui.bgBox} flex flex-col gap-2`}>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-gray-400">BC Hash (스마트 컨트랙트)</span>
+                  <span className="text-xs font-mono text-gray-800 truncate">
+                    {verification?.blockchainHash || '조회 실패'}
+                  </span>
+                </div>
+                <div className="w-full h-px bg-gray-200/50" />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-gray-400">DB Hash (현재 데이터)</span>
+                  <span className={`text-xs font-mono truncate ${ui.dbHashText}`}>
+                    {verification?.dbHash || '계산 실패'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default BuyerProductDetailPage;

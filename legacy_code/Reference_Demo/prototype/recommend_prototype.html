@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>YU-BOOK | 학부별 추천</title>
+    <link rel="stylesheet" href="css/common.css">
+    <style>
+        .page-wrapper { max-width: 1200px; margin: 60px auto; padding: 0 20px; }
+        .page-title { font-size: 28px; font-weight: 700; margin-bottom: 40px; text-align: center; }
+        
+        .category-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px; margin-bottom: 60px; }
+        .category-item { display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; }
+        .category-img { width: 100%; aspect-ratio: 1/1; border-radius: 50%; margin-bottom: 15px; border: 2px solid transparent; transition: 0.2s; }
+        .category-item:hover .category-img { border-color: #00796b; transform: scale(1.05); }
+        .category-name { font-size: 14px; font-weight: 500; }
+        
+        .sub-title { font-size: 22px; font-weight: 700; margin-bottom: 20px; border-left: 4px solid #00796b; padding-left: 10px; }
+    </style>
+</head>
+<header>
+    <div class="top-bar">
+        <div class="top-bar-content">
+            <a href="login_prototype.html">로그인</a>
+            <a href="cart_prototype.html">장바구니</a>
+            <a href="mypage_prototype.html">마이페이지</a>
+            <a href="board_prototype.html">고객센터</a>
+        </div>
+    </div>
+    
+    <nav class="main-nav">
+        <a href="prototype_1.html" class="logo">YU-BOOK</a>
+        <ul class="nav-menu">
+            <li><a href="books_prototype.html">전공도서</a></li>
+            <li><a href="recommend_prototype.html">학부별 추천</a></li>
+            <li><a href="best_prototype.html">베스트 공구</a></li>
+            <li><a href="community_prototype.html">게시판</a></li>
+        </ul>
+    </nav>
+</header>
+<body>
+    <main class="page-wrapper">
+        <h2 class="page-title">우리 학부 선배들이 가장 많이 찾는 책</h2>
+        
+        <div class="category-grid">
+            <div class="category-item"><div class="category-img img-placeholder">[이미지6]</div><p class="category-name">IT학부</p></div>
+            <div class="category-item"><div class="category-img img-placeholder">[이미지7]</div><p class="category-name">전기전자학부</p></div>
+            <div class="category-item"><div class="category-img img-placeholder">[이미지8]</div><p class="category-name">경영학부</p></div>
+            <div class="category-item"><div class="category-img img-placeholder">[이미지9]</div><p class="category-name">기계공학과</p></div>
+            <div class="category-item"><div class="category-img img-placeholder">[이미지10]</div><p class="category-name">디자인학부</p></div>
+            <div class="category-item"><div class="category-img img-placeholder">[이미지11]</div><p class="category-name">건축공학과</p></div>
+        </div>
+
+        <h3 class="sub-title">IT학부 추천 전공도서 (예시)</h3>
+        <div class="img-placeholder" style="height: 300px; margin-bottom: 40px;">[IT학부 전공책 리스트 영역]</div>
+    </main>
+    
+    <footer><iframe src="footer_prototype.html" width="100%" height="200px" frameborder="0"></iframe></footer>
+</body>
+</html>

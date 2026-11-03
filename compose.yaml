@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: nbbang
+      POSTGRES_USER: nbbang
+      POSTGRES_PASSWORD: local-dev-password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nbbang -d nbbang"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      PORT: 8080
+      DB_URL: jdbc:postgresql://db:5432/nbbang
+      DB_USERNAME: nbbang
+      DB_PASSWORD: local-dev-password
+      FRONTEND_ORIGIN: http://localhost:3000
+      BACKEND_PUBLIC_URL: http://localhost:8080
+      JPA_DDL_AUTO: update
+      PKI_SERVER_SECRET: ${PKI_SERVER_SECRET:-local-only-secret}
+      TOSS_SECRET_KEY: ${TOSS_SECRET_KEY:-local-only-secret}
+      PORTONE_API_SECRET: ${PORTONE_API_SECRET:-local-only-secret}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID:-local-only}
+      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET:-local-only}
+      ALADIN_TTB_KEY: ${ALADIN_TTB_KEY:-local-only}
+      BLOCKCHAIN_URL: ${BLOCKCHAIN_URL:-http://127.0.0.1:8545}
+      BLOCKCHAIN_PRIVATE_KEY: ${BLOCKCHAIN_PRIVATE_KEY:-0000000000000000000000000000000000000000000000000000000000000001}
+      BLOCKCHAIN_CONTRACT_ADDRESS: ${BLOCKCHAIN_CONTRACT_ADDRESS:-0x0000000000000000000000000000000000000000}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+
+volumes:
+  postgres-data:
+  uploads:

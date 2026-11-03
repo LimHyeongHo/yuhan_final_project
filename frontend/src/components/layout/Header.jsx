@@ -1,0 +1,439 @@
+import { API_BASE } from '../../config/api';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import HeaderLogo from './HeaderLogo';
+import { User, ShieldAlert, LogOut, Bell, X, Menu } from 'lucide-react';
+// [신규] 인증서 남은 시간(mm:ss) + +5분/-5분 조정을 위한 Context 훅
+import { useCertificateTimer } from '../../contexts/CertificateTimerContext';
+import { useChatNotifications } from '../../contexts/ChatNotificationContext';
+import { useSession } from '../../contexts/SessionContext';
+
+// [신규] 초 단위를 "mm:ss" 형식 문자열로 변환
+const formatRemaining = (totalSeconds) => {
+  const clamped = Math.max(totalSeconds, 0);
+  const m = Math.floor(clamped / 60).toString().padStart(2, '0');
+  const s = Math.floor(clamped % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+};
+
+// [신규] +버튼으로 늘릴 수 있는 상한 (서버 CertificateSessionService.MAX_VALID_MINUTES와 동일하게 60분)
+const MAX_REMAINING_SECONDS = 60 * 60;
+
+const Header = () => {
+  const navigate = useNavigate();
+  const { session: sessionUser, loading: sessionLoading, clearSession } = useSession();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // [신규] 인증서 타이머 상태 (남은 초 / 조정 함수)
+  const { remainingSeconds, extend } = useCertificateTimer();
+  // 채팅 알림은 웹소켓으로 바로 받고, 참여 알림과 시스템 알림은 따로 불러옴
+  const { chatRooms } = useChatNotifications();
+  const [participationAlerts, setParticipationAlerts] = useState([]);
+  const [systemNotifications, setSystemNotifications] = useState([]);
+  const [isChatPreviewOpen, setIsChatPreviewOpen] = useState(false);
+  // 참여 알림을 마지막으로 확인한 시각 (브라우저에 저장)
+  const [lastSeenParticipationAt, setLastSeenParticipationAt] = useState(
+    () => localStorage.getItem('notif_participation_seen_at') || new Date(0).toISOString()
+  );
+
+  const isLoggedIn = Boolean(sessionUser?.authenticated);
+  const nickname = sessionUser?.nickname || '로그인 필요';
+  const userRole = sessionUser?.role || '';
+
+  // 판매자 참여 알림과 시스템 알림은 20초마다 새로 불러옴
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setParticipationAlerts([]);
+      setSystemNotifications([]);
+      return;
+    }
+
+    const loadNotifications = () => {
+      // [신규] 참여 알림 및 시스템 알림은 판매자 계정에만 의미 있는 이벤트라 seller일 때만 조회
+      if (userRole === 'ROLE_SELLER') {
+        fetch(`${API_BASE}/products/seller/me/participations`, { credentials: 'include' })
+          .then(res => {
+            if (!res.ok) throw new Error('Failed to fetch participations');
+            return res.json();
+          })
+          .then(setParticipationAlerts)
+          .catch(err => console.error('헤더 참여 알림 로드 실패', err));
+
+        fetch(`${API_BASE}/seller/notifications`, { credentials: 'include' })
+          .then(res => {
+            if (!res.ok) throw new Error('Failed to fetch system notifications');
+            return res.json();
+          })
+          .then(setSystemNotifications)
+          .catch(err => console.error('헤더 시스템 알림 로드 실패', err));
+      } else {
+        setParticipationAlerts([]);
+        setSystemNotifications([]);
+      }
+    };
+
+    loadNotifications();
+    const intervalId = setInterval(loadNotifications, 20000);
+    return () => clearInterval(intervalId);
+  }, [isLoggedIn, userRole]);
+
+  const handleLogout = async () => {
+    // 로그아웃할 때 서버 세션도 끊어야 뒤로가기로 다시 들어올 수 없음
+    // 인증서 폐기는 탈퇴/타이머 만료 때만 해야 하므로 여기서는 로그아웃 API만 호출한다.
+    let serverLogoutOk = false;
+    try {
+      const res = await fetch(`${API_BASE}/pki/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      serverLogoutOk = res.ok;
+    } catch (err) {
+      console.error('서버 로그아웃 요청 실패', err);
+    }
+
+    localStorage.removeItem('user_nickname');
+    localStorage.removeItem('user_role');
+    // 로그아웃하면 저장해 둔 이메일도 지움
+    localStorage.removeItem('email');
+    clearSession();
+    // [SEC-RQ-002] 서버 세션 무효화 성공 여부를 확인하지 않고 "성공"만 안내하면,
+    // 네트워크 오류 등으로 서버 세션이 살아있는데도 로그아웃된 것처럼 보인다.
+    if (serverLogoutOk) {
+      alert('로그아웃 되었습니다.');
+    } else {
+      alert('로그아웃 처리했지만 서버 응답을 확인하지 못했습니다. 네트워크가 불안정하면 세션이 남아 있을 수 있으니 잠시 후 다시 시도해주세요.');
+    }
+    navigate('/login');
+  };
+
+  const myPagePath = userRole === 'ROLE_SELLER' ? '/seller/mypage' : userRole === 'ROLE_ADMIN' ? '/admin/dashboard' : '/buyer/mypage';
+
+  // 로그인 안 했으면 채팅 메뉴를 눌러도 이동하지 않고 안내만 띄움
+  const handleChatClick = (e) => {
+    if (!isLoggedIn) {
+      e.preventDefault();
+      alert('로그인이 필요합니다');
+    }
+  };
+
+  // 안 읽은 채팅과 참여 알림을 합쳐 최신순으로 보여줌
+  const chatBasePath = userRole === 'ROLE_SELLER' ? '/seller/chat' : '/buyer/chat';
+
+  const unreadChatItems = chatRooms
+    .filter(r => r.unreadCount > 0)
+    .map(r => ({
+      type: 'CHAT',
+      key: `chat-${r.roomId}`,
+      roomId: r.roomId,
+      title: r.targetName,
+      subtitle: r.productName,
+      preview: r.lastMessage || '새 메시지',
+      time: r.lastSentAt,
+      badge: r.unreadCount,
+    }));
+
+  const newParticipationItems = participationAlerts
+    .filter(p => new Date(p.joinDate) > new Date(lastSeenParticipationAt))
+    .map(p => ({
+      type: 'PARTICIPATION',
+      key: `participation-${p.id}`,
+      title: `구매자 '${p.buyerName}'님이 참여했습니다`,
+      subtitle: p.product?.title,
+      preview: null,
+      time: p.joinDate,
+    }));
+
+  const newSystemNotificationItems = systemNotifications
+    .filter(n => new Date(n.createdAt) > new Date(lastSeenParticipationAt))
+    .map(n => ({
+      type: 'SYSTEM',
+      key: `system-${n.id}`,
+      title: '시스템 알림 (상품 상태 변경)',
+      subtitle: n.message,
+      preview: null,
+      time: n.createdAt,
+    }));
+
+  const notificationItems = [...unreadChatItems, ...newParticipationItems, ...newSystemNotificationItems]
+    .sort((a, b) => new Date(b.time) - new Date(a.time))
+    .slice(0, 6);
+
+  const totalUnreadCount = unreadChatItems.reduce((sum, item) => sum + item.badge, 0) + newParticipationItems.length + newSystemNotificationItems.length;
+
+  // 알림 창이 닫히는 모든 경우(종 다시 클릭, 항목 클릭, 전체보기 클릭)에 같이 씀
+  const markNotificationsSeen = () => {
+    const now = new Date().toISOString();
+    localStorage.setItem('notif_participation_seen_at', now);
+    setLastSeenParticipationAt(now);
+  };
+
+  const handleToggleNotifications = () => {
+    if (isChatPreviewOpen) markNotificationsSeen();
+    setIsChatPreviewOpen(!isChatPreviewOpen);
+  };
+
+  // 알림을 누르면 이동 (채팅은 그 방, 참여 알림은 판매 현황, 시스템 알림은 대시보드)
+  const handleNotificationItemClick = (item) => {
+    markNotificationsSeen();
+    setIsChatPreviewOpen(false);
+    if (item.type === 'CHAT') {
+      navigate(`${chatBasePath}?roomId=${item.roomId}`);
+    } else if (item.type === 'SYSTEM') {
+      navigate('/seller/dashboard');
+    } else {
+      navigate('/seller/status');
+    }
+  };
+
+  return (
+    <header className="v3-site-header bg-white border-b border-gray-200 sticky top-0 z-50 w-full h-16 flex items-center justify-between">
+
+      <div className="flex items-center shrink-0 pl-[max(1.5rem,calc(50vw-40rem+1.5rem))] md:pl-[max(2rem,calc(50vw-40rem+2rem))]">
+        <Link to="/" aria-label="N-BBANG 홈" className="v3-site-brand text-xl font-black tracking-tight text-gray-900 hover:text-blue-600 transition">
+          <HeaderLogo />
+        </Link>
+      </div>
+
+      <div className="v3-site-actions flex items-center gap-4 md:gap-8 pr-4 md:pr-8">
+
+        {/* [+] 햄버거 버튼 (모바일 전용) */}
+        <button
+          className="md:hidden p-2 text-gray-600 hover:text-gray-900"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        >
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+
+        {/* [+] 데스크탑 네비게이션 */}
+        <nav className="v3-site-nav hidden md:flex items-center gap-6 text-sm font-bold text-gray-500">
+          {userRole === 'ROLE_ADMIN' && (
+            <>
+              <Link to="/admin/dashboard" className="hover:text-red-600 transition">관리자 홈</Link>
+              <Link to="/admin/authorization" className="hover:text-red-600 transition">회원 관리</Link>
+              <Link to="/admin/products" className="hover:text-red-600 transition">상품 관리</Link>
+              <Link to="/admin/security" className="hover:text-red-600 transition">보안 로그</Link>
+              <Link to="/admin/settlements" className="hover:text-red-600 transition">정산 관리</Link>
+            </>
+          )}
+
+          {userRole === 'ROLE_SELLER' && (
+            <>
+              <Link to="/seller/dashboard" className="hover:text-gray-950 transition">대시보드</Link>
+              <Link to="/seller/products" className="hover:text-gray-950 transition">전공도서 등록</Link>
+              <Link to="/seller/status" className="hover:text-gray-950 transition">판매 현황</Link>
+              <Link to="/seller/analytics" className="hover:text-gray-950 transition">분석 데이터</Link>
+              <Link to="/seller/orders" className="hover:text-gray-950 transition">주문 관리</Link>
+              <Link to="/seller/chat" className="hover:text-gray-950 transition" onClick={handleChatClick}>채팅</Link>
+            </>
+          )}
+
+          {/* [SEC-RQ-003] ROLE_SELLER_PENDING(승인 대기 판매자)은 아직 SELLER가 아니므로 구매자와 같은 탐색 메뉴를 보여준다 */}
+          {!sessionLoading && (userRole === 'ROLE_BUYER' || userRole === 'ROLE_SELLER_PENDING' || !userRole.startsWith('ROLE_')) && (
+            <>
+              <Link to="/" className="hover:text-gray-950 transition">홈</Link>
+              <Link to="/buyer/products" className="hover:text-gray-950 transition">공구 찾기</Link>
+              <Link to="/buyer/chat" className="hover:text-gray-950 transition" onClick={handleChatClick}>채팅</Link>
+            </>
+          )}
+
+          {/* 이용 가이드 (로그인 여부·역할과 상관없이 항상 보임) */}
+          {isLoggedIn && <Link to="/book-reports" className="hover:text-blue-600 transition">도서 리포트</Link>}
+          <Link to="/guide" className="hover:text-gray-950 transition">이용 가이드</Link>
+        </nav>
+
+        <div className="hidden md:block w-px h-4 bg-gray-200"></div>
+
+        {sessionLoading ? (
+          <div className="hidden sm:flex items-center gap-2" aria-label="사용자 정보 확인 중">
+            <div className="h-3 w-16 rounded bg-gray-100 animate-pulse" />
+            <div className="h-9 w-9 rounded-full bg-gray-100 animate-pulse" />
+          </div>
+        ) : isLoggedIn ? (
+          <>
+            {/* 헤더 종 아이콘: 알림 개수와 미리보기 목록 */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={handleToggleNotifications}
+                className="relative p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition"
+                title="알림"
+              >
+                <Bell size={20} />
+                {totalUnreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isChatPreviewOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <span className="text-sm font-bold text-gray-900">알림</span>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notificationItems.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-sm text-gray-400">새 알림이 없습니다</div>
+                    ) : (
+                      notificationItems.map(item => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => handleNotificationItemClick(item)}
+                          className="w-full text-left px-4 py-3 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition flex flex-col gap-0.5"
+                        >
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-sm font-bold text-gray-900 truncate">{item.title}</span>
+                            {item.badge > 0 && (
+                              <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {item.badge}
+                              </span>
+                            )}
+                          </div>
+                          {item.subtitle && (
+                            <span className="text-xs text-gray-400 font-medium truncate">{item.subtitle}</span>
+                          )}
+                          {item.preview && (
+                            <span className="text-xs text-gray-600 truncate">{item.preview}</span>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  <Link
+                    to={
+                      userRole === 'ROLE_SELLER' ? '/seller/dashboard'
+                        : userRole === 'ROLE_ADMIN' ? '/admin/security'
+                          : chatBasePath
+                    }
+                    onClick={() => { markNotificationsSeen(); setIsChatPreviewOpen(false); }}
+                    className="block text-center py-2.5 text-xs font-bold text-blue-600 hover:bg-blue-50 transition border-t border-gray-100"
+                  >
+                    전체 알림 보기
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* [신규] 인증서 남은 시간 표시 + +5분/-5분 조정 버튼 (인증서 타이머 세션이 있을 때만 표시) */}
+            {remainingSeconds !== null && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gray-50 border border-gray-200 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => extend(-5)}
+                  className="w-6 h-6 flex items-center justify-center text-sm font-bold text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-full transition"
+                  title="인증서 유효시간 5분 감소"
+                >
+                  -
+                </button>
+                <span
+                  className={`text-xs font-mono font-bold tabular-nums w-10 text-center ${remainingSeconds <= 60 ? 'text-red-600' : 'text-gray-700'
+                    }`}
+                  title="인증서 남은 유효시간"
+                >
+                  {formatRemaining(remainingSeconds)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => extend(5)}
+                  disabled={remainingSeconds >= MAX_REMAINING_SECONDS}
+                  className="w-6 h-6 flex items-center justify-center text-sm font-bold text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition disabled:opacity-30 disabled:hover:text-gray-500 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                  title={remainingSeconds >= MAX_REMAINING_SECONDS ? '최대 60분까지 늘릴 수 있습니다.' : '인증서 유효시간 5분 증가'}
+                >
+                  +
+                </button>
+              </div>
+            )}
+
+            <Link
+              to={myPagePath}
+              className="flex items-center gap-3 hover:bg-gray-50 px-3 py-1.5 rounded-2xl transition cursor-pointer group shrink-0"
+            >
+              <div className="flex flex-col text-right">
+                <span className="text-sm font-extrabold text-gray-900 group-hover:text-blue-600 transition">
+                  {nickname} 님
+                </span>
+                <span
+                  className={`text-[10px] font-black tracking-wider uppercase transition ${userRole === 'ROLE_ADMIN' ? 'text-red-600' : userRole === 'ROLE_SELLER' ? 'text-emerald-600' : 'text-blue-600'
+                    }`}
+                >
+                  {userRole.replace('ROLE_', '')} MODE
+                </span>
+              </div>
+
+              <div className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 group-hover:border-blue-300 transition shadow-inner overflow-hidden">
+                {userRole === 'ROLE_ADMIN' ? <ShieldAlert size={18} className="text-red-500" /> : <User size={18} className="group-hover:text-blue-500" />}
+              </div>
+            </Link>
+
+            <button
+              onClick={handleLogout}
+              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+              title="로그아웃"
+            >
+              <LogOut size={20} />
+            </button>
+          </>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Link
+              to="/login"
+              className="px-4 py-2 text-sm font-bold text-gray-600 hover:text-blue-600 transition"
+            >
+              로그인
+            </Link>
+            <Link
+              to="/signup"
+              className="px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition shadow-sm"
+            >
+              회원가입
+            </Link>
+          </div>
+        )}
+
+      </div>
+
+      {/* [+] 모바일 햄버거 메뉴 드롭다운 */}
+      {isMobileMenuOpen && (
+        <div className="v3-site-mobile-menu absolute top-16 left-0 w-full bg-white border-b border-gray-200 shadow-lg flex flex-col p-4 gap-4 md:hidden z-40">
+          <nav className="flex flex-col gap-4 text-sm font-bold text-gray-700">
+            {userRole === 'ROLE_ADMIN' && (
+              <>
+                <Link to="/admin/dashboard" onClick={() => setIsMobileMenuOpen(false)}>관리자 홈</Link>
+                <Link to="/admin/authorization" onClick={() => setIsMobileMenuOpen(false)}>회원 관리</Link>
+                <Link to="/admin/products" onClick={() => setIsMobileMenuOpen(false)}>상품 관리</Link>
+                <Link to="/admin/security" onClick={() => setIsMobileMenuOpen(false)}>보안 로그</Link>
+                <Link to="/admin/settlements" onClick={() => setIsMobileMenuOpen(false)}>정산 관리</Link>
+              </>
+            )}
+
+            {userRole === 'ROLE_SELLER' && (
+              <>
+                <Link to="/seller/dashboard" onClick={() => setIsMobileMenuOpen(false)}>대시보드</Link>
+                <Link to="/seller/products" onClick={() => setIsMobileMenuOpen(false)}>전공도서 등록</Link>
+                <Link to="/seller/status" onClick={() => setIsMobileMenuOpen(false)}>판매 현황</Link>
+                <Link to="/seller/analytics" onClick={() => setIsMobileMenuOpen(false)}>분석 데이터</Link>
+                <Link to="/seller/orders" onClick={() => setIsMobileMenuOpen(false)}>주문 관리</Link>
+                <Link to="/seller/chat" onClick={(e) => { handleChatClick(e); setIsMobileMenuOpen(false); }}>채팅</Link>
+              </>
+            )}
+
+            {/* [SEC-RQ-003] ROLE_SELLER_PENDING(승인 대기 판매자)은 아직 SELLER가 아니므로 구매자와 같은 탐색 메뉴를 보여준다 */}
+            {!sessionLoading && (userRole === 'ROLE_BUYER' || userRole === 'ROLE_SELLER_PENDING' || !userRole.startsWith('ROLE_')) && (
+              <>
+                <Link to="/" onClick={() => setIsMobileMenuOpen(false)}>홈</Link>
+                <Link to="/buyer/products" onClick={() => setIsMobileMenuOpen(false)}>공구 찾기</Link>
+                <Link to="/buyer/chat" onClick={(e) => { handleChatClick(e); setIsMobileMenuOpen(false); }}>채팅</Link>
+              </>
+            )}
+
+            {/* 이용 가이드 (모바일, 항상 보임) */}
+            {isLoggedIn && <Link to="/book-reports" onClick={() => setIsMobileMenuOpen(false)}>도서 리포트</Link>}
+            <Link to="/guide" onClick={() => setIsMobileMenuOpen(false)}>이용 가이드</Link>
+          </nav>
+        </div>
+      )}
+    </header>
+  );
+};
+
+export default Header;

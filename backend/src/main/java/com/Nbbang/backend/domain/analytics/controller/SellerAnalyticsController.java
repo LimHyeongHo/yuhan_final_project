@@ -1,0 +1,24 @@
+package com.Nbbang.backend.domain.analytics.controller;
+
+import com.Nbbang.backend.domain.analytics.dto.SellerAnalyticsResponseDto;
+import com.Nbbang.backend.domain.analytics.service.SellerAnalyticsService;
+import jakarta.servlet.http.HttpSession;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/seller/{id}/analytics")
+@RequiredArgsConstructor
+public class SellerAnalyticsController {
+
+    private final SellerAnalyticsService sellerAnalyticsService;
+
+    @GetMapping
+    public SellerAnalyticsResponseDto getAnalytics(@PathVariable Long id, HttpSession session) {
+        String sellerEmail = (String) session.getAttribute("userId");
+        if (sellerEmail != null && !sellerEmail.isBlank()) {
+            return sellerAnalyticsService.getSellerAnalyticsByEmail(sellerEmail);
+        }
+        return sellerAnalyticsService.getSellerAnalytics(id);
+    }
+}

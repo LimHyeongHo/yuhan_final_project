@@ -1,0 +1,80 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.0.6'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.Nbbang'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	compileOnly 'org.projectlombok:lombok'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testCompileOnly 'org.projectlombok:lombok'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+	// Spring Boot Core & Web
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+	// WebFlux (PortOne API 통신용)
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+	// Spring Security (인증 및 보안용)
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+
+	// WebSocket API 추가 (실시간 채팅용)
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	// BouncyCastle (PKI & CA 인증서 기능용)
+	implementation 'org.bouncycastle:bcprov-jdk18on:1.78'
+	implementation 'org.bouncycastle:bcpkix-jdk18on:1.78'
+
+	// Dotenv (환경변수 관리용)
+	implementation 'io.github.cdimascio:dotenv-java:3.1.0'
+
+	// Web3j (Ethereum Blockchain)
+	implementation 'org.web3j:core:4.10.0'
+	implementation 'com.alibaba:fastjson:2.0.40'
+
+	// macOS Apple Silicon (M시리즈)용 DNS 네티 에러 방지 (필요 시 주석 해제)
+	// runtimeOnly 'io.netty:netty-resolver-dns-native-macos-aarch64:4.1.111.Final'
+
+	// Database (MySQL)
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	// [+] Supabase 의존성 추가
+	runtimeOnly 'org.postgresql:postgresql'
+
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// Test
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-thymeleaf-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

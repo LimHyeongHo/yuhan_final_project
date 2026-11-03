@@ -1,0 +1,70 @@
+package com.Nbbang.backend.domain.product.repository;
+
+import com.Nbbang.backend.domain.product.entity.Product;
+import jakarta.persistence.LockModeType;
+import com.Nbbang.backend.domain.product.entity.BlockchainJobStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface ProductRepository extends JpaRepository<Product, Long> {
+    List<Product> findBySellerIdOrderByCreatedAtDesc(Long sellerId);
+    // 판매자 이메일로 조회 (sellerId는 항상 1인 임시값이라 쓰지 않음)
+    List<Product> findBySellerEmailOrderByCreatedAtDesc(String sellerEmail);
+    // 기본 크루드(저장, 조회, 수정, 삭제) 메서드가 자동으로 제공됩니다.
+
+    // [신규] 스케줄러용: 마감일이 지났고 특정 상태인 상품 조회
+    List<Product> findByDeadlineBeforeAndStatus(java.time.LocalDateTime time, String status);
+
+    // [신규] 대시보드용 최근 등록된 5개 상품 조회
+    List<Product> findTop5ByOrderByCreatedAtDesc();
+
+    // [신규] PRD-RQ-003: 참여/취소/결제 시 정원 카운트 갱신을 위한 비관적 락 조회 (동시 요청 직렬화)
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Product p where p.productId = :id")
+    Optional<Product> findByIdForUpdate(@Param("id") Long id);
+
+    @Modifying
+    @Transactional
+    @Query("update Product p set p.integrityStatus = :integrityStatus "
+            + "where p.productId = :id "
+            + "and (p.integrityStatus is null or p.integrityStatus <> :integrityStatus)")
+    int updateIntegrityStatusIfDifferent(@Param("id") Long id,
+                                         @Param("integrityStatus") String integrityStatus);
+
+    @Modifying
+    @Transactional
+    @Query("update Product p set "
+            + "p.blockchainStatus = :status, "
+            + "p.txHash = case when :txHash is null or :txHash = '' then p.txHash else :txHash end, "
+            + "p.blockchainRetryCount = coalesce(:retryCount, p.blockchainRetryCount), "
+            + "p.blockchainLastError = :lastError, "
+            + "p.blockchainUpdatedAt = :updatedAt "
+            + "where p.productId = :productId")
+    int updateBlockchainJobState(
+            @Param("productId") Long productId,
+            @Param("status") BlockchainJobStatus status,
+            @Param("txHash") String txHash,
+            @Param("retryCount") Integer retryCount,
+            @Param("lastError") String lastError,
+            @Param("updatedAt") LocalDateTime updatedAt);
+
+    @Modifying
+    @Transactional
+    @Query("update Product p set p.officialPrice = :officialPrice "
+            + "where p.productId = :productId and p.officialPrice is null")
+    int updateOfficialPriceIfMissing(@Param("productId") Long productId,
+                                     @Param("officialPrice") BigDecimal officialPrice);
+
+    List<Product> findByBlockchainStatusIn(List<BlockchainJobStatus> statuses);
+}

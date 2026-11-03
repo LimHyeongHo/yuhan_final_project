@@ -1,0 +1,48 @@
+/* 채팅 페이지만 공통 카드 여백을 줄여 대화창 높이 확보 */
+
+/* 모바일 주소창 높이가 바뀌어도 화면에 꽉 차게 dvh 사용 */
+.global-v3-theme .shared-chat-page {
+  height: 100dvh;
+  min-height: 100dvh;
+}
+
+.global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat {
+  gap: 16px;
+  margin-block: 16px;
+}
+
+.global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat .v3-unified-page-card__header {
+  padding: 16px 28px !important;
+}
+
+.global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat .v3-unified-page-card__body {
+  padding: 16px 20px !important;
+}
+
+/* 모바일 화면 (768px 미만) */
+@media (max-width: 767px) {
+  .global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat {
+    gap: 8px;
+    width: calc(100% - 16px);
+    margin-block: 8px;
+  }
+
+  .global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat .v3-unified-page-card__header {
+    padding: 10px 16px !important;
+    border-radius: 14px;
+  }
+
+  .global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat .v3-unified-page-card__title {
+    font-size: 20px;
+  }
+
+  .global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat .v3-unified-page-card__title > svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .global-v3-theme .shared-chat-page .v3-unified-page-card.is-chat .v3-unified-page-card__body {
+    padding: 8px !important;
+    border-radius: 14px;
+  }
+}

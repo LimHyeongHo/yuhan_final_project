@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>공동주문 결제 테스트</title>
+    <script src="https://js.tosspayments.com/v1/payment"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0 15px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #3182f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #1b64da;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            display: none;
+        }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 15px;
+        }
+        .result-item span:last-child {
+            font-weight: bold;
+            color: #3182f6;
+        }
+    </style>
+</head>
+<body>
+<h2>🍗 공동주문 결제</h2>
+
+<label>제품명</label>
+<input type="text" id="productName" placeholder="예) 치킨, 피자"/>
+
+<label>총 금액 (원)</label>
+<input type="number" id="totalAmount" placeholder="예) 48000"/>
+
+<label>참여 인원 (명)</label>
+<input type="number" id="participants" placeholder="예) 4"/>
+
+<button onclick="calculate()">1인당 금액 계산</button>
+
+<div id="result">
+    <div class="result-item">
+        <span>제품명</span>
+        <span id="r-product"></span>
+    </div>
+    <div class="result-item">
+        <span>총 금액</span>
+        <span id="r-total"></span>
+    </div>
+    <div class="result-item">
+        <span>참여 인원</span>
+        <span id="r-participants"></span>
+    </div>
+    <div class="result-item">
+        <span>1인당 금액</span>
+        <span id="r-perPerson"></span>
+    </div>
+    <div class="result-item">
+        <span>잔돈 (대표자 부담)</span>
+        <span id="r-remainder"></span>
+    </div>
+    <br>
+    <button onclick="requestPayment()">결제하기</button>
+</div>
+
+<script>
+    const clientKey = "test_ck_6BYq7GWPVvvpYXJq0dbaVNE5vbo1";
+    const tossPayments = TossPayments(clientKey);
+
+    let calculatedData = null;
+
+    async function calculate() {
+        const productName = document.getElementById("productName").value;
+        const totalAmount = document.getElementById("totalAmount").value;
+        const participants = document.getElementById("participants").value;
+
+        // 입력값 체크
+        if (!productName || !totalAmount || !participants) {
+            alert("모든 항목을 입력해주세요!");
+            return;
+        }
+        if (participants < 2) {
+            alert("참여 인원은 2명 이상이어야 해요!");
+            return;
+        }
+        if (totalAmount <= 0) {
+            alert("금액을 올바르게 입력해주세요!");
+            return;
+        }
+
+        // 백엔드 계산 API 호출
+        const response = await fetch(
+            `/api/payment/calculate?totalAmount=${totalAmount}&participants=${participants}`
+        );
+        const data = await response.json();
+
+        // 결과 화면에 표시
+        calculatedData = { ...data, productName };
+
+        document.getElementById("r-product").innerText = productName;
+        document.getElementById("r-total").innerText =
+            Number(totalAmount).toLocaleString() + "원";
+        document.getElementById("r-participants").innerText = participants + "명";
+        document.getElementById("r-perPerson").innerText =
+            Number(data.perPerson).toLocaleString() + "원";
+        document.getElementById("r-remainder").innerText =
+            Number(data.remainder).toLocaleString() + "원";
+
+        document.getElementById("result").style.display = "block";
+    }
+    function requestPayment() {
+        if (!calculatedData) return;
+
+        const successUrl = "http://localhost:8080/api/payment/success"
+            + "?orderName=" + encodeURIComponent(calculatedData.productName)
+            + "&participants=" + calculatedData.participants;
+
+        tossPayments.requestPayment("카드", {
+            amount: calculatedData.totalAmount,
+            orderId: "order_" + new Date().getTime(),
+            orderName: calculatedData.productName,
+            customerName: "홍길동",
+            successUrl: successUrl,
+            failUrl: "http://localhost:8080/api/payment/fail",
+        });
+    }
+
+</script>
+</body>
+</html>

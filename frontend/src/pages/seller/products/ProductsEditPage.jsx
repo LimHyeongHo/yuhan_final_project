@@ -1,0 +1,506 @@
+import { API_BASE } from '../../../config/api';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Edit2, BookOpen, Package, DollarSign, Users, FileText, Upload, AlertCircle, X, Search } from 'lucide-react';
+import V3SiteHeader from '../../../components/layout/V3SiteHeader';
+import { PRODUCT_CATEGORIES, normalizeProductCategory } from '../../../constants/productCategories';
+
+const ProductsEditPage = () => {
+  const navigate = useNavigate();
+  const { id } = useParams();
+
+  // 1. 등록 유형 상태 관리 ('BOOK' 또는 'ITEM')
+  const [productType, setProductType] = useState('BOOK');
+
+  // 학과 물품 검색 상태 및 감지 로직 (전공 도서는 등록 후 검색하지 않음)
+  const [barcode, setBarcode] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleSelectProduct = (data) => {
+    setFormData(prev => ({
+      ...prev,
+      title: data.title || '',
+      publisher: data.brand || data.maker || data.mallName || '',
+      author: data.author || '',
+      price: data.price || '',
+      description: data.description || '',
+      isbn: data.isbn || '',
+      originalPrice: data.price || '',
+      ...(productType === 'BOOK' ? {} : { imageUrl: data.image || '' }),
+    }));
+    if (productType !== 'BOOK') {
+      setImagePreview(data.image || null);
+    }
+    setIsModalOpen(false);
+    setSearchResults([]);
+  };
+
+  const handleBarcodeKeyDown = async (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (productType === 'BOOK') return;
+      if (!barcode.trim()) return;
+
+      setIsSearching(true);
+      try {
+        const searchParams = new URLSearchParams({ query: barcode.trim(), type: productType });
+        const response = await fetch(`${API_BASE}/search/product?${searchParams}`, {
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const dataList = await response.json();
+          if (dataList.length === 1) {
+            handleSelectProduct(dataList[0]);
+            alert("검색 완료! 항목이 새로 채워졌습니다.");
+          } else if (dataList.length > 1) {
+            setSearchResults(dataList);
+            setIsModalOpen(true);
+          } else {
+            alert("검색 결과가 없습니다.");
+          }
+        } else {
+          try {
+            const errorData = await response.json();
+            const errorMessage = Array.isArray(errorData) ? errorData[0]?.error : errorData.error;
+            alert(errorMessage || "상품을 찾을 수 없습니다. 직접 입력해 주세요.");
+          } catch (e) {
+            alert("상품을 찾을 수 없습니다. 직접 입력해 주세요.");
+          }
+        }
+      } catch (error) {
+        alert("검색 중 오류가 발생했습니다. 백엔드 서버를 확인해 주세요.");
+      } finally {
+        setIsSearching(false);
+        setBarcode('');
+      }
+    }
+  };
+
+  // 2. 입력 데이터 상태 관리
+  const [formData, setFormData] = useState({
+    title: '',        // 도서명 또는 물품명
+    author: '',       // 저자 (도서 전용)
+    publisher: '',    // 출판사 또는 제조사/브랜드
+    price: '',
+    targetCount: '',
+    description: '',
+    category: 'GENERAL',
+    imageUrl: '',     // 사용자가 선택한 외부 이미지 URL 저장용
+    isbn: '',
+    originalPrice: '',
+  });
+  // 2-1. 이미지 업로드용 함수
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+
+  // 기존 데이터 불러오기
+  useEffect(() => {
+    fetch(`${API_BASE}/products/${id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.type !== 'BOOK') {
+          alert('전공도서만 관리할 수 있습니다.');
+          navigate('/seller/status', { replace: true });
+          return;
+        }
+        setProductType('BOOK');
+        setFormData({
+          title: data.title || '',
+          author: data.author || '',
+          publisher: data.publisher || '',
+          price: data.price || '',
+          targetCount: data.targetCount || '',
+          description: data.description || '',
+          category: normalizeProductCategory(data.category),
+          imageUrl: data.imageUrl || '',
+          isbn: data.isbn || '',
+          originalPrice: data.originalPrice || '',
+        });
+        if (data.imageUrl) {
+          setImagePreview(data.imageUrl);
+        }
+      })
+      .catch(err => {
+        console.error("상품 정보 불러오기 실패:", err);
+        alert("상품 정보를 불러오는데 실패했습니다.");
+        navigate('/seller/status');
+      });
+  }, [id, navigate]);
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+  };
+
+  const handleChange = (e) => {
+    const { id, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [id]: value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (Number(formData.price) <= 0 || Number(formData.targetCount) <= 0) {
+      alert("가격과 목표 인원은 0보다 큰 수치여야 합니다.");
+      return;
+    }
+    // [신규] PRD-RQ-005: 가격은 100원 단위로만 입력 가능
+    if (Number(formData.price) % 100 !== 0) {
+      alert("가격은 100원 단위로 입력해주세요.");
+      return;
+    }
+
+    // BOOK은 학과 분류와 공동구매 조건만 수정하고, ITEM은 기존 수정 필드를 유지합니다.
+    const submitData = new FormData();
+    submitData.append('price', formData.price);
+    submitData.append('targetCount', formData.targetCount);
+    submitData.append('description', formData.description);
+    submitData.append('category', formData.category);
+
+    if (productType !== 'BOOK') {
+      submitData.append('type', productType);
+      submitData.append('title', formData.title);
+      if (formData.imageUrl) submitData.append('imageUrl', formData.imageUrl);
+      if (formData.originalPrice) submitData.append('originalPrice', formData.originalPrice);
+      submitData.append('publisher', formData.publisher);
+
+      if (imageFile) {
+        submitData.append('image', imageFile);
+      }
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/products/${id}`, {
+        method: 'PUT',
+        credentials: 'include', // [수정] 로그인 세션 쿠키 포함 (소유자 확인용)
+        body: submitData, // FormData 전송 시 Content-Type은 브라우저가 자동으로 multipart/form-data로 설정함
+      });
+
+      if (response.ok) {
+        alert("프로젝트가 성공적으로 수정되었습니다!");
+        navigate('/seller/status');
+      } else {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || '상품 수정 실패');
+      }
+    } catch (error) {
+      console.error('등록 에러:', error);
+      alert(error.message || '상품 등록 중 오류가 발생했습니다.');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col text-gray-900 ">
+      <V3SiteHeader />
+
+      <div className="v3-unified-page-card is-narrow">
+        <header className="v3-unified-page-card__header">
+          <h1 className="v3-unified-page-card__title">
+            <Edit2 size={28} /> 프로젝트 수정하기
+          </h1>
+        </header>
+        <main className="v3-unified-page-card__body flex-grow">
+
+          {/* 입력 폼 전체 카드 패널 */}
+          <form onSubmit={handleSubmit} className="bg-white rounded-[28px] p-8 md:p-10 border border-gray-200 shadow-sm flex flex-col gap-8">
+
+            {/* 섹션 1: 기본 정보 */}
+            <div className="flex flex-col gap-5">
+              <h3 className="text-xl font-extrabold text-gray-950 tracking-tight flex items-center gap-2 border-b border-gray-100 pb-3">
+                {productType === 'BOOK' ? <BookOpen size={20} className="text-blue-600" /> : <Package size={20} className="text-blue-600" />}
+                {productType === 'BOOK' ? '도서 기본 정보' : '물품 기본 정보'}
+              </h3>
+
+              {productType !== 'BOOK' && (
+                <div className="flex flex-col gap-1.5 mb-2 bg-blue-50 p-4 rounded-xl border border-blue-100">
+                  <label htmlFor="barcode" className="text-sm font-bold text-blue-800 flex items-center gap-2">
+                    <Search size={16} /> 상품 이름 검색
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text" id="barcode"
+                      value={barcode}
+                      onChange={(e) => setBarcode(e.target.value)}
+                      onKeyDown={handleBarcodeKeyDown}
+                      placeholder="직접 상품명 입력 후 우측 검색 버튼 클릭"
+                      className="flex-grow p-3.5 rounded-xl border border-blue-200 bg-white focus:ring-2 focus:ring-blue-500 outline-none transition text-base font-bold text-gray-900 disabled:bg-gray-100 disabled:text-gray-400"
+                      disabled={isSearching}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleBarcodeKeyDown({ key: 'Enter', preventDefault: () => { } })}
+                      disabled={isSearching}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-xl font-bold transition whitespace-nowrap disabled:bg-gray-400"
+                    >
+                      {isSearching ? '검색 중...' : '검색'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 제목/물품명 */}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="title" className="text-sm font-bold text-gray-700">
+                  {productType === 'BOOK' ? '전공서적 명' : '물품 명'}
+                </label>
+                <input
+                  type="text" id="title" required
+                  value={formData.title} onChange={handleChange}
+                  placeholder={productType === 'BOOK' ? "예) 컴퓨터 구조 및 설계 6판" : "예) 카시오 공학용 계산기 fx-991EX"}
+                  disabled={productType === 'BOOK'}
+                  className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium disabled:bg-gray-200 disabled:text-gray-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="category" className="text-sm font-bold text-gray-700">학과 분류</label>
+                <select
+                  id="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium"
+                  required
+                >
+                  {PRODUCT_CATEGORIES.map(({ code, name }) => (
+                    <option key={code} value={code}>{name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 조건부 렌더링: 저자 및 출판사/제조사 */}
+              <div className={`grid grid-cols-1 ${productType === 'BOOK' ? 'md:grid-cols-2' : ''} gap-5`}>
+                {productType === 'BOOK' && (
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="author" className="text-sm font-bold text-gray-700">저자</label>
+                    <input
+                      type="text" id="author" required
+                      value={formData.author} onChange={handleChange}
+                      placeholder="예) David A. Patterson"
+                      disabled={productType === 'BOOK'}
+                      className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium disabled:bg-gray-200 disabled:text-gray-500"
+                    />
+                  </div>
+                )}
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="publisher" className="text-sm font-bold text-gray-700">
+                    {productType === 'BOOK' ? '출판사' : '제조사 / 브랜드'}
+                  </label>
+                  <input
+                    type="text" id="publisher" required
+                    value={formData.publisher} onChange={handleChange}
+                    placeholder={productType === 'BOOK' ? "예) 한티미디어" : "예) 카시오 (CASIO)"}
+                    disabled={productType === 'BOOK'}
+                    className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium disabled:bg-gray-200 disabled:text-gray-500"
+                  />
+                </div>
+              </div>
+              {productType === 'BOOK' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="isbn" className="text-sm font-bold text-gray-700">ISBN</label>
+                    <input
+                      type="text" id="isbn"
+                      value={formData.isbn}
+                      disabled
+                      className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-200 outline-none text-base font-medium text-gray-500"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="originalPrice" className="text-sm font-bold text-gray-700">도서 정가 (₩)</label>
+                    <input
+                      type="number" id="originalPrice"
+                      value={formData.originalPrice}
+                      disabled
+                      className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-200 outline-none text-base font-medium text-gray-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 섹션 2: 가격 및 조건 */}
+            <div className="flex flex-col gap-5">
+              <h3 className="text-xl font-extrabold text-gray-950 tracking-tight flex items-center gap-2 border-b border-gray-100 pb-3">
+                <DollarSign size={20} className="text-blue-600" /> 공동구매 가격 및 조건
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="price" className="text-sm font-bold text-gray-700">공동구매 제안 가격 (₩)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">₩</span>
+                    <input
+                      type="number" id="price" required step="100"
+                      value={formData.price} onChange={handleChange}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      placeholder="예) 35000"
+                      className="w-full p-3.5 pl-9 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-semibold disabled:bg-gray-200 disabled:text-gray-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="targetCount" className="text-sm font-bold text-gray-700">목표 달성 인원 (명)</label>
+                  <div className="relative">
+                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input
+                      type="number" id="targetCount" required step="1"
+                      value={formData.targetCount} onChange={handleChange}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      placeholder="예) 10"
+                      className="w-full p-3.5 pl-11 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-semibold disabled:bg-gray-200 disabled:text-gray-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 섹션 3: 이미지 및 상세 설명 */}
+            <div className="flex flex-col gap-5">
+              <h3 className="text-xl font-extrabold text-gray-950 tracking-tight flex items-center gap-2 border-b border-gray-100 pb-3">
+                <FileText size={20} className="text-blue-600" /> 상세 설명 및 실물 인증
+              </h3>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-bold text-gray-700">
+                  {productType === 'BOOK' ? '등록된 도서 이미지' : '물품 실물 이미지 등록 (최대 1장)'}
+                </label>
+                {productType === 'BOOK' ? (
+                  imagePreview ? (
+                    <div className="w-full sm:w-1/2 md:w-1/3 aspect-[4/3] rounded-2xl overflow-hidden border border-gray-200 bg-gray-50">
+                      <img src={imagePreview} alt="등록된 도서" className="w-full h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-6 text-center text-sm font-medium text-gray-500">
+                      등록된 도서 이미지가 없습니다.
+                    </div>
+                  )
+                ) : imagePreview ? (
+                  <div className="relative w-full sm:w-1/2 md:w-1/3 aspect-[4/3] rounded-2xl overflow-hidden border border-gray-200 group">
+                    <img src={imagePreview} alt="미리보기" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-2 right-2 bg-white/90 text-red-500 p-1.5 rounded-full shadow-md hover:bg-red-50 hover:text-red-600 transition"
+                    >
+                      <X size={16} strokeWidth={3} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-gray-200 rounded-2xl p-6 bg-gray-50 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-gray-100/70 transition group">
+                    <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400 group-hover:text-blue-500 transition">
+                      <Upload size={18} />
+                    </div>
+                    <span className="text-xs font-bold text-gray-700 mt-1 group-hover:text-blue-600 transition">
+                      클릭하여 물품의 전체 형태가 보이는 사진 업로드
+                    </span>
+                    <span className="text-[10px] text-gray-400">PNG, JPG 파일 지원 (최대 5MB)</span>
+
+                    {/* 클릭 이벤트를 받아줄 숨겨진 input 태그 */}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="description" className="text-sm font-bold text-gray-700">상세 설명</label>
+                <textarea
+                  id="description" required rows={5}
+                  value={formData.description} onChange={handleChange}
+                  placeholder={productType === 'BOOK' ? "학과 내 수업 연계 정보 등을 상세히 기재해 주세요." : "물품의 실측 사이즈 등을 상세히 기재해 주세요."}
+                  className="w-full p-4 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition text-base font-medium resize-none leading-relaxed"
+                ></textarea>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex items-start gap-3 mt-2">
+              <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-bold text-amber-800">허위 매물 및 변조 등록 금지 수칙</span>
+                <p className="text-[11px] text-amber-700 leading-relaxed font-medium mt-0.5">
+                  등록된 데이터는 플랫폼 관리 센터에 의해 실시간 추적 검증됩니다. 의도적인 위변조나 허위 기재 적발 시 판매자 권한이 영구 제한될 수 있습니다.
+                </p>
+              </div>
+            </div>
+
+            {/* 버튼 영역 */}
+            <div className="pt-6 flex gap-4">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="flex-1 py-4 bg-gray-100 text-gray-700 font-bold rounded-2xl hover:bg-gray-200 transition text-lg"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                className="flex-[2] py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 text-lg flex items-center justify-center gap-2"
+              >
+                <Edit2 size={20} />
+                수정 완료하기
+              </button>
+            </div>
+          </form>
+        </main>
+      </div>
+      {productType !== 'BOOK' && isModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/80">
+              <h3 className="text-xl font-extrabold text-gray-950 flex items-center gap-2">
+                <Search size={22} className="text-blue-600" />
+                검색 결과 선택
+              </h3>
+              <button
+                type="button"
+                onClick={() => { setIsModalOpen(false); setSearchResults([]); }}
+                className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-4 flex flex-col gap-3">
+              {searchResults.map((item, idx) => (
+                <button
+                  type="button"
+                  key={`${item.isbn || item.title}-${idx}`}
+                  onClick={() => handleSelectProduct(item)}
+                  className="text-left flex flex-col gap-1.5 p-4 border border-gray-100 rounded-2xl hover:border-blue-400 hover:shadow-md hover:bg-blue-50/40 transition-all group"
+                >
+                  <span className="text-[15px] font-extrabold text-gray-900 group-hover:text-blue-700 leading-snug">
+                    {item.title}
+                  </span>
+                  <span className="text-sm font-medium text-gray-500">
+                    {productType === 'BOOK' ? item.author : (item.brand || item.maker || item.mallName)}
+                  </span>
+                  <span className="text-sm font-black text-gray-900 mt-0.5">
+                    {Number(item.price).toLocaleString()}원
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ProductsEditPage;
