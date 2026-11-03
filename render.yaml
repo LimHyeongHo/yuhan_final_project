@@ -45,6 +45,18 @@ services:
         sync: false
       - key: KAKAO_REST_API_KEY
         sync: false
+      - key: BOOK_REPORT_COLLECTION_ENABLED
+        value: "true"
+      - key: BOOK_REPORT_COLLECTION_CRON
+        value: "0 0 4 * * *"
+      - key: BOOK_REPORT_COLLECTION_ZONE
+        value: Asia/Seoul
+      - key: BOOK_REPORT_ANALYSIS_PROVIDER
+        value: baseline
+      - key: BOOK_REPORT_ANALYSIS_MIN_CONFIDENCE
+        value: "0.70"
+      - key: BOOK_REPORT_RECENT_DAYS
+        value: "30"
       - key: GOOGLE_BOOKS_API_KEY
         sync: false
       - key: BLOCKCHAIN_URL

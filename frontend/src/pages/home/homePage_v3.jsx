@@ -132,7 +132,7 @@ const ProductCover = ({ product, variant = 'book' }) => {
   );
 };
 
-const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
+const HeaderNav = ({ userRole, unreadCount, isAuthenticated, closeMenu }) => {
   const { pathname } = useLocation();
   const isSecuritySection = pathname.startsWith('/admin/security') || pathname.startsWith('/admin/simulator');
 
@@ -160,6 +160,11 @@ const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
         <NavLink aria-label="정산 관리" title="정산 관리" to="/admin/settlements" onClick={closeMenu}>
           <WalletCards size={18} /><span>정산 관리</span>
         </NavLink>
+        {isAuthenticated && (
+          <NavLink aria-label="도서 리포트" title="도서 리포트" to="/book-reports" onClick={closeMenu}>
+            <BookOpen size={18} /><span>도서 리포트</span>
+          </NavLink>
+        )}
         <NavLink aria-label="문의사항" title="문의사항" to="/inquiries" onClick={closeMenu}>
           <CircleHelp size={18} /><span>문의사항</span>
         </NavLink>
@@ -191,6 +196,11 @@ const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
         <NavLink aria-label="채팅" title="채팅" className="v3-nav-chat" to="/seller/chat" onClick={closeMenu}>
           <MessageCircle size={18} /><span>채팅</span>{unreadCount > 0 && <i />}
         </NavLink>
+        {isAuthenticated && (
+          <NavLink aria-label="도서 리포트" title="도서 리포트" to="/book-reports" onClick={closeMenu}>
+            <BookOpen size={18} /><span>도서 리포트</span>
+          </NavLink>
+        )}
         <NavLink aria-label="문의사항" title="문의사항" to="/inquiries" onClick={closeMenu}>
           <CircleHelp size={18} /><span>문의사항</span>
         </NavLink>
@@ -212,6 +222,11 @@ const HeaderNav = ({ userRole, unreadCount, closeMenu }) => {
       <NavLink aria-label="채팅" title="채팅" className="v3-nav-chat" to="/buyer/chat" onClick={closeMenu}>
         <MessageCircle size={18} /><span>채팅</span>{unreadCount > 0 && <i />}
       </NavLink>
+      {isAuthenticated && (
+        <NavLink aria-label="도서 리포트" title="도서 리포트" to="/book-reports" onClick={closeMenu}>
+          <BookOpen size={18} /><span>도서 리포트</span>
+        </NavLink>
+      )}
       <NavLink aria-label="문의사항" title="문의사항" to="/inquiries" onClick={closeMenu}>
         <CircleHelp size={18} /><span>문의사항</span>
       </NavLink>
@@ -409,6 +424,7 @@ export const IntegratedHeader = () => {
         <HeaderNav
           userRole={userRole}
           unreadCount={unreadCount}
+          isAuthenticated={Boolean(session?.authenticated)}
           closeMenu={() => setMobileOpen(false)}
         />
       </nav>
@@ -628,7 +644,7 @@ const ClosingCard = ({ product }) => {
         <div className="v3-card-footer">
           <div>
             {product.isOriginalPrice ? (
-              <strong>정가 {product.price}</strong>
+              <strong>{product.price}</strong>
             ) : (
               <>
                 <del>{product.originalPrice}</del>
