@@ -21,14 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/**
- * 거래 후기 도메인 서비스.
- *
- * - 작성 자격: 공동구매 status = CLOSED_SUCCESS + 본인 결제 status = DONE
- * - 1인 1공동구매 1후기 (DB 유니크 + 서비스 선검사)
- * - 삭제는 row 자체를 제거 → 같은 공동구매에 재작성 가능
- * - Product / Payment 는 조회만 하고 수정하지 않는다
- */
+// 거래 후기 서비스
+// 작성 자격: 공동구매가 성공으로 끝나고 내 결제가 완료(DONE)된 경우
+// 한 공동구매에 한 사람당 후기 하나 (DB 제약 + 서비스에서 먼저 확인)
 @Service
 @RequiredArgsConstructor
 public class ReviewService {
@@ -42,7 +37,7 @@ public class ReviewService {
     private final PaymentRepository paymentRepository;
     private final UserAccountRepository userAccountRepository;
 
-    /* ============================= 작성 ============================= */
+    // ============================= 작성 =============================
 
     @Transactional
     public ReviewResponse createReview(String reviewerEmail, ReviewCreateRequest request) {
@@ -71,7 +66,7 @@ public class ReviewService {
         return ReviewResponse.of(saved, product.getTitle(), true);
     }
 
-    /* ============================= 수정 ============================= */
+    // ============================= 수정 =============================
 
     @Transactional
     public ReviewResponse updateReview(String requesterEmail, Long reviewId, ReviewUpdateRequest request) {
@@ -87,7 +82,7 @@ public class ReviewService {
 
         review.setSentiment(request.getSentiment());
         review.setContent(normalizeContent(request.getContent()));
-        // 더티 체킹으로 반영 (@PreUpdate 가 updatedAt 갱신)
+        // save 없이 값만 바꿔도 반영됨 (더티 체킹), 수정 시각은 @PreUpdate가 바꿈
 
         String productTitle = productRepository.findById(review.getProductId())
                 .map(Product::getTitle)
@@ -95,7 +90,7 @@ public class ReviewService {
         return ReviewResponse.of(review, productTitle, true);
     }
 
-    /* ============================= 삭제 ============================= */
+    // ============================= 삭제 =============================
 
     @Transactional
     public void deleteReview(String requesterEmail, Long reviewId) {
@@ -104,17 +99,17 @@ public class ReviewService {
         if (!review.getReviewerEmail().equals(requesterEmail)) {
             throw new CustomException(ErrorCode.REVIEW_NOT_OWNER);
         }
-        reviewRepository.delete(review); // soft-delete 아님 — 재작성 가능해야 함
+        reviewRepository.delete(review); // 행을 아예 지워서 같은 공동구매에 다시 쓸 수 있게 함
     }
 
-    /* ========================= 작성 자격 확인 ========================= */
+    // ========================= 작성 자격 확인 =========================
 
     @Transactional(readOnly = true)
     public EligibilityResponse checkEligibility(String reviewerEmail, Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        // 이미 쓴 후기가 있으면 수정/삭제 동선으로 넘어가야 하므로 먼저 확인
+        // 이미 쓴 후기가 있으면 작성 대신 수정·삭제로 보내야 해서 먼저 확인함
         Review existing = reviewRepository
                 .findByProductIdAndReviewerEmail(product.getProductId(), reviewerEmail)
                 .orElse(null);
@@ -134,27 +129,24 @@ public class ReviewService {
         return EligibilityResponse.eligible();
     }
 
-    /** POST 작성 시 사용하는 자격 판정 (status + 결제완료). 중복 여부는 별도 검사. */
+    // 작성 자격 (성공한 공동구매 + 결제 완료), 중복 여부는 따로 확인함
     private boolean isEligible(Product product, String reviewerEmail) {
         return STATUS_CLOSED_SUCCESS.equals(product.getStatus())
                 && paidDone(product.getProductId(), reviewerEmail);
     }
 
     private boolean paidDone(Long productId, String email) {
-        // [의존] 건우님 PaymentRepository 에 추가 예정인 메서드.
-        //  boolean existsByProductIdAndMember_EmailAndStatus(Long productId, String memberEmail, String status)
         return paymentRepository.existsByProductIdAndMember_EmailAndStatus(productId, email, PAYMENT_STATUS_DONE);
     }
 
-    /* ======================= 판매자 프로필 ======================= */
+    // ======================= 판매자 프로필 =======================
 
     @Transactional(readOnly = true)
     public SellerProfileResponse getSellerProfile(String sellerEmail) {
         UserAccount seller = userAccountRepository.findById(sellerEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
-        // [UI-RQ-002] 탈퇴(WITHDRAWN)는 row가 남아있어 findById는 성공하므로,
-        // 존재하지 않는 판매자와 구분되는 별도 에러로 프론트에 알린다.
+        // 탈퇴한 판매자도 회원 정보는 남아 있어서, 없는 판매자와 다른 에러로 알려줌
         if ("WITHDRAWN".equals(seller.getStatus())) {
             throw new CustomException(ErrorCode.MEMBER_WITHDRAWN);
         }
@@ -168,7 +160,7 @@ public class ReviewService {
 
         List<Review> reviews = reviewRepository.findBySellerEmailOrderByCreatedAtDesc(sellerEmail);
         int total = reviews.size();
-        // 가중 만족도: 좋아요 100 / 보통이에요 50 / 싫어요 0 → 전체 평균
+        // 만족도: 좋아요 100, 보통이에요 50, 싫어요 0점의 평균
         long likeCount = reviews.stream().filter(r -> r.getSentiment() == Sentiment.LIKE).count();
         long sosoCount = reviews.stream().filter(r -> r.getSentiment() == Sentiment.SOSO).count();
         int satisfactionRate = total == 0
@@ -193,7 +185,7 @@ public class ReviewService {
                 purchases, reviewItems);
     }
 
-    /* ============================= 유틸 ============================= */
+    // ============================= 유틸 =============================
 
     private String normalizeContent(String content) {
         if (content == null) {

@@ -12,14 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * 거래 후기 REST API
- *
- * POST   /api/reviews                       후기 작성
- * PUT    /api/reviews/{id}                   후기 수정 (작성자 본인만)
- * DELETE /api/reviews/{id}                   후기 삭제 (작성자 본인만, row 제거)
- * GET    /api/reviews/eligibility?productId= 해당 공동구매 후기 작성 자격 조회
- */
+// 거래 후기 작성·수정·삭제와 작성 자격 조회 API
 @RestController
 @RequestMapping("/api/reviews")
 @RequiredArgsConstructor
@@ -50,7 +43,7 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.checkEligibility(getEmail(session), productId));
     }
 
-    // 세션에서 로그인 이메일 추출 (domain/chat 의 getEmail 패턴 재사용)
+    // 세션에서 로그인 이메일을 꺼냄
     private String getEmail(HttpSession session) {
         String userId = (String) session.getAttribute("userId");
         if (userId == null) {

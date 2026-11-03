@@ -6,10 +6,7 @@ import lombok.Getter;
 
 import java.time.LocalDateTime;
 
-/**
- * 후기 작성/수정 후 프론트로 돌려주는 응답.
- * 작성자 본인에게만 반환되므로 mine 은 항상 true 지만, 명시적으로 내려준다.
- */
+// 후기 작성·수정 후 돌려주는 응답 (작성자 본인에게만 가서 mine은 항상 true)
 @Getter
 public class ReviewResponse {
 

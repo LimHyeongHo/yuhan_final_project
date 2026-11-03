@@ -11,15 +11,15 @@ import java.util.Optional;
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
-    // 중복 작성 여부 확인
+    // 이미 쓴 후기가 있는지 확인
     boolean existsByProductIdAndReviewerEmail(Long productId, String reviewerEmail);
 
-    // 본인 후기 단건 조회
+    // 내 후기 한 건 조회
     Optional<Review> findByProductIdAndReviewerEmail(Long productId, String reviewerEmail);
 
-    // 판매자 프로필용 — 해당 판매자에게 달린 후기 최신순
+    // 판매자 프로필용, 그 판매자가 받은 후기 최신순
     List<Review> findBySellerEmailOrderByCreatedAtDesc(String sellerEmail);
 
-    // 만족도 집계용 — 감정별 개수
+    // 평가별 개수 (관리자 화면 만족도 계산에 사용)
     long countBySellerEmailAndSentiment(String sellerEmail, Sentiment sentiment);
 }

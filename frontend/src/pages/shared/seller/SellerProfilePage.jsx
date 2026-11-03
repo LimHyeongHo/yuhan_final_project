@@ -1,4 +1,4 @@
-// [UI-RQ-002][UI-RQ-003] 프로필+거래후기 렌더링을 SellerProfileContent로 분리 (마이페이지 탭과 공용)
+// 판매자 프로필 페이지 (내용은 SellerProfileContent를 그대로 씀)
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';

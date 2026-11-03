@@ -1,5 +1,5 @@
 import { API_BASE } from '../../../config/api';
-// [UI-RQ-003] "내가 받은 후기" 탭 — 마이페이지 레이아웃 안에서 SellerProfileContent 렌더 (다른 탭과 스타일 통일)
+// 마이페이지 "내가 받은 후기" 탭 (SellerProfileContent를 그대로 씀)
 import React, { useEffect, useState } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import SellerProfileContent from '../seller/SellerProfileContent';
@@ -40,7 +40,7 @@ const MyPageMyReviews = () => {
     );
   }
 
-  // [UI-RQ-003] 진행한 공동구매 섹션은 "개설한 공동구매 관리" 탭과 중복이라 제외
+  // 진행한 공동구매는 "개설한 공동구매 관리" 탭과 겹쳐서 뺌
   return <SellerProfileContent email={email} showPurchases={false} />;
 };
 

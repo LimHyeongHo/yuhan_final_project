@@ -6,16 +6,9 @@ import lombok.Getter;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * 판매자 프로필 페이지 응답 (인증 불필요, 누구나 조회).
- *
- * 지표는 저장하지 않고 조회 시점에 집계한다:
- *  - satisfactionRate : 후기 중 LIKE 비율(%)  (후기 0건이면 0)
- *  - tradeCount       : status = CLOSED_SUCCESS 인 공동구매 수
- *  - successRate      : CLOSED_SUCCESS / (CLOSED_SUCCESS + CLOSED_FAIL) (%)  (분모 0이면 null)
- *
- * reviews 는 작성자 식별정보(reviewerEmail)를 제외하고 감정/내용/작성일만 노출한다.
- */
+// 판매자 프로필 응답 (지표는 저장하지 않고 조회할 때마다 계산함)
+// 만족도는 좋아요 100·보통 50·싫어요 0점 평균, 성공률은 성공 / (성공 + 실패)
+// 후기는 작성자 정보 없이 평가·내용·작성일만 보여줌
 @Getter
 public class SellerProfileResponse {
 
@@ -52,7 +45,7 @@ public class SellerProfileResponse {
                 satisfactionRate, totalReviews, tradeCount, successRate, purchases, reviews);
     }
 
-    /** 판매자가 진행한 공동구매 한 건 */
+    // 판매자가 진행한 공동구매 한 건
     @Getter
     public static class PurchaseItem {
         private final Long productId;
@@ -73,7 +66,7 @@ public class SellerProfileResponse {
         }
     }
 
-    /** 마스킹된 후기 한 건 — 작성자 정보 없음 */
+    // 후기 한 건 (작성자 정보 없음)
     @Getter
     public static class ReviewItem {
         private final Sentiment sentiment;

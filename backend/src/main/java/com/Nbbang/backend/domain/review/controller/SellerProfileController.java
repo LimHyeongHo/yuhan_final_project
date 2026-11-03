@@ -9,12 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * 판매자 프로필 API (인증 불필요)
- *
- * GET /api/sellers/{email}/profile
- *   → 거래 만족도 %, 거래 횟수, 정상 종료율, 진행한 공동구매 목록, 익명 후기 목록
- */
+// 판매자 프로필 조회 API (로그인 없이 누구나 볼 수 있음)
 @RestController
 @RequestMapping("/api/sellers")
 @RequiredArgsConstructor
