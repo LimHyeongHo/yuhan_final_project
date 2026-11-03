@@ -6,7 +6,7 @@ import lombok.Getter;
 public enum ErrorCode {
 
     // ========== 공통 ==========
-    // NETWORK_TIMEOUT(408)은 프론트 axios/fetch 레벨에서 처리 → 백엔드 enum에서 제외
+    // 요청 시간 초과(408)는 프론트에서 처리해서 여기엔 없음
     INTERNAL_SERVER_ERROR(500, "서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요"),
     RESOURCE_NOT_FOUND(404, "요청한 경로를 찾을 수 없습니다"),
     TOO_MANY_REQUESTS(429, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요"),
@@ -33,11 +33,11 @@ public enum ErrorCode {
     MEMBER_DUPLICATE_EMAIL(409, "이미 사용 중인 이메일입니다"),
     MEMBER_DUPLICATE_CI(409, "이미 가입된 계정입니다"),
     MEMBER_NOT_FOUND(404, "존재하지 않는 회원입니다"),
-    // [UI-RQ-002][fix/seller-page] 탈퇴 회원(soft-delete, status=WITHDRAWN)과 미존재 회원을 프론트에서 다른 안내로 구분하기 위한 별도 코드
+    // 탈퇴한 회원은 없는 회원과 다른 안내를 보여주려고 따로 둠
     MEMBER_WITHDRAWN(404, "탈퇴한 회원입니다"),
 
     // ========== 공동구매 (PURCHASE) ==========
-    // _LOAD_FAILED 계열은 DB 연결 실패 등 서버 내부 오류로 조회 자체가 불가능할 때만 사용
+    // _LOAD_FAILED는 DB 연결 실패처럼 서버 문제로 조회가 안 될 때만 사용함
     PURCHASE_LIST_LOAD_FAILED(500, "목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
     PURCHASE_FULL(409, "모집이 완료된 공동구매입니다"),
     PURCHASE_ALREADY_JOINED(409, "이미 참여 중인 공동구매입니다"),
@@ -82,12 +82,9 @@ public enum ErrorCode {
   
     // ===== 0906 문건우 수정 =====
     // PRD-RQ-004/005: 가격·목표인원 수정 정책 및 숫자 입력 검증
-    // [수정][fix/exception-nfr] NFR-001: 요청값을 기존 저장된 가격(상태)과 비교해 거부하는
-    // 리소스 상태 충돌이므로 400→409로 재분류 (형제 코드 PRODUCT_PRICE_CHANGE_HAS_PARTICIPANTS와 동일 패턴)
+    // 지금 저장된 값과 맞지 않아 거부하는 경우라 409(충돌)로 응답함
     PRODUCT_PRICE_INCREASE_NOT_ALLOWED(409, "가격은 인상할 수 없습니다"),
     PRODUCT_PRICE_CHANGE_HAS_PARTICIPANTS(409, "이미 결제가 완료된 참여자가 있어 가격을 수정할 수 없습니다"),
-    // [수정][fix/exception-nfr] NFR-001: 요청값을 현재 참여 인원(상태)과 비교해 거부하는
-    // 리소스 상태 충돌이므로 400→409로 재분류
     PRODUCT_TARGET_COUNT_BELOW_CURRENT(409, "목표 인원은 현재 참여 인원보다 적게 설정할 수 없습니다"),
     PRODUCT_PRICE_INVALID_UNIT(400, "가격은 100원 단위로 입력해주세요"),
     PRODUCT_SELLER_WITHDRAWN(409, "판매자가 탈퇴하여 더 이상 참여할 수 없는 상품입니다"),
@@ -126,8 +123,7 @@ public enum ErrorCode {
     ADMIN_CHART_LOAD_FAILED(500, "차트 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
     ADMIN_SYNC_FAILED(500, "서버 동기화에 실패했습니다. 잠시 후 다시 시도해주세요"),
     ADMIN_PRODUCT_LIST_LOAD_FAILED(500, "상품 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
-    // [수정][fix/exception-nfr] NFR-001: SettlementService에서 findById().orElseThrow()로 던져지는
-    // "존재하지 않는 출금 요청" 케이스였음 — 서버 내부 오류가 아니라 리소스 없음이므로 500→404로 재분류
+    // 이름은 _FAILED지만 없는 출금 요청일 때 쓰므로 404로 응답함
     ADMIN_TRANSACTION_APPROVE_FAILED(404, "존재하지 않는 출금 요청입니다"),
     ADMIN_TRANSACTION_REJECT_FAILED(404, "존재하지 않는 출금 요청입니다"),
     ADMIN_HISTORY_LOAD_FAILED(500, "히스토리를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
@@ -141,31 +137,28 @@ public enum ErrorCode {
     ADMIN_SIMULATION_BLOCKCHAIN_UNAVAILABLE(503, "블록체인 원본을 확인할 수 없습니다"),
 
     // ========== 채팅 (CHAT) ==========
-    // WebSocket 에러(WS_CONNECT_FAILED, WS_DISCONNECTED, WS_SEND_FAILED)는 STOMP 프레임으로 처리
-    // → HTTP 응답이 아니므로 이 enum에 포함하지 않음 (SharedChatPage WebSocket 핸들러 참고)
+    // 웹소켓 연결 오류는 HTTP 응답이 아니라서 여기엔 없음 (채팅 화면에서 처리함)
     CHAT_ROOM_NOT_FOUND(404, "채팅방을 찾을 수 없습니다"),
     CHAT_ACCESS_DENIED(403, "접근 권한이 없는 채팅방입니다"),
     CHAT_HISTORY_LOAD_FAILED(500, "채팅 내역을 불러오지 못했습니다"),
-    // [CHAT-RQ-002][feature/chat-fixes] 메시지 전송 취소
+    // 메시지 전송 취소
     CHAT_MESSAGE_NOT_FOUND(404, "존재하지 않는 메시지입니다"),
     CHAT_MESSAGE_NOT_OWNER(403, "본인이 보낸 메시지만 취소할 수 있습니다"),
     CHAT_INVALID_FILE_FORMAT(400, "이미지 파일(PNG/JPG/GIF/WEBP)만 업로드 가능합니다"),
     CHAT_FILE_SIZE_EXCEEDED(400, "파일 크기는 5MB 이하여야 합니다"),
-    // [CHAT-RQ-002][fix/chat] 이미지 업로드 실패 시 내부 예외 메시지 노출 방지 — 고정 메시지로 대체, 원인은 서버 로그로만 확인
+    // 실패 원인은 서버 로그에만 남기고 사용자에게는 정해진 메시지만 보냄
     CHAT_IMAGE_UPLOAD_FAILED(500, "이미지 업로드에 실패했습니다. 잠시 후 다시 시도해주세요"),
-    // [CHAT-RQ-002][fix/chat] 클라이언트가 JOIN/LEAVE 등 시스템 전용 MessageType을 위조해 보내는 것 차단
+    // 입장·퇴장 같은 시스템 메시지를 사용자가 보내는 것을 막음
     CHAT_INVALID_MESSAGE_TYPE(400, "허용되지 않는 메시지 타입입니다"),
-    // [CHAT-RQ-001][fix/chat] 나간 사용자가 메시지 전송/취소를 시도 — 발신자 본인 나가기 상태 검증
+    // 채팅방을 나간 사람이 메시지를 보내거나 취소하려 할 때
     CHAT_ROOM_LEFT(403, "채팅방을 나가서 더 이상 이용할 수 없습니다"),
-    // [CHAT-RQ-001][fix/chat] 탈퇴한 상대에게는 메시지를 보낼 수 없음 (프론트 입력창 비활성화 우회 방지용 서버 검증)
+    // 화면에서 입력창을 막아도 서버에서 한 번 더 막음
     CHAT_RECIPIENT_WITHDRAWN(403, "탈퇴한 상대에게는 메시지를 보낼 수 없습니다"),
-    // [CHAT-RQ-003][fix/chat] 채팅방 생성 요청의 sellerEmail이 실제 상품의 판매자와 일치하지 않음
+    // 요청한 판매자가 실제 상품 판매자와 다를 때
     CHAT_ROOM_SELLER_MISMATCH(400, "요청한 판매자 정보가 상품 정보와 일치하지 않습니다"),
-    // 채팅 신고 — 이 방 메시지가 아니거나, 내 메시지이거나, 입장·퇴장 같은 시스템 메시지
+    // 신고 불가: 다른 방 메시지, 내 메시지, 입장·퇴장 같은 시스템 메시지
     CHAT_REPORT_INVALID_MESSAGE(400, "신고할 수 없는 메시지입니다"),
-    // 채팅 신고 — 같은 메시지를 두 번 신고
     CHAT_REPORT_DUPLICATE(409, "이미 신고한 메시지입니다"),
-    // 채팅 신고 — 관리자가 처리하려는 신고가 없음
     CHAT_REPORT_NOT_FOUND(404, "존재하지 않는 신고입니다"),
 
     // ========== 구매자 (BUYER) ==========
@@ -180,8 +173,6 @@ public enum ErrorCode {
     MYPAGE_SCRAP_DELETE_FAILED(500, "스크랩 삭제에 실패했습니다. 잠시 후 다시 시도해주세요"),
     MYPAGE_SETTINGS_UPDATE_FAILED(500, "변경사항 저장에 실패했습니다. 잠시 후 다시 시도해주세요"),
     MYPAGE_SETTLEMENT_LOAD_FAILED(500, "정산 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요"),
-    // [수정][fix/exception-nfr] NFR-001: SettlementService에서 findBySellerEmail().orElseThrow()로
-    // 던져지는 "정산 계좌 없음" 케이스이므로 400→404로 재분류
     MYPAGE_SETTLEMENT_NO_ACCOUNT(404, "출금을 위한 정산 계좌가 등록되어 있지 않습니다"),
     MYPAGE_SETTLEMENT_WITHDRAW_FAILED(500, "출금 신청에 실패했습니다. 잠시 후 다시 시도해주세요"),
     MYPAGE_SETTLEMENT_ACCOUNT_UPDATE_FAILED(500, "계좌 변경에 실패했습니다. 잠시 후 다시 시도해주세요"),
