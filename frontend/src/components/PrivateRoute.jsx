@@ -2,8 +2,8 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../contexts/SessionContext';
 
-// [신규] 비로그인 상태로 보호된 라우트에 URL 직접 접근 시 안내 모달을 보여주고, "확인" 클릭 시 로그인 페이지로 이동
-// (alert는 새로고침 없는 내비게이션에서 브라우저가 조용히 막는 경우가 있어 신뢰할 수 없어 화면에 직접 렌더링하는 방식으로 대체)
+// 로그인하지 않고 URL로 들어오면 안내 창을 띄우고, "확인"을 누르면 로그인 페이지로 보냄
+// (alert는 브라우저가 막는 경우가 있어서 화면에 직접 그림)
 // [UI-RQ-001] 로그인 여부를 localStorage(위변조 가능)가 아니라 서버 세션으로 확인한다.
 // 서버 확인 실패/오류는 "비로그인"으로 간주(fail-closed)한다.
 const PrivateRoute = ({ children, allowedRoles }) => {

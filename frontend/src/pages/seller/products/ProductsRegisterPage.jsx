@@ -217,7 +217,7 @@ const ProductRegisterPage = () => {
     try {
       const response = await fetch(`${API_BASE}/products`, {
         method: 'POST',
-        credentials: 'include', // [수정] 로그인 세션 쿠키 포함
+        credentials: 'include', // 로그인 세션 쿠키를 같이 보냄
         headers: {
           'Idempotency-Key': crypto.randomUUID(),
         },

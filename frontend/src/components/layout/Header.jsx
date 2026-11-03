@@ -159,7 +159,7 @@ const Header = () => {
 
   const totalUnreadCount = unreadChatItems.reduce((sum, item) => sum + item.badge, 0) + newParticipationItems.length + newSystemNotificationItems.length;
 
-  // [신규] 닫히는 모든 경로(벨 재클릭/항목 클릭/전체보기 클릭)에서 공통으로 호출
+  // 알림 창이 닫히는 모든 경우(종 다시 클릭, 항목 클릭, 전체보기 클릭)에 같이 씀
   const markNotificationsSeen = () => {
     const now = new Date().toISOString();
     localStorage.setItem('notif_participation_seen_at', now);
@@ -235,7 +235,7 @@ const Header = () => {
             </>
           )}
 
-          {/* [UI-RQ-006][feature/ui-fixes] 이용 가이드 — 로그인 여부/역할 무관하게 항상 노출 */}
+          {/* 이용 가이드 (로그인 여부·역할과 상관없이 항상 보임) */}
           {isLoggedIn && <Link to="/book-reports" className="hover:text-blue-600 transition">도서 리포트</Link>}
           <Link to="/guide" className="hover:text-gray-950 transition">이용 가이드</Link>
         </nav>
@@ -426,7 +426,7 @@ const Header = () => {
               </>
             )}
 
-            {/* [UI-RQ-006][feature/ui-fixes] 이용 가이드 (모바일) — 로그인 여부/역할 무관하게 항상 노출 */}
+            {/* 이용 가이드 (모바일, 항상 보임) */}
             {isLoggedIn && <Link to="/book-reports" onClick={() => setIsMobileMenuOpen(false)}>도서 리포트</Link>}
             <Link to="/guide" onClick={() => setIsMobileMenuOpen(false)}>이용 가이드</Link>
           </nav>
