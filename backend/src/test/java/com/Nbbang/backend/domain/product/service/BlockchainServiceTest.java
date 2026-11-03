@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.math.BigInteger;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +37,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class BlockchainServiceTest {
@@ -50,16 +55,16 @@ class BlockchainServiceTest {
     private HttpServer rpcServer;
     private BlockchainService blockchainService;
     private ProductHashService productHashService;
+    private ProductRepository productRepository;
 
     @BeforeEach
     void setUp() throws IOException {
-        ProductRepository productRepository = Mockito.mock(ProductRepository.class);
+        productRepository = Mockito.mock(ProductRepository.class);
         products.put(1L, product(1L));
         products.put(2L, product(2L));
         when(productRepository.findById(anyLong()))
                 .thenAnswer(invocation -> Optional.ofNullable(products.get(invocation.getArgument(0))));
-        when(productRepository.save(any(Product.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        stubBlockchainJobUpdates(productRepository);
 
         rpcServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         rpcServer.createContext("/", this::handleRpc);
@@ -106,6 +111,10 @@ class BlockchainServiceTest {
         assertThat(products.get(1L).getTxHash()).isNotEqualTo(products.get(2L).getTxHash());
         assertThat(products.get(1L).getBlockchainStatus()).isEqualTo(BlockchainJobStatus.CONFIRMED);
         assertThat(products.get(2L).getBlockchainStatus()).isEqualTo(BlockchainJobStatus.CONFIRMED);
+        assertThat(products.get(1L).getPrice()).isEqualByComparingTo("19000");
+        assertThat(products.get(1L).getPriceVersion()).isEqualTo(2);
+        assertThat(products.get(1L).getCurrentCount()).isEqualTo(3);
+        verify(productRepository, never()).save(any(Product.class));
     }
 
     @Test
@@ -123,16 +132,15 @@ class BlockchainServiceTest {
         retryableProduct.setBlockchainStatus(BlockchainJobStatus.FAILED_RETRYABLE);
         retryableProduct.setBlockchainRetryCount(1);
         products.put(3L, retryableProduct);
-        ProductRepository productRepository = Mockito.mock(ProductRepository.class);
-        when(productRepository.findById(anyLong()))
+        ProductRepository resumeProductRepository = Mockito.mock(ProductRepository.class);
+        when(resumeProductRepository.findById(anyLong()))
                 .thenAnswer(invocation -> Optional.ofNullable(products.get(invocation.getArgument(0))));
-        when(productRepository.save(any(Product.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(productRepository.findByBlockchainStatusIn(any()))
+        stubBlockchainJobUpdates(resumeProductRepository);
+        when(resumeProductRepository.findByBlockchainStatusIn(any()))
                 .thenReturn(List.of(retryableProduct));
         when(productHashService.calculateHash(retryableProduct)).thenReturn(DATA_HASH);
 
-        blockchainService = new BlockchainService(productRepository, productHashService);
+        blockchainService = new BlockchainService(resumeProductRepository, productHashService);
         ReflectionTestUtils.setField(blockchainService, "blockchainUrl",
                 "http://127.0.0.1:" + rpcServer.getAddress().getPort());
         ReflectionTestUtils.setField(blockchainService, "privateKey", "1".repeat(64));
@@ -150,15 +158,48 @@ class BlockchainServiceTest {
         assertThat(retryableProduct.getBlockchainStatus())
                 .isEqualTo(BlockchainJobStatus.CONFIRMED);
         assertThat(retryableProduct.getBlockchainRetryCount()).isEqualTo(1);
+        verify(resumeProductRepository, never()).save(any(Product.class));
     }
 
     private Product product(Long id) {
         Product product = new Product();
         product.setProductId(id);
         product.setTitle("product-" + id);
+        product.setPrice(new BigDecimal("19000"));
+        product.setPriceVersion(2);
+        product.setCurrentCount(3);
+        product.setIntegrityStatus("VALID");
         product.setBlockchainStatus(BlockchainJobStatus.QUEUED);
         product.setBlockchainRetryCount(0);
         return product;
+    }
+
+    private void stubBlockchainJobUpdates(ProductRepository repository) {
+        when(repository.updateBlockchainJobState(
+                anyLong(),
+                any(BlockchainJobStatus.class),
+                nullable(String.class),
+                nullable(Integer.class),
+                nullable(String.class),
+                any(LocalDateTime.class)))
+                .thenAnswer(invocation -> {
+                    Product product = products.get(invocation.getArgument(0));
+                    if (product == null) {
+                        return 0;
+                    }
+                    product.setBlockchainStatus(invocation.getArgument(1));
+                    String txHash = invocation.getArgument(2);
+                    if (txHash != null && !txHash.isBlank()) {
+                        product.setTxHash(txHash);
+                    }
+                    Integer retryCount = invocation.getArgument(3);
+                    if (retryCount != null) {
+                        product.setBlockchainRetryCount(retryCount);
+                    }
+                    product.setBlockchainLastError(invocation.getArgument(4));
+                    product.setBlockchainUpdatedAt(invocation.getArgument(5));
+                    return 1;
+                });
     }
 
     private void handleRpc(HttpExchange exchange) throws IOException {

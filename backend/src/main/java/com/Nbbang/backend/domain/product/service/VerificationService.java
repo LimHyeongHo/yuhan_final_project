@@ -49,22 +49,37 @@ public class VerificationService {
         result.put("retryCount", product.getBlockchainRetryCount());
         result.put("lastError", product.getBlockchainLastError());
 
+        BlockchainJobStatus blockchainStatus = product.getBlockchainStatus();
+        if (blockchainStatus == BlockchainJobStatus.FAILED_FINAL) {
+            result.put("status", "FAILED");
+            result.put("message", product.getBlockchainLastError() != null
+                    ? product.getBlockchainLastError()
+                    : "블록체인 기록이 최종 실패했습니다.");
+            result.put("retryable", false);
+            return result;
+        }
+        if (blockchainStatus == BlockchainJobStatus.QUEUED
+                || blockchainStatus == BlockchainJobStatus.SUBMITTED
+                || blockchainStatus == BlockchainJobStatus.FAILED_RETRYABLE) {
+            result.put("status", "PENDING");
+            result.put("message", blockchainStatus == BlockchainJobStatus.FAILED_RETRYABLE
+                    ? "블록체인 기록을 재시도하고 있습니다."
+                    : "블록체인 기록을 처리하고 있습니다.");
+            result.put("retryable", true);
+            return result;
+        }
+
         // 1. 블록체인 조회 장애와 아직 기록되지 않은 상태를 구분한다.
         BlockchainService.BlockchainReadResult readResult = blockchainService.readHash(productId);
         if (!readResult.success()) {
-            if (product.getBlockchainStatus() == BlockchainJobStatus.FAILED_FINAL) {
-                result.put("status", "FAILED");
-                result.put("message", product.getBlockchainLastError() != null
-                        ? product.getBlockchainLastError()
-                        : "블록체인 기록이 최종 실패했습니다.");
-            } else if ("UNAVAILABLE".equals(readResult.code())) {
+            if ("UNAVAILABLE".equals(readResult.code())) {
                 result.put("status", "UNAVAILABLE");
                 result.put("message", "블록체인 검증 서비스를 일시적으로 사용할 수 없습니다.");
             } else {
                 result.put("status", "PENDING");
                 result.put("message", "블록체인 기록을 처리하고 있습니다.");
             }
-            result.put("retryable", product.getBlockchainStatus() != BlockchainJobStatus.FAILED_FINAL);
+            result.put("retryable", true);
             return result;
         }
 
@@ -129,7 +144,7 @@ public class VerificationService {
             if (officialPrice != null) {
                 // DB에 정가 캐싱 저장
                 product.setOfficialPrice(officialPrice);
-                productRepository.save(product);
+                productRepository.updateOfficialPriceIfMissing(productId, officialPrice);
             }
         }
         
