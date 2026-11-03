@@ -5,7 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { CertificateTimerProvider } from './contexts/CertificateTimerContext';
 import { ChatNotificationProvider } from './contexts/ChatNotificationContext';
 import { SessionProvider } from './contexts/SessionContext';
-/// [신규] 비로그인 시 URL 직접 접근 막는 라우트 가드
+// 로그인하지 않고 URL로 직접 들어오는 것을 막는 라우트
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
 import SiteFooter from './components/layout/SiteFooter';
@@ -13,7 +13,7 @@ import SiteFooter from './components/layout/SiteFooter';
 import LoginPage from './pages/login/LoginPage';
 import SignupPage from './pages/signup/SignupPage';
 import HomePageV3 from './pages/home/homePage_v3';
-// [UI-RQ-006][feature/ui-fixes] 이용 가이드 페이지 (로그인 불필요, 공개 라우트)
+// 이용 가이드 페이지 (로그인 없이 볼 수 있음)
 import GuidePage from './pages/guide/GuidePage';
 /// [*] 관리자용 페이지 import
 import SecurityLogPage from './pages/admin/security/SecurityLogPage';
@@ -58,9 +58,10 @@ import MyPageSettings from './pages/shared/mypage/MyPageSettings';
 /// [*] 판매자 마이페이지 내 세부 페이지 import
 import MyPageProjects from './pages/shared/mypage/MyPageProjects';
 import MyPageSettlement from './pages/shared/mypage/MyPageSettlement';
-// [UI-RQ-003][feature/ui-fixes] 판매자 "내가 받은 후기" 진입점
+// 판매자 "내가 받은 후기" 탭
 import MyPageMyReviews from './pages/shared/mypage/MyPageMyReviews';
 import InquiryPage from './pages/shared/inquiry/InquiryPage';
+import BookReportPage from './pages/bookReport/BookReportPage';
 
 
 
@@ -103,13 +104,21 @@ function App() {
           {/* 홈 화면으로 접속했을 때 보여줄 화면 */}
           <Route path="/" element={<HomePageV3 />} />
           <Route path="/home-v3" element={<HomePageV3 />} />
-          {/* [UI-RQ-006][feature/ui-fixes] 이용 가이드 - 로그인 여부 무관 공개 라우트 */}
+          {/* 이용 가이드 (로그인 없이 볼 수 있음) */}
           <Route path="/guide" element={<GuidePage />} />
           <Route
             path="/inquiries"
             element={(
               <PrivateRoute allowedRoles={['ROLE_ADMIN', 'ROLE_SELLER', 'ROLE_BUYER', 'ROLE_SELLER_PENDING']}>
                 <InquiryPage />
+              </PrivateRoute>
+            )}
+          />
+          <Route
+            path="/book-reports"
+            element={(
+              <PrivateRoute allowedRoles={['ROLE_ADMIN', 'ROLE_SELLER', 'ROLE_BUYER', 'ROLE_SELLER_PENDING']}>
+                <BookReportPage />
               </PrivateRoute>
             )}
           />
@@ -135,10 +144,10 @@ function App() {
 
           { /* ----------------판매자 페이지-----------------*/}
           { /* 대시보드 페이지 접속 화면 */}
-          {/* [fix/seller-page] QA-1: PrivateRoute 적용 — 비로그인 URL 직접 접근 차단 */}
+          {/* 판매자만 들어올 수 있음 (비로그인 URL 직접 접근 차단) */}
           <Route path="/seller/dashboard" element={<PrivateRoute allowedRoles={['ROLE_SELLER']}><SellerDashboardPage /></PrivateRoute>} />
           { /* 상품관리 페이지 접속 화면 - 네이버 검색 api 문제로 인해 상품 검색만 임시 차단*/}
-          {/* [fix/seller-page] QA-1: PrivateRoute 적용 — 비로그인 URL 직접 접근 차단 */}
+          {/* 판매자만 들어올 수 있음 (비로그인 URL 직접 접근 차단) */}
           <Route path="/seller/products" element={<PrivateRoute allowedRoles={['ROLE_SELLER']}><ProductsRegisterPage /></PrivateRoute>} />
           { /* 상품 수정 페이지 접속 화면 */}
           <Route path="/seller/products/edit/:id" element={<PrivateRoute allowedRoles={['ROLE_SELLER']}><ProductsEditPage /></PrivateRoute>} />
@@ -184,7 +193,7 @@ function App() {
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<MyPageOverview userRole="SELLER" />} />
             <Route path="projects" element={<MyPageProjects userRole="SELLER" />} />
-            {/* [UI-RQ-003][feature/ui-fixes] 내가 받은 후기 */}
+            {/* 내가 받은 후기 */}
             <Route path="reviews" element={<MyPageMyReviews />} />
             <Route path="settlement" element={<MyPageSettlement userRole="SELLER" />} />
             <Route path="settings" element={<MyPageSettings userRole="SELLER" />} />

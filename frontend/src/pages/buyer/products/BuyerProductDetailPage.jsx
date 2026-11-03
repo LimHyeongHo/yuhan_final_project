@@ -7,7 +7,7 @@ import V3SiteHeader from '../../../components/layout/V3SiteHeader';
 import { getProductCategoryName } from '../../../constants/productCategories';
 import { getDisplayProductImageUrl } from '../../../utils/productImageUrl';
 //[추가]
-// [수정][feature/ui-fixes] "목록으로 돌아가기"를 고정 경로 대신 실제 유입 경로로 되돌아가게 수정
+// "목록으로 돌아가기"를 정해진 목록 대신 실제로 들어온 곳으로 되돌아가게 함
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 const BuyerProductDetailPage = () => {
   // 1. 주소창에서 상품 고유 ID 추출 (예: /buyer/products/1 -> id = "1")
@@ -15,7 +15,7 @@ const BuyerProductDetailPage = () => {
   //[추가]
   const navigate = useNavigate();
   const location = useLocation();
-  // [수정][feature/ui-fixes] 앱 내 이동 이력 있으면 뒤로가기, 없으면(새로고침/직접진입) 기본 목록으로
+  // 앱 안에서 이동해 왔으면 뒤로 가고, 새로고침·직접 접속이면 기본 목록으로 감
   const handleBackToList = () => {
     if (location.key !== 'default') {
       navigate(-1);
@@ -23,7 +23,7 @@ const BuyerProductDetailPage = () => {
       navigate('/buyer/products');
     }
   };
-  // [수정][feature/ui-fixes] 진입 경로에 맞는 버튼 문구 (state 없으면 "목록으로 돌아가기")
+  // 들어온 경로에 맞는 버튼 문구 (정보가 없으면 "목록으로 돌아가기")
   const backButtonText = location.state?.backButtonText || '목록으로 돌아가기';
   const [product, setProduct] = useState(null);
   const [verification, setVerification] = useState({ status: 'LOADING' }); // [신규] 블록체인 검증 상태
@@ -31,8 +31,8 @@ const BuyerProductDetailPage = () => {
   const [isJoined, setIsJoined] = useState(false); // 테스트용: 공구 참여 상태 토글
   const [showReceiptModal, setShowReceiptModal] = useState(false); // [신규] 스마트 영수증 모달 상태
   const [isScrapped, setIsScrapped] = useState(false); // [신규] 스크랩 상태
-  const [seller, setSeller] = useState(null); // [신규] 판매자 프로필 요약 (닉네임/거래 만족도/후기 수)
-  const [showSellerSatInfo, setShowSellerSatInfo] = useState(false); // [신규] 거래 만족도 설명 박스 토글
+  const [seller, setSeller] = useState(null); // 판매자 프로필 요약 (닉네임, 거래 만족도, 후기 수)
+  const [showSellerSatInfo, setShowSellerSatInfo] = useState(false); // 거래 만족도 설명 상자 열고 닫기
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState('');
@@ -46,10 +46,7 @@ const BuyerProductDetailPage = () => {
         return res.json();
       })
       .then(data => {
-        // [버그수정][fix/seller-page] D-day 배지가 status를 무시하고 deadline 날짜만으로 계산되어,
-        // 목표 달성 후 마감일 전에 CLOSED_SUCCESS로 전환된 상품(#94 등)에서 본문(status 기반)과
-        // 상단 배지(date 기반)가 서로 다른 값을 보여주던 문제 수정. status가 OPEN이 아니면
-        // 날짜 계산 대신 상태 기반 라벨을 우선한다.
+        // 마감일 전에 목표를 달성해 끝난 공구도 있어서, OPEN이 아니면 날짜 대신 상태로 배지를 보여줌
         let dDayBadge;
         if (data.status !== 'OPEN') {
           dDayBadge = data.status === 'CLOSED_SUCCESS' ? '모집 완료' : '마감';
@@ -96,7 +93,7 @@ const BuyerProductDetailPage = () => {
           .catch(() => { });
         // ===== 0906 문건우 수정 끝 =====
 
-        // [신규] 판매자 프로필 요약 조회 (닉네임 / 거래 만족도 % / 후기 수)
+        // 판매자 프로필 요약 조회 (닉네임, 거래 만족도, 후기 수)
         if (data.sellerEmail) {
           fetch(`${API_BASE}/sellers/${encodeURIComponent(data.sellerEmail)}/profile`)
             .then(r => (r.ok ? r.json() : null))
@@ -213,7 +210,7 @@ const BuyerProductDetailPage = () => {
     }
   };
 
-  // [UI-RQ-005][feature/ui-fixes] 공유 버튼 — Web Share API 지원 시 시스템 공유창, 미지원 시 링크 클립보드 복사
+  // 공유 버튼: 공유 기능을 지원하면 공유창을 띄우고, 아니면 링크를 복사함
   const handleShare = async () => {
     // 책 제목이 "본제목 - 부제목..." 형태로 길게 들어오므로 다른 화면들처럼 '-' 앞부분만 사용
     const shortTitle = (product?.title || 'N빵 공동구매').split('-')[0].trim();
@@ -416,7 +413,7 @@ const BuyerProductDetailPage = () => {
             >
               <Heart size={16} fill={isScrapped ? 'currentColor' : 'none'} />
             </button>
-            {/* [UI-RQ-005][feature/ui-fixes] 공유 버튼 동작 연결 */}
+            {/* 공유 버튼 */}
             <button
               onClick={handleShare}
               className="p-2 text-gray-400 hover:text-gray-600 bg-white border border-gray-200 rounded-xl transition shadow-sm"
@@ -521,7 +518,7 @@ const BuyerProductDetailPage = () => {
                 <span className="text-sm font-bold text-gray-400">
                   {product.author} | {product.publisher}
                 </span>
-                {/* [신규] 판매자 프로필 카드 — 프로필 이미지 + 닉네임 + 거래 만족도 % (클릭 시 프로필/거래 후기 페이지) */}
+                {/* 판매자 프로필 카드 (누르면 프로필·거래 후기 페이지로 이동) */}
                 {product.sellerEmail && (
                   <div className="mt-2 flex flex-col gap-2">
                     <div
@@ -627,7 +624,7 @@ const BuyerProductDetailPage = () => {
 
               {isOwnProduct ? (
                 <>
-                  {/* [신규] 본인 상품: 참여하기 → 판매 현황 확인하기 */}
+                  {/* 본인 상품: 참여하기 대신 판매 현황 확인하기 */}
                   <button
                     onClick={() => navigate('/seller/status')}
                     className="w-full py-4 rounded-2xl font-black text-base md:text-lg transition-all shadow-md flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 hover:shadow-blue-500/20"
@@ -646,7 +643,7 @@ const BuyerProductDetailPage = () => {
                 </>
               ) : isRestrictedViewer ? (
                 <>
-                  {/* [신규] 판매자(남의 상품)/관리자 계정 — 전부 비활성화 */}
+                  {/* 판매자(남의 상품)·관리자 계정은 버튼 비활성화 */}
                   <button
                     disabled
                     title="판매자·관리자 계정은 공동구매에 참여할 수 없습니다"
@@ -692,7 +689,7 @@ const BuyerProductDetailPage = () => {
                 </>
               ) : (
                 <>
-                  {/* 🌟 구매자 최종 액션 버튼 (참여 여부에 따른 조건부 UI) */}
+                  {/* 구매자 버튼 (참여 여부에 따라 바뀜) */}
                   {/* ===== 0906 문건우 수정 시작 ===== */}
                   {/* PRD-RQ-002: 미참여 상태에서 정원 달성/마감된 상품은 참여 버튼 비활성화 */}
                   <button

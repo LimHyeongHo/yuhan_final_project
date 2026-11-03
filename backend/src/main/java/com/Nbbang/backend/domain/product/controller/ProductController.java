@@ -44,7 +44,7 @@ public class ProductController {
         if (userId == null) {
             throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
         }
-        // [SEC-RQ-004] 상품 생성은 ROLE_SELLER만 허용 (SettlementController.requireSellerEmail()과 동일 패턴)
+        // 상품 등록은 판매자만 할 수 있음
         if (!"ROLE_SELLER".equals(session.getAttribute("role"))) {
             throw new CustomException(ErrorCode.AUTH_ACCESS_DENIED);
         }
@@ -130,20 +130,20 @@ public class ProductController {
         return ResponseEntity.ok(productService.getParticipationsBySellerId(sellerId));
     }
 
-    /** [신규] 로그인한 판매자 본인의 상품 목록 (sellerId 대신 sellerEmail 기준) */
+    // 로그인한 판매자 본인의 상품 목록 (이메일 기준)
     @GetMapping("/seller/me")
     public ResponseEntity<List<Product>> getMyProducts(HttpSession session) {
         List<Product> products = productService.getProductsBySellerEmail(getEmail(session));
         return ResponseEntity.ok(products);
     }
 
-    /** [신규] 로그인한 판매자 본인 상품에 대한 최근 참여자 내역 */
+    // 로그인한 판매자 본인 상품의 최근 참여자 내역
     @GetMapping("/seller/me/participations")
     public ResponseEntity<List<Map<String, Object>>> getMyParticipations(HttpSession session) {
         return ResponseEntity.ok(productService.getParticipationsBySellerEmail(getEmail(session)));
     }
 
-    /** 세션에서 userId(email) 추출 — 로그인 안 된 경우 401 */
+    // 세션에서 로그인 이메일을 꺼냄 (로그인 안 했으면 401)
     private String getEmail(HttpSession session) {
         String userId = (String) session.getAttribute("userId");
         if (userId == null) throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);

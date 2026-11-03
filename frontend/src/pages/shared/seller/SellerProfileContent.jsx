@@ -1,11 +1,11 @@
 import { API_BASE } from '../../../config/api';
-// [UI-RQ-002][UI-RQ-003] 판매자 프로필+거래후기 공용 콘텐츠 (독립 페이지 / 마이페이지 탭)
+// 판매자 프로필과 거래 후기 화면 (프로필 페이지와 마이페이지 탭에서 같이 씀)
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, Package, Clock, ThumbsUp, Minus, ThumbsDown, Info, ShieldCheck, UserX, UserMinus, Home, Search, Loader2 } from 'lucide-react';
 
 
-// 3단계 감정 표시 메타
+// 후기 평가별 표시 문구·색·아이콘
 const SENTIMENT = {
   LIKE:    { label: '좋아요',     pill: 'text-emerald-700 bg-emerald-100 border-emerald-200', Icon: ThumbsUp },
   SOSO:    { label: '보통이에요', pill: 'text-amber-700 bg-amber-100 border-amber-200',       Icon: Minus },
@@ -18,7 +18,7 @@ const STATUS_LABEL = {
   CLOSED_FAIL: { text: '모집 실패', cls: 'text-red-700 bg-red-100 border-red-200' },
 };
 
-// [UI-RQ-002] 탈퇴 판매자와 존재하지 않는 판매자를 서로 다른 안내로 구분
+// 탈퇴한 판매자와 없는 판매자를 다른 안내로 보여줌
 const ERROR_META = {
   MEMBER_WITHDRAWN: {
     Icon: UserMinus,
@@ -40,7 +40,7 @@ const ERROR_META = {
 const formatDate = (value) =>
   value ? new Date(value).toLocaleDateString('ko-KR') : '-';
 
-// [UI-RQ-003] showPurchases=false면 "진행한 공동구매" 섹션 제외 (개설한 공동구매 관리 탭과 중복)
+// showPurchases=false면 "진행한 공동구매"를 뺌 (마이페이지 탭과 겹침)
 const SellerProfileContent = ({ email, showPurchases = true }) => {
   const navigate = useNavigate();
   const sellerEmail = email;
@@ -57,7 +57,7 @@ const SellerProfileContent = ({ email, showPurchases = true }) => {
     fetch(`${API_BASE}/sellers/${encodeURIComponent(sellerEmail)}/profile`)
       .then(async (res) => {
         if (!res.ok) {
-          // [UI-RQ-002] 백엔드가 내려주는 code(MEMBER_WITHDRAWN / MEMBER_NOT_FOUND)로 안내를 구분
+          // 서버가 보낸 에러 코드로 안내를 구분함
           const body = await res.json().catch(() => null);
           throw new Error(body?.code || 'DEFAULT');
         }

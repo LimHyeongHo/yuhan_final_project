@@ -10,7 +10,7 @@ const SellerProductsPage = () => {
   const [products, setProducts] = useState([]);
 
   const fetchProducts = () => {
-    // [수정] sellerId=1 고정 하드코딩 → 로그인한 본인 상품만 조회
+    // 로그인한 판매자 본인 상품만 불러옴
     fetch(`${API_BASE}/products/seller/me`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
@@ -23,9 +23,8 @@ const SellerProductsPage = () => {
           currentCount: item.currentCount,
           targetCount: item.targetCount,
           integrityTampered: Boolean(item.integrityTampered),
-          // [fix/seller-page] 정원 달성 시 백엔드가 즉시 status를 CLOSED_SUCCESS로 전환하므로(ProductService.joinProduct),
-          // 그 경우를 최우선으로 '목표달성'에 매핑한다. OPEN인데 이미 정원이 찬 경우(정상적으로는 발생하지 않아야 함)도
-          // 방어적으로 같은 라벨을 유지해 라벨링과 아래 카운터가 항상 같은 기준을 쓰도록 통일한다.
+          // 정원이 차면 서버가 바로 CLOSED_SUCCESS로 바꾸므로 그 경우를 '목표달성'으로 먼저 표시함
+          // OPEN인데 정원이 찬 경우도 같은 라벨을 써서 아래 개수와 기준을 맞춤
           status: item.integrityTampered
             ? '위변조 위험'
             : item.status === 'CLOSED_SUCCESS'

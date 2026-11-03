@@ -27,7 +27,7 @@ const SellerDashboardPage = () => {
       .catch(err => alert(err.message));
   };
 
-  // [수정] 하드코딩된 "+₩77,000 이번 주" → 최근 7일 이내 참여 건의 실제 가격 합산
+  // 최근 7일 동안 들어온 참여 금액을 합산함
   const weeklyRevenue = participations.reduce((sum, part) => {
     const joinedAt = part.joinDate ? new Date(part.joinDate) : null;
     const isWithinWeek = joinedAt && (Date.now() - joinedAt.getTime()) <= 7 * 24 * 60 * 60 * 1000;
@@ -35,7 +35,7 @@ const SellerDashboardPage = () => {
   }, 0);
 
   React.useEffect(() => {
-    // [수정] sellerId=1 고정 하드코딩 → 로그인한 본인 상품만 조회
+    // 로그인한 판매자 본인 상품만 불러옴
     // 1. 내 판매 현황 목록 불러오기
     fetch(`${API_BASE}/products/seller/me`, { credentials: 'include' })
       .then(res => {

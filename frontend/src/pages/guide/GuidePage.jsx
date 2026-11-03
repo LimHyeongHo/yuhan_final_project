@@ -1,4 +1,4 @@
-// [UI-RQ-006][feature/ui-fixes] 이용 가이드 페이지 — 구매자/판매자 핵심 흐름 안내
+// 이용 가이드 페이지 (구매자·판매자 이용 방법 안내)
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { UserPlus, ShieldCheck, Users, CreditCard, Store, ArrowRight } from 'lucide-react';

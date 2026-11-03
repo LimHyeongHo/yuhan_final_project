@@ -4,7 +4,7 @@ import { Package, ChevronRight, Clock, Star, X, ThumbsUp, Minus, ThumbsDown } fr
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 
-// 3단계 감정 메타 (백엔드 Sentiment enum 과 1:1) — 아이콘은 lucide 라인 아이콘(초록/노랑/빨강)
+// 후기 평가별 표시 문구·색·아이콘
 const SENTIMENTS = [
   { key: 'LIKE', Icon: ThumbsUp, label: '좋아요', color: 'text-emerald-600', on: 'border-emerald-500 bg-emerald-50 text-emerald-700' },
   { key: 'SOSO', Icon: Minus, label: '보통이에요', color: 'text-amber-500', on: 'border-amber-500 bg-amber-50 text-amber-700' },
@@ -12,7 +12,7 @@ const SENTIMENTS = [
 ];
 const sentimentMeta = (key) => SENTIMENTS.find((s) => s.key === key) || SENTIMENTS[1];
 
-// 후기 작성/수정 모달
+// 후기 작성·수정 창
 const ReviewFormModal = ({ target, onClose, onSaved }) => {
   const isEdit = target.mode === 'edit';
   const [sentiment, setSentiment] = useState(isEdit ? target.review.sentiment : null);
@@ -111,7 +111,7 @@ const ReviewFormModal = ({ target, onClose, onSaved }) => {
 
 const MyPageOrders = () => {
   const navigate = useNavigate();
-  // [신규] 채팅방 "후기 작성 유도" 배너에서 ?openReview={productId}로 넘어오면 해당 상품의 후기 작성 모달을 자동으로 연다
+  // 채팅방의 후기 작성 배너에서 ?openReview=상품번호로 들어오면 그 상품의 후기 작성 창을 바로 엶
   const [searchParams, setSearchParams] = useSearchParams();
   const [orderList, setOrderList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -157,7 +157,7 @@ const MyPageOrders = () => {
         return formatted;
       })
       .then((formatted) => {
-        // 정상 종료된 건에 대해서만 후기 작성 자격 조회
+        // 성공으로 끝난 공구만 후기 작성 자격을 확인함
         formatted
           .filter((o) => o.rawStatus === 'CLOSED_SUCCESS' && o.productId != null)
           .forEach((o) => {
@@ -182,15 +182,15 @@ const MyPageOrders = () => {
     loadOrders();
   }, [loadOrders]);
 
-  // [신규] ?openReview={productId} 처리 — orderList/reviewMap이 로드된 뒤 자격을 다시 확인하고 연다.
-  // (배너를 띄운 시점과 이 페이지에 도착한 시점 사이에 상태가 바뀌었을 수 있어 그대로 신뢰하지 않는다)
+  // ?openReview 처리: 주문 목록과 자격 정보를 다 불러온 뒤 자격을 다시 확인하고 엶
+  // (배너를 본 뒤 상태가 바뀌었을 수 있어서 다시 확인함)
   useEffect(() => {
     const raw = searchParams.get('openReview');
     if (!raw || loading) return;
     const productId = Number(raw);
     const order = orderList.find((o) => o.productId === productId);
 
-    // 파라미터는 처리 결과와 무관하게 한 번 소비하고 지운다 (뒤로가기/새로고침 시 재오픈 방지)
+    // 뒤로가기·새로고침 때 다시 열리지 않도록 주소의 파라미터는 한 번 쓰고 지움
     const consumeParam = () => {
       const next = new URLSearchParams(searchParams);
       next.delete('openReview');
@@ -202,7 +202,7 @@ const MyPageOrders = () => {
       return;
     }
     const state = reviewMap[productId];
-    if (!state) return; // 해당 상품의 자격 조회가 아직 안 끝남 — reviewMap 갱신을 기다린다
+    if (!state) return; // 그 상품의 자격 확인이 아직 안 끝났으면 기다림
 
     if (state.eligible && !state.myReview) {
       setActiveForm({ productId, title: order.title, mode: 'create' });

@@ -30,3 +30,23 @@ test('renders the N-BBANG home page', async () => {
   expect(await screen.findByText('현재 모집 중인 공동구매가 없습니다.')).toBeInTheDocument();
   expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/products');
 });
+
+test('shows the book report navigation for authenticated users', async () => {
+  global.fetch = jest.fn((url) => {
+    if (String(url).endsWith('/api/member/session')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          authenticated: true,
+          role: 'ROLE_BUYER',
+          nickname: '구매자',
+        }),
+      });
+    }
+    return Promise.resolve({ ok: true, json: async () => [] });
+  });
+
+  render(<App />);
+
+  expect(await screen.findByRole('link', { name: '도서 리포트' })).toHaveAttribute('href', '/book-reports');
+});

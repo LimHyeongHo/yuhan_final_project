@@ -180,7 +180,7 @@ public class ProductService {
                 .toList();
     }
 
-    // [신규] 로그인 이메일 기준 상품 목록 조회 (sellerId는 항상 1로 고정되는 임시값이라 실사용 불가)
+    // 로그인 이메일로 판매자 본인 상품 목록 조회 (sellerId는 항상 1인 임시값이라 쓰지 않음)
     public List<Product> getProductsBySellerEmail(String sellerEmail) {
         Set<Long> tamperedProductIds = getTamperedProductIds();
         return productRepository.findBySellerEmailOrderByCreatedAtDesc(sellerEmail).stream()
@@ -191,7 +191,7 @@ public class ProductService {
                 .toList();
     }
 
-    // [신규] 로그인 이메일 기준 최근 참여자 내역 조회 (LazyInitializationException 방지 위해 서비스에서 DTO 변환)
+    // 로그인 이메일로 최근 참여자 내역 조회 (지연 로딩 오류를 막으려고 서비스에서 DTO로 바꿈)
     public List<Map<String, Object>> getParticipationsBySellerEmail(String sellerEmail) {
         return participationRepository.findByProduct_SellerEmailOrderByJoinDateDesc(sellerEmail).stream()
                 .filter(part -> "BOOK".equals(part.getProduct().getType()))

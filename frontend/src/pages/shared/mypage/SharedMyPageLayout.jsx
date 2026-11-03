@@ -1,4 +1,4 @@
-// [UI-RQ-003][feature/ui-fixes] 판매자 사이드바에 "내가 받은 후기" 진입점 추가
+// 마이페이지 공통 레이아웃 (판매자 사이드바에 "내가 받은 후기" 메뉴 있음)
 import React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { User, ShoppingBag, Bookmark, Settings, Store, CreditCard, ChevronRight, Star } from 'lucide-react';

@@ -1,5 +1,5 @@
 import { API_BASE } from '../../config/api';
-// [UI-RQ-004][feature/ui-fixes] 메인 검색창 → 공구 찾기 목록으로 검색어 전달 (Enter/버튼 동일 동작)
+// 메인 검색창에서 검색하면 공구 찾기 목록으로 검색어를 넘김 (Enter와 버튼 동작 같음)
 import React, { useState, useEffect } from 'react';
 import { Search, Flame, TrendingUp, Clock, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';

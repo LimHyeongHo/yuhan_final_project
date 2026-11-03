@@ -7,15 +7,9 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-/**
- * 거래 후기.
- *
- * Product 와 연관관계를 걸지 않는다 — 후기 도메인은 Product 를 조회만 하고 소유하지 않기 때문에
- * productId 를 단순 Long 으로만 들고 있는다(domain/payment 의 Payment.productId 와 동일한 방식).
- *
- * 한 사람이 같은 공동구매에 후기를 두 번 쓰지 못하도록 (product_id, reviewer_email) 유니크 제약.
- * 후기 삭제는 soft-delete 가 아니라 row 자체를 지워서 재작성이 가능하도록 한다.
- */
+// 거래 후기 (같은 공동구매에는 한 사람당 하나만 쓸 수 있음)
+// 후기는 상품을 조회만 해서 Product와 연관관계 없이 productId만 저장함
+// 삭제하면 행을 아예 지워서 다시 쓸 수 있게 함
 @Entity
 @Table(name = "review", uniqueConstraints = {
         @UniqueConstraint(name = "uk_review_product_reviewer", columnNames = {"product_id", "reviewer_email"})
@@ -43,7 +37,7 @@ public class Review {
     private Sentiment sentiment;
 
     @Column(length = 500)
-    private String content; // 한 줄 후기, 선택 입력이라 nullable
+    private String content; // 한 줄 후기 (선택 입력)
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
