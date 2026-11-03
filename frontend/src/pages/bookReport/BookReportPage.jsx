@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, BookOpen, ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
+import {
+  AlertCircle,
+  BookOpen,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  RefreshCw,
+  Sparkles,
+} from 'lucide-react';
 import V3SiteHeader from '../../components/layout/V3SiteHeader';
+import { useSession } from '../../contexts/SessionContext';
 import { PRODUCT_CATEGORIES } from '../../constants/productCategories';
 import { API_BASE } from '../../config/api';
 import './BookReportPage.css';
@@ -18,6 +27,17 @@ const difficultyLabel = {
   ADVANCED: '심화',
   UNKNOWN: '판단 보류',
 };
+
+const MANUAL_JOB_STATUS = {
+  QUEUED: { label: '대기 중', description: '생성 작업이 곧 시작됩니다.' },
+  RUNNING: { label: '생성 중', description: '도서 정보를 수집하고 리포트를 분석하고 있습니다.' },
+  COMPLETED: { label: '생성 완료', description: '최신 리포트를 다시 불러왔습니다.' },
+  FAILED: { label: '생성 실패', description: '작업 결과를 확인한 후 다시 시도해 주세요.' },
+};
+
+const getCategoryName = (category) => (
+  REPORT_CATEGORIES.find(({ code }) => code === category)?.name || category
+);
 
 const BookCard = ({ book }) => (
   <article className="book-report-card">
@@ -69,10 +89,17 @@ const BookCard = ({ book }) => (
 );
 
 const BookReportPage = () => {
+  const { session } = useSession();
   const [category, setCategory] = useState('COMPUTER_SOFTWARE');
   const [report, setReport] = useState(null);
   const [status, setStatus] = useState('loading');
   const [reloadKey, setReloadKey] = useState(0);
+  const [manualJob, setManualJob] = useState(null);
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [manualError, setManualError] = useState('');
+  const userRole = session?.role || localStorage.getItem('user_role');
+  const isAdmin = userRole === 'ROLE_ADMIN';
+  const manualJobActive = ['QUEUED', 'RUNNING'].includes(manualJob?.status);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -100,6 +127,62 @@ const BookReportPage = () => {
     return () => controller.abort();
   }, [category, reloadKey]);
 
+  useEffect(() => {
+    if (!manualJob?.jobId || !['QUEUED', 'RUNNING'].includes(manualJob.status)) return undefined;
+
+    const controller = new AbortController();
+    let pollTimer;
+    const pollJob = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE}/admin/book-reports/jobs/${encodeURIComponent(manualJob.jobId)}`,
+          { credentials: 'include', signal: controller.signal },
+        );
+        if (!response.ok) throw new Error('MANUAL_JOB_LOAD_FAILED');
+        const nextJob = await response.json();
+        setManualJob(nextJob);
+        if (nextJob.status === 'COMPLETED') {
+          setReloadKey((value) => value + 1);
+        } else if (['QUEUED', 'RUNNING'].includes(nextJob.status)) {
+          pollTimer = window.setTimeout(pollJob, 2000);
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          setManualError('작업 상태를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        }
+      }
+    };
+
+    pollTimer = window.setTimeout(pollJob, 1200);
+    return () => {
+      controller.abort();
+      window.clearTimeout(pollTimer);
+    };
+  }, [manualJob?.jobId, manualJob?.status]);
+
+  const handleManualGenerate = async () => {
+    setManualSubmitting(true);
+    setManualError('');
+    try {
+      const response = await fetch(`${API_BASE}/admin/book-reports/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category }),
+      });
+      const data = await response.json().catch(() => null);
+      if (response.status === 409 && data) {
+        setManualJob(data);
+        return;
+      }
+      if (!response.ok || !data) throw new Error('MANUAL_GENERATE_FAILED');
+      setManualJob(data);
+    } catch {
+      setManualError('수동 생성 요청을 시작하지 못했습니다. 관리자 세션을 확인해 주세요.');
+    } finally {
+      setManualSubmitting(false);
+    }
+  };
+
   const isReportEmpty = report?.sections?.every((section) => section.books.length === 0);
 
   return (
@@ -122,6 +205,54 @@ const BookReportPage = () => {
             </select>
           </label>
         </header>
+
+        {isAdmin && (
+          <section className="book-report-admin-panel" aria-labelledby="manual-report-title">
+            <div className="book-report-admin-panel__copy">
+              <h2 id="manual-report-title">관리자 수동 생성</h2>
+              <p>선택한 학과의 오늘 리포트를 백그라운드에서 다시 생성합니다.</p>
+            </div>
+            <button
+              type="button"
+              className="book-report-admin-panel__action"
+              onClick={handleManualGenerate}
+              disabled={manualSubmitting || manualJobActive}
+            >
+              {manualSubmitting || manualJobActive
+                ? <RefreshCw aria-hidden="true" />
+                : <Sparkles aria-hidden="true" />}
+              {manualSubmitting ? '요청 중' : manualJobActive ? '생성 중' : '리포트 생성'}
+            </button>
+
+            <div
+              className={`book-report-manual-status book-report-manual-status--${manualJob?.status?.toLowerCase() || 'idle'}`}
+              role="status"
+              aria-live="polite"
+            >
+              {manualJob?.status === 'COMPLETED' ? (
+                <CheckCircle2 aria-hidden="true" />
+              ) : manualJob?.status === 'FAILED' ? (
+                <AlertCircle aria-hidden="true" />
+              ) : manualJob?.status === 'QUEUED' || manualJob?.status === 'RUNNING' ? (
+                <RefreshCw className="book-report-manual-status__working" aria-hidden="true" />
+              ) : (
+                <Clock3 aria-hidden="true" />
+              )}
+              <div>
+                <strong>{manualJob ? MANUAL_JOB_STATUS[manualJob.status]?.label || manualJob.status : '실행 대기'}</strong>
+                <p>
+                  {manualJob
+                    ? `${getCategoryName(manualJob.category)}: ${manualJob.message || MANUAL_JOB_STATUS[manualJob.status]?.description || '상태를 확인하고 있습니다.'}`
+                    : '학과를 선택한 후 리포트 생성 버튼을 눌러 주세요.'}
+                </p>
+              </div>
+            </div>
+
+            {manualError && (
+              <p className="book-report-admin-panel__error" role="alert">{manualError}</p>
+            )}
+          </section>
+        )}
 
         <section className="v3-unified-page-card__body book-report-body" aria-live="polite">
           {status === 'loading' && (
