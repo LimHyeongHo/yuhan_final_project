@@ -31,6 +31,12 @@ services:
         sync: false
       - key: BACKEND_PUBLIC_URL
         sync: false
+      - key: KEEP_ALIVE_ENABLED
+        value: "true"
+      - key: KEEP_ALIVE_INTERVAL_MS
+        value: "600000"
+      - key: KEEP_ALIVE_UNTIL
+        value: "2026-11-16T00:00:00+09:00"
       - key: SESSION_COOKIE_SAME_SITE
         value: none
       - key: TOSS_SECRET_KEY
@@ -48,7 +54,7 @@ services:
       - key: BOOK_REPORT_COLLECTION_ENABLED
         value: "true"
       - key: BOOK_REPORT_COLLECTION_CRON
-        value: "0 0 4 * * *"
+        value: "0 0 7 * * *"
       - key: BOOK_REPORT_COLLECTION_ZONE
         value: Asia/Seoul
       - key: BOOK_REPORT_ANALYSIS_PROVIDER
