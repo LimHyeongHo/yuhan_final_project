@@ -136,7 +136,7 @@ const LoginPage = () => {
     // [변경] 서명용(RSASSA-PKCS1-v1_5) → 공개키 암호화용(RSA-OAEP).
     return await window.crypto.subtle.generateKey(
       { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
-      true, ["encrypt", "decrypt"]
+      false, ["encrypt", "decrypt"]
     );
   };
 
