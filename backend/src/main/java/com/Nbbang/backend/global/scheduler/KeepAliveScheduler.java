@@ -55,11 +55,14 @@ public class KeepAliveScheduler {
                 .timeout(Duration.ofSeconds(10))
                 .GET()
                 .build();
-
+        /// self ping 성공 시 render에 로그 기록
         try {
             int statusCode = httpClient.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
             if (statusCode < 200 || statusCode >= 300) {
                 log.warn("Render keep-alive ping failed: status={}", statusCode);
+            } else {
+                log.info("Render keep-alive ping succeeded: status={}, uri={}, at={}",
+                        statusCode, pingUri, Instant.now());
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
