@@ -25,7 +25,7 @@ public class DepartmentBookReportScheduler {
     private boolean enabled;
 
     @Scheduled(
-            cron = "${book-report.collection.cron:0 0 4 * * *}",
+            cron = "${book-report.collection.cron:0 0 7 * * *}",
             zone = "${book-report.collection.zone:Asia/Seoul}"
     )
     public void collectDailyReports() {
