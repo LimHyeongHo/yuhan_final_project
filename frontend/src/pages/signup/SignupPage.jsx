@@ -106,7 +106,7 @@ const SignupPage = () => {
     // 로그인 시 서버가 공개키로 암호화한 챌린지를 개인키로 복호화해 본인임을 증명한다.
     return await window.crypto.subtle.generateKey(
       { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
-      true, ["encrypt", "decrypt"]
+      false, ["encrypt", "decrypt"]
     );
   };
 
