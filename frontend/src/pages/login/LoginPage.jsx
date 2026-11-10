@@ -25,26 +25,9 @@ const LoginPage = () => {
   const [privateKey, setPrivateKey] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [needsReissue, setNeedsReissue] = useState(false);
-  // [신규] 테스트 로그인 탭에서 선택한 역할 힌트 ('seller' | 'buyer' | 'admin' | null)
-  const [testRoleHint, setTestRoleHint] = useState(null);
   // [신규] 로그인 성공 후 인증서 타이머 상태를 갱신하기 위해 Context에서 syncStatus를 꺼내옴
   const { syncStatus } = useCertificateTimer();
   const { refreshSession } = useSession();
-
-  // [신규] 역할별 테스트 계정 안내 (자동입력 아님, 참고용 텍스트만 보여줌)
-  const TEST_ROLE_HINTS = {
-    seller: [
-      { email: 'seller01@test.com', nickname: '판매자1', password: '1234' },
-      { email: 'seller02@test.com', nickname: '판매자2', password: '1234' },
-    ],
-    buyer: [
-      { email: 'buyer01@test.com', nickname: '구매자1', password: '1234' },
-      { email: 'buyer02@test.com', nickname: '구매자2', password: '1234' },
-    ],
-    admin: [
-      { email: 'admin@naver.com', nickname: '관리자', password: 'admin1234' },
-    ],
-  };
 
   const handleAdminLogin = async (e) => {
     e.preventDefault();
@@ -352,54 +335,19 @@ const LoginPage = () => {
           <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-6">
             <button
               type="button"
-              onClick={() => { setMode('user'); setEmail(''); setPassword(''); setIsVerified(false); setTestRoleHint(null); setNeedsReissue(false); }}
+              onClick={() => { setMode('user'); setEmail(''); setPassword(''); setIsVerified(false); setNeedsReissue(false); }}
               className={`flex-1 py-2.5 text-sm font-bold transition ${mode === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
             >
               일반 로그인
             </button>
             <button
               type="button"
-              onClick={() => { setMode('admin'); setEmail(''); setPassword(''); setIsVerified(false); setTestRoleHint(null); setNeedsReissue(false); }}
+              onClick={() => { setMode('admin'); setEmail(''); setPassword(''); setIsVerified(false); setNeedsReissue(false); }}
               className={`flex-1 py-2.5 text-sm font-bold transition ${mode === 'admin' ? 'bg-red-600 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
             >
               관리자 로그인
             </button>
           </div>
-
-          {/* [신규] 테스트 역할 선택 (자동입력 없음, 참고용 힌트만 표시) */}
-          {mode === 'admin' && (
-            <div className="mb-4">
-              <div className="flex gap-2">
-                {[
-                  { key: 'seller', label: '판매자' },
-                  { key: 'buyer', label: '구매자' },
-                  { key: 'admin', label: '관리자' },
-                ].map(({ key, label }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setTestRoleHint(key)}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg border transition ${testRoleHint === key
-                        ? 'border-purple-500 bg-purple-50 text-purple-600'
-                        : 'border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300'
-                      }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {testRoleHint && (
-                <div className="mt-2 p-3 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-600 space-y-1">
-                  {TEST_ROLE_HINTS[testRoleHint].map((acc) => (
-                    <div key={acc.email}>
-                      {acc.nickname}: <span className="font-mono">{acc.email}</span> / <span className="font-mono">{acc.password}</span>
-                    </div>
-                  ))}
-                  <div className="text-gray-400">위 이메일/비밀번호를 아래 입력창에 직접 입력해주세요.</div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* 4. 로그인 폼 (Login Form) */}
           <form className="flex flex-col gap-6" onSubmit={mode === 'admin' ? handleAdminLogin : (e) => e.preventDefault()}>
